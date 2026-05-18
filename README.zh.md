@@ -254,7 +254,7 @@ Example code: [kotlin](/examples/browser4-examples/src/main/kotlin/ai/platon/pul
 **快速命令（PulsarRPAPro）：**
 ```bash
 # 注意：需要 MongoDB
-curl -L -o PulsarRPAPro.jar https://github.com/platonai/PulsarRPAPro/releases/download/v4.7.8/PulsarRPAPro.jar
+curl -L -o PulsarRPAPro.jar https://github.com/platonai/PulsarRPAPro/releases/download/v3.0.0/PulsarRPAPro.jar
 ```
 
 **集成状态：**
@@ -544,5 +544,6 @@ Browser4 在 “主要特性” 部分中提到的特性都得到了良好的支
 - Twitter: galaxyeye8
 - 网站：[platon.ai](http://platon.ai)
   Apache 2.0 License。详情请参阅 [LICENSE](LICENSE)。
+
 
 

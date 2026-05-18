@@ -48,7 +48,7 @@ $VERSION =$SNAPSHOT_VERSION -replace "-SNAPSHOT", ""
 $VERSION | Set-Content "$repoRoot\VERSION"
 
 # Replace SNAPSHOT version with the release version
-@('README.md', 'README.zh.md', 'pom.xml') | ForEach-Object {
+@('pom.xml') | ForEach-Object {
   Get-ChildItem -Path "$repoRoot" -Depth 5 -Filter $_ -Recurse | ForEach-Object {
     (Get-Content $_.FullName) -replace $SNAPSHOT_VERSION, $VERSION | Set-Content -Encoding utf8 $_.FullName
   }

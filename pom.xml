@@ -21,7 +21,7 @@
 
     <groupId>ai.platon.pulsar</groupId>
     <artifactId>pulsar</artifactId>
-    <version>4.7.8-SNAPSHOT</version>
+    <version>4.7.10-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Browser4 Base</name>
@@ -240,6 +240,7 @@
                     <plugin>
                         <groupId>net.nicoulaj.maven.plugins</groupId>
                         <artifactId>checksum-maven-plugin</artifactId>
+                        <version>${version.checksum-maven-plugin}</version>
                         <executions>
                             <execution>
                                 <id>source-release-checksum</id>
@@ -538,7 +539,7 @@
         <surefire.version>3.5.4</surefire.version>
 
         <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
-        <central-publishing-maven-plugin.version>0.9.0</central-publishing-maven-plugin.version>
+        <central-publishing-maven-plugin.version>0.10.0</central-publishing-maven-plugin.version>
 
         <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
         <version.apache-resource-bundles>1.7</version.apache-resource-bundles>
@@ -599,6 +600,8 @@
     </properties>
 
 </project>
+
+
 
 
 
