@@ -1,14 +1,9 @@
 package ai.platon.pulsar.persist
 
 import ai.platon.pulsar.common.HtmlIntegrity
-import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.persist.metadata.FetchMode
 import ai.platon.pulsar.persist.metadata.OpenPageCategory
-import ai.platon.pulsar.persist.model.ActiveDOMMetadata
-import ai.platon.pulsar.persist.model.ActiveDOMStat
-import ai.platon.pulsar.persist.model.ActiveDOMStatus
-import ai.platon.pulsar.persist.model.PageModel
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
@@ -212,23 +207,19 @@ interface WebPage : PageSnapshot {
     /**
      * The links contained within the web page.
      */
-    var links: MutableList<CharSequence>
+    var links: MutableList<String>
 
     /**
      * The vivid links contained within the web page, typically change frequently.
      */
-    val vividLinks: MutableMap<CharSequence, CharSequence>
+    val vividLinks: MutableMap<String, String>
 
     /**
      * The links that point to this web page.
      */
-    val inlinks: MutableMap<CharSequence, CharSequence>
+    val inlinks: MutableMap<String, String>
 
-    var anchor: CharSequence?
-
-    var pageModelUpdateTime: Instant?
-
-    var pageModel: PageModel?
+    var anchor: String?
 
     /**
      * Retrieves the bean of the specified class type associated with the web page.
@@ -294,6 +285,4 @@ interface WebPage : PageSnapshot {
      * Clears the persisted content of the web page.
      */
     fun clearPersistContent()
-
-    fun ensurePageModel(): PageModel
 }

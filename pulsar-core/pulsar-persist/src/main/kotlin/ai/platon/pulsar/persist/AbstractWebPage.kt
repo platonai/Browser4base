@@ -6,7 +6,7 @@ import ai.platon.pulsar.common.urls.URLUtils.mergeUrlArgs
 import ai.platon.pulsar.common.urls.URLUtils.reverseUrlOrEmpty
 import ai.platon.pulsar.common.urls.URLUtils.unreverseUrl
 import ai.platon.pulsar.persist.metadata.Name
-import ai.platon.pulsar.persist.model.WebPageFormatter
+import ai.platon.pulsar.persist.tools.WebPageFormatter
 import org.apache.gora.util.ByteUtils
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
@@ -31,7 +31,7 @@ abstract class AbstractWebPage(
 ) : WebPage {
     companion object {
         // The ID_SEQUENCER is an AtomicInteger initialized to 10 to avoid conflicts with the default ID of 0.
-        private val ID_SEQUENCER = AtomicLong(0)
+        private val ID_SEQUENCER = AtomicLong(10)
 
         /**
          * Returns the URL based on whether it should be reversed or not.

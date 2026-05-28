@@ -1,6 +1,6 @@
 package ai.platon.pulsar.ql.h2.udfs
 
-import ai.platon.pulsar.persist.model.WebPageFormatter
+import ai.platon.pulsar.persist.tools.WebPageFormatter
 import ai.platon.pulsar.ql.common.annotation.H2Context
 import ai.platon.pulsar.ql.common.annotation.UDFGroup
 import ai.platon.pulsar.ql.common.annotation.UDFunction

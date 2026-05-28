@@ -1,0 +1,87 @@
+package ai.platon.pulsar.persist.model
+
+import java.nio.ByteBuffer
+
+data class HyperLinkRecord(
+    var url: String = "",
+    var anchor: String = "",
+    var order: Int = 0,
+)
+
+data class ParseStatusRecord(
+    var majorCode: Int = -1,
+    var minorCode: Int = -1,
+    var args: MutableMap<String, String> = mutableMapOf(),
+)
+
+data class ProtocolStatusRecord(
+    var majorCode: Int = -1,
+    var minorCode: Int = -1,
+    var args: MutableMap<String, String> = mutableMapOf(),
+)
+
+data class WebPageRecord(
+    var baseUrl: String,
+    var createTime: Long = 0,
+    var distance: Int = 0,
+    var fetchCount: Int = 0,
+    var fetchPriority: Int = 0,
+    var fetchInterval: Int = 0,
+    var zoneId: String? = null,
+    var params: String? = null,
+    var batchId: String? = null,
+    var resource: Int? = null,
+    var crawlStatus: Int = 0,
+    var browser: String? = null,
+    var proxy: String? = null,
+    var prevFetchTime: Long = 0,
+    var prevCrawlTime1: Long = 0,
+    var fetchTime: Long = 0,
+    var fetchRetries: Int = 0,
+    var reprUrl: String? = null,
+    var prevModifiedTime: Long = 0,
+    var modifiedTime: Long = 0,
+    var protocolStatus: ProtocolStatusRecord? = null,
+    var encoding: String? = null,
+    var contentType: String? = null,
+    // The entire raw document content, e.g. raw XHTML.
+    var content: ByteBuffer? = null,
+    var contentLength: Long = 0,
+    var lastContentLength: Long = 0,
+    var aveContentLength: Long = 0,
+    var persistedContentLength: Long = 0,
+    var referrer: String? = null,
+    var htmlIntegrity: String? = null,
+    var anchor: String? = null,
+    var anchorOrder: Int = 0,
+    var parseStatus: ParseStatusRecord? = null,
+    var pageTitle: String? = null,
+    var pageText: String? = null,
+    var contentTitle: String? = null,
+    var contentText: String? = null,
+    var contentTextLen: Int = 0,
+    var pageCategory: String? = null,
+    var contentModifiedTime: Long = 0,
+    var prevContentModifiedTime: Long = 0,
+    var contentPublishTime: Long = 0,
+    var prevContentPublishTime: Long = 0,
+    var refContentPublishTime: Long = 0,
+    var prevRefContentPublishTime: Long = 0,
+    var pageModelUpdateTime: Long = 0,
+    var prevSignature: ByteBuffer? = null,
+    var signature: ByteBuffer? = null,
+    var contentScore: Float = 0f,
+    var score: Float = 0f,
+    var sortScore: String? = null,
+    var pageCounters: MutableMap<String, Int> = mutableMapOf(),
+    var headers: MutableMap<String, String> = mutableMapOf(),
+    var links: MutableList<String> = mutableListOf(),
+    var deadLinks: MutableList<String> = mutableListOf(),
+    var liveLinks: MutableMap<String, HyperLinkRecord> = mutableMapOf(),
+    var vividLinks: MutableMap<String, String> = mutableMapOf(),
+    var inlinks: MutableMap<String, String> = mutableMapOf(),
+    var markers: MutableMap<String, String> = mutableMapOf(),
+    var metadata: MutableMap<String, ByteBuffer> = mutableMapOf(),
+    var activeDOMStatus: ActiveDOMStatus? = null,
+    var activeDOMStatTrace: ActiveDOMStatTrace? = null,
+)

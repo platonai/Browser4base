@@ -1,3 +1,16 @@
+package ai.platon.pulsar.persist.tools
+
+import ai.platon.pulsar.persist.WebPage
+import ai.platon.pulsar.persist.WebPageExt
+import com.google.gson.GsonBuilder
+import org.apache.gora.util.ByteUtils
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import java.time.Instant
+import java.time.LocalDateTime
+import java.util.stream.Collectors
+import kotlin.collections.iterator
+
 /*******************************************************************************
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -14,18 +27,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ai.platon.pulsar.persist.model
-
-import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.persist.WebPageExt
-import com.google.gson.GsonBuilder
-import org.apache.gora.util.ByteUtils
-import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
-import java.time.Instant
-import java.time.LocalDateTime
-import java.util.stream.Collectors
-
 class WebPageFormatter(val page: WebPage) {
     private var withText = false
     private var withContent = false
@@ -80,11 +81,6 @@ class WebPageFormatter(val page: WebPage) {
         return this
     }
 
-    fun withEntities(): WebPageFormatter {
-        withEntities = true
-        return this
-    }
-
     fun toMap(): Map<String, Any> {
         val fields: MutableMap<String, Any?> = LinkedHashMap()
         /* General */
@@ -136,13 +132,6 @@ class WebPageFormatter(val page: WebPage) {
         }
         if (withContent && page.content != null) {
             fields["content"] = page.contentAsString
-        }
-        if (withEntities) {
-            val pageModel = page.pageModel
-            if (pageModel != null) {
-                val pageEntities = pageModel.unboxedFieldGroups.map { FieldGroupFormatter(it).fields.entries }
-                fields["pageEntities"] = pageEntities
-            }
         }
         return fields.filterValues { it != null }.entries.associate { it.key to it.value!! }
     }
@@ -231,16 +220,6 @@ class WebPageFormatter(val page: WebPage) {
                 sb.append("pageText:START>>>\n")
                         .append(page.pageText)
                         .append("\n<<<END:pageText\n")
-            }
-        }
-        if (withEntities) {
-            val pageModel = page.pageModel
-            if (pageModel != null) {
-                sb.append("\n").append("entityField:START>>>\n")
-                pageModel.unboxedFieldGroups
-                    .flatMap { FieldGroupFormatter(it).fields.entries }
-                    .joinTo(sb) { it.key + ": " + it.value }
-                sb.append("\n<<<END:pageText\n")
             }
         }
         sb.append("\n")

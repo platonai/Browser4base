@@ -12,15 +12,9 @@ import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.common.urls.URLUtils.unreverseUrl
 import ai.platon.pulsar.persist.*
-import ai.platon.pulsar.persist.gora.generated.GPageModel
-import ai.platon.pulsar.persist.gora.generated.GParseStatus
-import ai.platon.pulsar.persist.gora.generated.GProtocolStatus
-import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.metadata.FetchMode
 import ai.platon.pulsar.persist.metadata.Name
 import ai.platon.pulsar.persist.metadata.OpenPageCategory
-import ai.platon.pulsar.persist.model.Converters.convert
-import ai.platon.pulsar.persist.model.PageModel.Companion.box
 import com.fasterxml.jackson.module.kotlin.readValue
 import java.nio.ByteBuffer
 import java.time.Duration
@@ -28,7 +22,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.*
-import java.util.function.Function
 
 /**
  * The core web page structure
@@ -45,7 +38,7 @@ class GoraWebPage(
     /**
      * The underlying persistent object.
      */
-    private var page: GWebPage
+    var page: WebPageRecord
 ) : AbstractWebPage(url, conf) {
     companion object {
         // NIL is a predefined internal page with a NIL_PAGE_URL, ID 0, and empty title and content.
@@ -106,14 +99,14 @@ class GoraWebPage(
         }
 
         /**
-         * Wraps a GWebPage instance into a GoraWebPage with the given URL and configuration.
+         * Wraps a WebPageRecord instance into a GoraWebPage with the given URL and configuration.
          *
          * @param url The URL of the web page.
-         * @param page The underlying GWebPage instance.
+         * @param page The underlying WebPageRecord instance.
          * @param conf The volatile configuration for the web page.
-         * @return A new GoraWebPage instance wrapping the provided GWebPage.
+         * @return A new GoraWebPage instance wrapping the provided WebPageRecord.
          */
-        fun box(url: String, page: GWebPage, conf: VolatileConfig): GoraWebPage {
+        fun box(url: String, page: WebPageRecord, conf: VolatileConfig): GoraWebPage {
             return GoraWebPage(url, conf, page)
         }
 
@@ -126,7 +119,7 @@ class GoraWebPage(
          * @return A new GoraWebPage instance.
          */
         private fun newWebPageInternal(url: String, conf: VolatileConfig, href: String?): GoraWebPage {
-            val page = GoraWebPage(url, GWebPage.newBuilder().build(), false, conf)
+            val page = GoraWebPage(url, WebPageRecord(url), false, conf)
 
             // Initialize page properties with default values.
             page.location = url
@@ -151,19 +144,11 @@ class GoraWebPage(
         }
     }
 
-    /**
-     * The field loader to load fields lazily.
-     */
-    private var lazyFieldLoader: Function<String, GWebPage>? = null
-
-    private val lazyLoadedFields: MutableList<String> = ArrayList()
-
     private val CONTENT_MONITOR = Any()
-    private val PAGE_MODEL_MONITOR = Any()
 
     //    private final Deque<String> lazyLoadedFields = new ConcurrentLinkedDeque<>();
     private constructor(
-        urlOrKey: String, page: GWebPage, urlReversed: Boolean, conf: VolatileConfig
+        urlOrKey: String, page: WebPageRecord, urlReversed: Boolean, conf: VolatileConfig
     ) : this(getUrl(urlOrKey, urlReversed), conf, page)
 
     override var href: String?
@@ -199,21 +184,21 @@ class GoraWebPage(
     override val isNotInternal: Boolean
         get() = !isInternal
 
-    fun unbox(): GWebPage {
+    fun unbox(): WebPageRecord {
         return page
     }
 
-    fun unsafeSetGPage(page: GWebPage) {
+    fun unsafeSetGPage(page: WebPageRecord) {
         this.page = page
     }
 
     fun unsafeCloneGPage(page: WebPage) {
         require(page is GoraWebPage)
-        unsafeSetGPage(GWebPage.newBuilder(page.unbox()).build())
+        this.page = page.page.copy(baseUrl = baseURI)
     }
 
     override val metadata: Metadata
-        get() = Metadata.box(page.metadata)
+        get() = Metadata(page.metadata)
 
     override var args: String
         /**
@@ -225,7 +210,7 @@ class GoraWebPage(
          */
         get() {
             // Underlying gora field should not use name 'args' which is already used.
-            return page.params?.toString() ?: ""
+            return page.params ?: ""
         }
         /**
          * Set the arguments and clear the LoadOptions object.
@@ -336,7 +321,7 @@ class GoraWebPage(
         }
 
     override var baseURI: String
-        get() = page.baseUrl?.toString() ?: ""
+        get() = page.baseUrl ?: ""
         set(value) {
             page.baseUrl = value
         }
@@ -375,18 +360,10 @@ class GoraWebPage(
         }
 
     override var protocolStatus: ProtocolStatus
-        get() = getProtocolStatus0()
+        get() = ProtocolStatus(page.protocolStatus)
         set(protocolStatus) {
-            page.protocolStatus = protocolStatus.unbox()
+            page.protocolStatus = protocolStatus.protocolStatus
         }
-
-    private fun getProtocolStatus0(): ProtocolStatus {
-        var protocolStatus = page.protocolStatus
-        if (protocolStatus == null) {
-            protocolStatus = GProtocolStatus.newBuilder().build()
-        }
-        return ProtocolStatus.box(protocolStatus)
-    }
 
     override val headers: ProtocolHeaders
         get() {
@@ -413,13 +390,13 @@ class GoraWebPage(
         }
 
     override var pageCategory: OpenPageCategory
-        get() = OpenPageCategory.parse(page.pageCategory?.toString())
+        get() = OpenPageCategory.parse(page.pageCategory)
         set(value) {
             page.pageCategory = value.format()
         }
 
     override var encoding: String?
-        get() = page.encoding?.toString()
+        get() = page.encoding
         set(value) {
             page.encoding = value
         }
@@ -547,55 +524,23 @@ class GoraWebPage(
         get() = getPrevSignatureAsString0()
 
     override var proxy: String?
-        get() = page.proxy?.toString()
+        get() = page.proxy
         set(value) {
             page.proxy = value
         }
 
     override var activeDOMStatus: ActiveDOMStatus?
-        get() = getActiveDOMStatus0()
+        get() = page.activeDOMStatus
         set(value) {
-            setActiveDOMStatus0(value)
+            page.activeDOMStatus = value
         }
 
-    private fun getActiveDOMStatus0(): ActiveDOMStatus? {
-        val s = page.activeDOMStatus ?: return null
-
-        return ActiveDOMStatus(
-            s.n,
-            s.scroll,
-            s.st.toString(),
-            s.r.toString(),
-            s.idl.toString(),
-            s.ec.toString()
-        )
-    }
-
-    private fun setActiveDOMStatus0(s: ActiveDOMStatus?) {
-        if (s == null) {
-            return
-        }
-
-        val s2 = page.activeDOMStatus
-        if (s2 != null) {
-            s2.n = s.n
-            s2.scroll = s.scroll
-            s2.st = s.st
-            s2.r = s.r
-            s2.idl = s.idl
-            s2.ec = s.ec
-        }
-    }
-
-    override var activeDOMStatTrace: Map<String, ActiveDOMStat?>
-        get() = getActiveDOMStatTrace0()
+    override var activeDOMStatTrace: ActiveDOMStatTrace?
+        get() = page.activeDOMStatTrace
         set(value) {
-            setActiveDOMStatTrace0(value)
+            page.activeDOMStatTrace = value
         }
 
-    /**
-     * TODO: USE A SEPARATE FIELD
-     * */
     override var activeDOMMetadata: ActiveDOMMetadata?
         get() = metadata["ACTIVE_DOM_METADATA"]?.let { pulsarObjectMapper().readValue(it) }
         set(value) {
@@ -606,114 +551,65 @@ class GoraWebPage(
             }
         }
 
-    private fun getActiveDOMStatTrace0(): Map<String, ActiveDOMStat> {
-        val s = page.activeDOMStatTrace
-        return s.entries.associate { it.key.toString() to convert(it.value) }
-    }
-
-    private fun setActiveDOMStatTrace0(trace: Map<String, ActiveDOMStat?>?) {
-        if (trace == null) {
-            page.activeDOMStatus = null
-            return
-        }
-
-        page.activeDOMStatTrace = trace.filterValues { it != null }.entries
-            .associate { it.key to convert(it.value!!) }
-    }
-
     override var pageTitle
-        get() = page.pageTitle?.toString()
+        get() = page.pageTitle
         set(value) {
             page.pageTitle = value
         }
 
     override var contentTitle
-        get() = page.contentTitle?.toString()
+        get() = page.contentTitle
         set(value) {
             page.contentTitle = value
         }
 
     override var pageText
-        get() = page.pageText?.toString()
+        get() = page.pageText
         set(value) {
             page.pageText = value
         }
 
     override var contentText
-        get() = page.contentText?.toString()
+        get() = page.contentText
         set(value) {
             page.contentText = value
         }
 
     override var parseStatus: ParseStatus
-        get() = ParseStatus.box(page.parseStatus ?: GParseStatus.newBuilder().build())
+        get() = ParseStatus(page.parseStatus)
         set(value) {
             page.parseStatus = value.unbox()
         }
 
-    override var vividLinks: MutableMap<CharSequence, CharSequence>
+    override var vividLinks: MutableMap<String, String>
         get() = page.vividLinks
         set(value) {
             page.vividLinks = value
         }
 
-    override var links: MutableList<CharSequence>
+    override var links: MutableList<String>
         get() = page.links
         set(value) {
             page.links = value
         }
 
-    override var inlinks: MutableMap<CharSequence, CharSequence>
+    override var inlinks: MutableMap<String, String>
         get() = page.inlinks
         set(value) {
             page.inlinks = value
         }
 
-    override var anchor: CharSequence?
-        get() = page.anchor?.toString()
+    override var anchor: String?
+        get() = page.anchor
         set(value) {
             page.anchor = value
         }
 
     override var referrer: String?
-        get() = page.referrer?.toString()
+        get() = page.referrer
         set(value) {
             page.referrer = value
         }
-
-    override var pageModelUpdateTime: Instant?
-        get() = page.pageModelUpdateTime?.let { Instant.ofEpochMilli(it) }
-        set(value) {
-            page.pageModelUpdateTime = value?.toEpochMilli()
-        }
-
-    override var pageModel: PageModel?
-        get() = getPageModel0()
-        set(value) {
-            page.pageModel = value?.unbox()
-        }
-
-    private fun getPageModel0(): PageModel? {
-        synchronized(PAGE_MODEL_MONITOR) {
-            val fieldName = GWebPage.Field.PAGE_MODEL.getName()
-            // load content lazily
-            if (page.pageModel == null && lazyFieldLoader != null && !lazyLoadedFields.contains(fieldName)) {
-                lazyLoadedFields.add(fieldName)
-                val lazyPage = lazyFieldLoader!!.apply(fieldName)
-                page.pageModel = lazyPage.pageModel
-            }
-            return if (page.pageModel == null) null else box(page.pageModel)
-        }
-    }
-
-    override fun ensurePageModel(): PageModel {
-        synchronized(PAGE_MODEL_MONITOR) {
-            if (page.pageModel == null) {
-                page.pageModel = GPageModel.newBuilder().build()
-            }
-            return Objects.requireNonNull(pageModel)!!
-        }
-    }
 
     private fun getTmpContentOrPersistContent(): ByteBuffer? {
         if (tmpContent != null) {
@@ -725,13 +621,6 @@ class GoraWebPage(
 
     private fun getPersistContent0(): ByteBuffer? {
         synchronized(CONTENT_MONITOR) {
-            val fieldName = GWebPage.Field.CONTENT.getName()
-            // load content lazily
-            if (page.content == null && lazyFieldLoader != null && !lazyLoadedFields.contains(fieldName)) {
-                lazyLoadedFields.add(fieldName)
-                val lazyPage = lazyFieldLoader!!.apply(fieldName)
-                page.content = lazyPage.content
-            }
             return page.content
         }
     }

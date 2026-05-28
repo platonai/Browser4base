@@ -1,33 +1,24 @@
 package ai.platon.pulsar.persist
 
 import ai.platon.pulsar.common.ResourceStatus
-import ai.platon.pulsar.persist.gora.generated.GProtocolStatus
 import ai.platon.pulsar.persist.metadata.ProtocolStatusCodes
 import ai.platon.pulsar.persist.metadata.ProtocolStatusCodes.INCOMPATIBLE_CODE_START
+import ai.platon.pulsar.persist.model.ProtocolStatusRecord
 import java.util.*
 
 class ProtocolStatus {
-    private val protocolStatus: GProtocolStatus
+    val protocolStatus: ProtocolStatusRecord
 
-    constructor(majorCode: Short) {
-        this.protocolStatus = GProtocolStatus.newBuilder().build()
-        this.majorCode = majorCode
-        minorCode = -1
+    constructor(majorCode: Int) {
+        this.protocolStatus = ProtocolStatusRecord(majorCode = majorCode, minorCode = -1)
     }
 
-    constructor(majorCode: Short, minorCode: Int) {
-        this.protocolStatus = GProtocolStatus.newBuilder().build()
-        this.majorCode = majorCode
-        this.minorCode = minorCode
+    constructor(majorCode: Int, minorCode: Int) {
+        this.protocolStatus = ProtocolStatusRecord(majorCode = majorCode, minorCode = minorCode)
     }
 
-    private constructor(protocolStatus: GProtocolStatus) {
-        Objects.requireNonNull(protocolStatus)
-        this.protocolStatus = protocolStatus
-    }
-
-    fun unbox(): GProtocolStatus {
-        return protocolStatus
+    constructor(protocolStatus: ProtocolStatusRecord?) {
+        this.protocolStatus = protocolStatus?.copy() ?: ProtocolStatusRecord()
     }
 
     val isNotFetched: Boolean
@@ -96,12 +87,12 @@ class ProtocolStatus {
         get() = isTimeout(this)
 
     val majorName: String
-        get() = getMajorName(majorCode.toInt())
+        get() = getMajorName(majorCode)
 
-    var majorCode: Short
-        get() = protocolStatus.majorCode.toShort()
+    var majorCode: Int
+        get() = protocolStatus.majorCode
         set(majorCode) {
-            protocolStatus.majorCode = majorCode.toInt()
+            protocolStatus.majorCode = majorCode
         }
 
     val minorName: String
@@ -117,12 +108,8 @@ class ProtocolStatus {
         return args.getOrDefault(name, defaultValue).toString()
     }
 
-    val args: MutableMap<CharSequence, CharSequence>
+    val args: MutableMap<String, String>
         get() = protocolStatus.args
-
-    fun setArgs(args: Map<CharSequence?, CharSequence?>?) {
-        protocolStatus.args = args
-    }
 
     val name: String
         get() = (majorCodes.getOrDefault(majorCode, "unknown") + "/"
@@ -144,8 +131,8 @@ class ProtocolStatus {
         if (args.isNotEmpty()) {
             val keys = listOf(ARG_RETRY_SCOPE, ARG_REASON, ARG_HTTP_CODE)
             val args = args.entries
-                .filter { keys.contains(it.key.toString()) }
-                .joinToString(", ") { it.key.toString() + ": " + it.value }
+                .filter { keys.contains(it.key) }
+                .joinToString(", ") { it.key + ": " + it.value }
             str += " $args"
         }
         return str
@@ -161,17 +148,17 @@ class ProtocolStatus {
         /**
          * Content was not retrieved yet.
          */
-        private const val NOTFETCHED: Short = 0
+        private const val NOTFETCHED: Int = 0
 
         /**
          * Content was retrieved without errors.
          */
-        private const val SUCCESS: Short = 1
+        private const val SUCCESS: Int = 1
 
         /**
          * Content was not retrieved. Any further errors may be indicated in args.
          */
-        private const val FAILED: Short = 2
+        private const val FAILED: Int = 2
 
         val STATUS_SUCCESS: ProtocolStatus = ProtocolStatus(SUCCESS, ProtocolStatusCodes.SC_OK)
         val STATUS_NOTMODIFIED: ProtocolStatus = ProtocolStatus(SUCCESS, ProtocolStatusCodes.NOT_MODIFIED)
@@ -187,7 +174,7 @@ class ProtocolStatus {
         val STATUS_CANCELED: ProtocolStatus = failed(ProtocolStatusCodes.CANCELED)
         val STATUS_EXCEPTION: ProtocolStatus = failed(ProtocolStatusCodes.EXCEPTION)
 
-        private val majorCodes = HashMap<Short, String>()
+        private val majorCodes = HashMap<Int, String>()
         private val minorCodes = HashMap<Int, String>()
 
         init {
@@ -222,12 +209,8 @@ class ProtocolStatus {
             minorCodes[ProtocolStatusCodes.SCRIPT_TIMEOUT] = "ScriptTimeout"
         }
 
-        fun box(protocolStatus: GProtocolStatus): ProtocolStatus {
-            return ProtocolStatus(protocolStatus)
-        }
-
         fun getMajorName(code: Int): String {
-            return majorCodes.getOrDefault(code.toShort(), "unknown")
+            return majorCodes.getOrDefault(code, "unknown")
         }
 
         @Deprecated("Use getStatusText instead for consistency with ResourceStatus", ReplaceWith(expression = "getStatusText"))
@@ -258,7 +241,6 @@ class ProtocolStatus {
                 ARG_REASON, reasonString
             )
         }
-
 
         fun cancel(reason: Any?): ProtocolStatus {
             return failed(

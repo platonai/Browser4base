@@ -3,6 +3,7 @@ package ai.platon.pulsar.persist
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.persist.model.ActiveDOMMetadata
 import ai.platon.pulsar.persist.model.ActiveDOMStat
+import ai.platon.pulsar.persist.model.ActiveDOMStatTrace
 import ai.platon.pulsar.persist.model.ActiveDOMStatus
 import java.nio.ByteBuffer
 import java.time.Instant
@@ -180,7 +181,7 @@ interface PageSnapshot : Comparable<PageSnapshot> {
     /**
      * The trace of active DOM status changes for the web page.
      */
-    var activeDOMStatTrace: Map<String, ActiveDOMStat?>
+    var activeDOMStatTrace: ActiveDOMStatTrace?
 
     /**
      * The metadata of the active DOM for the web page.

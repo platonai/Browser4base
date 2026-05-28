@@ -28,18 +28,18 @@ import java.util.stream.Collectors;
  */
 public class Metadata {
 
-    private final Map<CharSequence, ByteBuffer> data;
+    private final Map<String, ByteBuffer> data;
 
-    private Metadata(Map<CharSequence, ByteBuffer> data) {
+    public Metadata(Map<String, ByteBuffer> data) {
         this.data = data;
     }
 
     @NotNull
-    public static Metadata box(@NotNull Map<CharSequence, ByteBuffer> data) {
+    public static Metadata box(@NotNull Map<String, ByteBuffer> data) {
         return new Metadata(data);
     }
 
-    public Map<CharSequence, ByteBuffer> unbox() {
+    public Map<String, ByteBuffer> unbox() {
         return data;
     }
 
@@ -48,7 +48,7 @@ public class Metadata {
     }
 
     public void set(String key, String value) {
-        data.put(JPersistUtils.u8(key), value == null ? null : ByteBuffer.wrap(value.getBytes()));
+        data.put(key, value == null ? null : ByteBuffer.wrap(value.getBytes()));
     }
 
     public void set(Name name, int value) {
@@ -63,30 +63,9 @@ public class Metadata {
         set(name, DateTimes.isoInstantFormat(value));
     }
 
-    public void putAll(Map<String, String> data) {
-        data.forEach(this::set);
-    }
-
-    /**
-     * Copy All key-value pairs from properties.
-     *
-     * @param properties properties to copy from
-     */
-    public void putAll(Properties properties) {
-        Enumeration<?> names = properties.propertyNames();
-        while (names.hasMoreElements()) {
-            String name = (String) names.nextElement();
-            set(name, properties.getProperty(name));
-        }
-    }
-
-    public ByteBuffer getByteBuffer(Name name) {
-        return getByteBuffer(name.text());
-    }
-
     @Nullable
     public ByteBuffer getByteBuffer(String name) {
-        return data.get(JPersistUtils.u8(name));
+        return data.get(name);
     }
 
     @Nullable
@@ -100,28 +79,6 @@ public class Metadata {
         return bvalue == null ? null : ByteUtils.toString(bvalue.array());
     }
 
-    @NotNull
-    public Optional<String> getOptional(String name) {
-        return Optional.ofNullable(get(name));
-    }
-
-    @NotNull
-    public Optional<String> getOptional(Name name) {
-        return Optional.ofNullable(get(name));
-    }
-
-    @NotNull
-    public String getOrDefault(Name name, String defaultValue) {
-        String value = get(name);
-        return value == null ? defaultValue : value;
-    }
-
-    @NotNull
-    public String getOrDefault(String name, String defaultValue) {
-        String value = get(name);
-        return value == null ? defaultValue : value;
-    }
-
     public int getInt(Name name, int defaultValue) {
         String s = get(name.text());
         return NumberUtils.toInt(s, defaultValue);
@@ -132,23 +89,12 @@ public class Metadata {
         return NumberUtils.toLong(s, defaultValue);
     }
 
-    public float getFloat(Name name, float defaultValue) {
-        String s = get(name.text());
-        return NumberUtils.toFloat(s, defaultValue);
-    }
-
     public boolean getBoolean(Name name, Boolean defaultValue) {
         String s = get(name);
         if (s == null) {
             return defaultValue;
         }
         return Boolean.parseBoolean(s);
-    }
-
-    @NotNull
-    public Instant getInstant(Name name, Instant defaultValue) {
-        String value = get(name);
-        return value == null ? defaultValue : DateTimes.parseInstant(value, defaultValue);
     }
 
     public boolean contains(Name name) {

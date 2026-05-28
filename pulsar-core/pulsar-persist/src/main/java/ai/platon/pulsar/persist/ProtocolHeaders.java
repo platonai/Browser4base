@@ -22,38 +22,26 @@ public class ProtocolHeaders implements HttpHeaders {
             Pattern.compile("\\bfilename=(\\S+)\\b")
     };
 
-    private final Map<CharSequence, CharSequence> headers;
+    private final Map<String, String> headers;
 
-    private ProtocolHeaders(Map<CharSequence, CharSequence> headers) {
+    private ProtocolHeaders(Map<String, String> headers) {
         this.headers = headers;
     }
 
-    public static ProtocolHeaders box(Map<CharSequence, CharSequence> headers) {
+    public static ProtocolHeaders box(Map<String, String> headers) {
         return new ProtocolHeaders(headers);
     }
 
-    public Map<CharSequence, CharSequence> unbox() {
+    public Map<String, String> unbox() {
         return headers;
     }
 
     public String get(String name) {
-        CharSequence value = headers.get(JPersistUtils.u8(name));
-        return value == null ? null : value.toString();
-    }
-
-    public String getOrDefault(String name, String defaultValue) {
-        CharSequence value = headers.get(JPersistUtils.u8(name));
-        return value == null ? defaultValue : value.toString();
+        return headers.get(name);
     }
 
     public void put(String name, String value) {
-        headers.put(JPersistUtils.u8(name), JPersistUtils.u8(value));
-    }
-
-    public void putAll(Map<String, String> map) {
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            put(entry.getKey(), entry.getValue());
-        }
+        headers.put(name, value);
     }
 
     public void putAll(Multimap<String, String> map) {
@@ -63,13 +51,13 @@ public class ProtocolHeaders implements HttpHeaders {
     }
 
     public void remove(String name) {
-        headers.remove(JPersistUtils.u8(name));
+        headers.remove(name);
     }
 
     public Instant getLastModified() {
-        CharSequence lastModified = get(HttpHeaders.LAST_MODIFIED);
+        String lastModified = get(HttpHeaders.LAST_MODIFIED);
         if (lastModified != null) {
-            return DateTimes.parseHttpDateTime(lastModified.toString(), Instant.EPOCH);
+            return DateTimes.parseHttpDateTime(lastModified, Instant.EPOCH);
         }
 
         return Instant.EPOCH;
@@ -85,12 +73,12 @@ public class ProtocolHeaders implements HttpHeaders {
     }
 
     public String getDispositionFilename() {
-        CharSequence contentDisposition = get(HttpHeaders.CONTENT_DISPOSITION);
+        String contentDisposition = get(HttpHeaders.CONTENT_DISPOSITION);
         if (contentDisposition == null) {
             return null;
         }
 
-        String dispositionStr = contentDisposition.toString();
+        String dispositionStr = contentDisposition;
         for (Pattern pattern : FILENAME_PATTERNS) {
             Matcher matcher = pattern.matcher(dispositionStr);
             if (matcher.find()) {
@@ -125,7 +113,7 @@ public class ProtocolHeaders implements HttpHeaders {
 
     public Map<String, String> asStringMap() {
         return headers.entrySet().stream()
-                .collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString(), (e, e2) -> e));
+                .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().toString(), (e, e2) -> e));
     }
 
     @Override

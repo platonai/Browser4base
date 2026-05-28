@@ -1,6 +1,6 @@
 package ai.platon.pulsar.persist;
 
-import ai.platon.pulsar.persist.gora.generated.GHypeLink;
+import ai.platon.pulsar.persist.model.HyperLinkRecord;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -8,9 +8,9 @@ import java.util.Objects;
 
 public class HyperlinkPersistable implements Comparable<HyperlinkPersistable> {
 
-    private GHypeLink hyperlink;
+    public HyperLinkRecord hyperlink;
 
-    private HyperlinkPersistable(@NotNull GHypeLink hyperlink) {
+    private HyperlinkPersistable(@NotNull HyperLinkRecord hyperlink) {
         this.hyperlink = hyperlink;
     }
 
@@ -25,14 +25,14 @@ public class HyperlinkPersistable implements Comparable<HyperlinkPersistable> {
     public HyperlinkPersistable(@NotNull String url, @Nullable String text, int order) {
         Objects.requireNonNull(url);
 
-        hyperlink = new GHypeLink();
+        hyperlink = new HyperLinkRecord();
         hyperlink.setUrl(url);
         hyperlink.setAnchor(text);
         hyperlink.setOrder(order);
     }
 
     @NotNull
-    public static HyperlinkPersistable box(@NotNull GHypeLink hyperlink) {
+    public static HyperlinkPersistable box(@NotNull HyperLinkRecord hyperlink) {
         return new HyperlinkPersistable(hyperlink);
     }
 
@@ -46,16 +46,16 @@ public class HyperlinkPersistable implements Comparable<HyperlinkPersistable> {
         }
     }
 
-    public static boolean equals(GHypeLink l, GHypeLink l2) {
+    public static boolean equals(HyperLinkRecord l, HyperLinkRecord l2) {
         return l.getUrl().equals(l2.getUrl());
     }
 
-    public GHypeLink unbox() {
+    public HyperLinkRecord unbox() {
         return hyperlink;
     }
 
     public String getUrl() {
-        return hyperlink.getUrl().toString();
+        return hyperlink.getUrl();
     }
 
     public void setUrl(String url) {
@@ -65,7 +65,7 @@ public class HyperlinkPersistable implements Comparable<HyperlinkPersistable> {
     @NotNull
     public String getText() {
         CharSequence anchor = hyperlink.getAnchor();
-        return anchor == null ? "" : anchor.toString();
+        return anchor.toString();
     }
 
     public void setText(@Nullable String text) {

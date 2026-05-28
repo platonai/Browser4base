@@ -14,7 +14,7 @@ import ai.platon.pulsar.dom.select.select
 import ai.platon.pulsar.dom.select.selectFirstOrNull
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
-import ai.platon.pulsar.persist.model.WebPageFormatter
+import ai.platon.pulsar.persist.tools.WebPageFormatter
 import ai.platon.pulsar.ql.common.ResultSets
 import ai.platon.pulsar.ql.common.types.ValueDom
 import ai.platon.pulsar.skeleton.common.options.LoadOptions

@@ -5,8 +5,8 @@
  */
 package ai.platon.pulsar.persist;
 
-import ai.platon.pulsar.persist.gora.generated.GParseStatus;
 import ai.platon.pulsar.persist.metadata.ParseStatusCodes;
+import ai.platon.pulsar.persist.model.ParseStatusRecord;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 
@@ -40,27 +40,20 @@ public class ParseStatus implements ParseStatusCodes {
         minorCodes.put(FAILED_UNKNOWN_ENCODING, "unknown_encoding");
     }
 
-    private final GParseStatus parseStatus;
-
-    public ParseStatus(short majorCode, int minorCode) {
-        this.parseStatus = GParseStatus.newBuilder().build();
-        setMajorCode(majorCode);
-        setMinorCode(minorCode);
-    }
+    final ParseStatusRecord parseStatus;
 
     public ParseStatus(short majorCode, int minorCode, String message) {
-        this.parseStatus = GParseStatus.newBuilder().build();
+        this.parseStatus = new ParseStatusRecord();
         setMajorCode(majorCode);
-        setMinorCode(minorCode);
-        getArgs().put(getMinorName(minorCode), message == null ? "(unknown)" : message);
+        setMinorCode(minorCode, message);
     }
 
-    private ParseStatus(GParseStatus parseStatus) {
+    public ParseStatus(ParseStatusRecord parseStatus) {
         this.parseStatus = parseStatus;
     }
 
     @NotNull
-    public static ParseStatus box(GParseStatus parseStatus) {
+    public static ParseStatus box(ParseStatusRecord parseStatus) {
         Objects.requireNonNull(parseStatus);
         return new ParseStatus(parseStatus);
     }
@@ -73,24 +66,15 @@ public class ParseStatus implements ParseStatusCodes {
         return minorCodes.getOrDefault(code, "unknown");
     }
 
-    public GParseStatus unbox() {
+    public ParseStatusRecord unbox() {
         return parseStatus;
     }
 
-    public void setCode(short majorCode, int minorCode) {
-        setMajorCode(majorCode);
-        setMinorCode(minorCode);
+    public int getMajorCode() {
+        return parseStatus.getMajorCode();
     }
 
-    public String getMajorName() {
-        return getMajorName(getMajorCode());
-    }
-
-    public short getMajorCode() {
-        return parseStatus.getMajorCode().shortValue();
-    }
-
-    public void setMajorCode(short majorCode) {
+    public void setMajorCode(int majorCode) {
         parseStatus.setMajorCode((int) majorCode);
     }
 
@@ -111,21 +95,12 @@ public class ParseStatus implements ParseStatusCodes {
         getArgs().put(getMinorName(), message);
     }
 
-    public Map<CharSequence, CharSequence> getArgs() {
+    public Map<String, String> getArgs() {
         return parseStatus.getArgs();
     }
 
-    public void setArgs(Map<CharSequence, CharSequence> args) {
+    public void setArgs(Map<String, String> args) {
         parseStatus.setArgs(args);
-    }
-
-    public void setSuccessOK() {
-        setCode(ParseStatus.SUCCESS, ParseStatus.SC_OK);
-    }
-
-    public void setFailed(int minorCode, String message) {
-        setMajorCode(FAILED);
-        setMinorCode(minorCode, message);
     }
 
     public boolean isParsed() {
@@ -149,14 +124,10 @@ public class ParseStatus implements ParseStatusCodes {
                 + minorCodes.getOrDefault(getMinorCode(), "unknown");
     }
 
-    public String getArgOrElse(String name, String defaultValue) {
-        return getArgs().getOrDefault(name, defaultValue).toString();
-    }
-
     @Override
     public String toString() {
         String args = getArgs().entrySet().stream()
-                .map(e -> Pair.of(e.getKey().toString(), e.getValue() == null ? "(null)" : e.getValue().toString()))
+                .map(e -> Pair.of(e.getKey(), e.getValue() == null ? "(null)" : e.getValue().toString()))
                 .map(e -> e.getKey() + ": " + e.getValue())
                 .collect(Collectors.joining(", "));
 
