@@ -6,10 +6,12 @@ import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.persist.model.GoraWebPage
 import ai.platon.pulsar.persist.metadata.Name
 import ai.platon.pulsar.persist.model.ActiveDOMStat
+import ai.platon.pulsar.persist.model.ActiveDOMStatTrace
 import ai.platon.pulsar.persist.model.ActiveDOMStatus
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlin.math.roundToInt
 
 class WebPageExt(private val page: WebPage) {
 
@@ -19,8 +21,7 @@ class WebPageExt(private val page: WebPage) {
             val page = GoraWebPage.newWebPage(url, VolatileConfig(), null)
 
             page.activeDOMStatus = ActiveDOMStatus(1, 1, "1", "1", "1")
-            page.activeDOMStatTrace = mapOf("a" to ActiveDOMStat(), "b" to ActiveDOMStat())
-            page.ensurePageModel().emplace(1, "g", mapOf("a" to "b"))
+            page.activeDOMStatTrace = ActiveDOMStatTrace()
 
             return page
         }
@@ -37,7 +38,7 @@ class WebPageExt(private val page: WebPage) {
      * Set fetch interval in seconds
      */
     fun setFetchInterval(seconds: Float) {
-        setFetchInterval(Math.round(seconds).toLong())
+        setFetchInterval(seconds.roundToInt().toLong())
     }
 
     fun updateFetchTime(prevFetchTime: Instant, fetchTime: Instant) {
@@ -63,25 +64,6 @@ class WebPageExt(private val page: WebPage) {
             title = page.url
         }
         return title
-    }
-
-    fun addLinks(hypeLinks: Iterable<CharSequence>) {
-        var links = page.links
-
-        // If there are too many links, Drop the front 1/3 links
-        if (links.size > AppConstants.MAX_LINK_PER_PAGE) {
-            links = links.subList(links.size - AppConstants.MAX_LINK_PER_PAGE / 3, links.size)
-        }
-
-        for (link in hypeLinks) {
-            val url = PersistUtils.u8(link.toString())!!
-            // Use a set?
-            if (!links.contains(url)) {
-                links.add(url)
-            }
-        }
-
-        page.links = links
     }
 
     fun updateContent(pageDatum: PageDatum, contentTypeHint: String? = null) {
