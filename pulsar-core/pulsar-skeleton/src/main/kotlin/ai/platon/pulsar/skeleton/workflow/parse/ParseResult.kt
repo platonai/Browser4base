@@ -17,19 +17,15 @@
 package ai.platon.pulsar.skeleton.workflow.parse
 
 import ai.platon.pulsar.common.FlowState
-import ai.platon.pulsar.common.urls.Hyperlink
 import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.persist.HyperlinkPersistable
 import ai.platon.pulsar.persist.ParseStatus
-import ai.platon.pulsar.persist.metadata.ParseStatusCodes
-import ai.platon.pulsar.persist.model.DomStatistics
-import java.util.concurrent.ConcurrentSkipListSet
 import kotlin.reflect.KClass
 
 class ParseResult constructor(
-        majorCode: Short = NOTPARSED,
-        minorCode: Int = SC_OK,
-        message: String? = null
+    majorCode: Short = NOTPARSED,
+    minorCode: Int = SC_OK,
+    message: String? = null
 ) : ParseStatus(majorCode, minorCode, message) {
     val hypeLinks = mutableSetOf<HyperlinkPersistable>()
     var document: FeaturedDocument? = null
