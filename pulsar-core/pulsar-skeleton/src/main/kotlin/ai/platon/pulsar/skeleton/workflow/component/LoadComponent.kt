@@ -12,7 +12,6 @@ import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.measure.ByteUnitConverter
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.persist.*
-import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.ActiveDOMStat
 import ai.platon.pulsar.persist.model.GoraWebPage
 import ai.platon.pulsar.skeleton.common.AppStatusTracker
@@ -410,9 +409,6 @@ class LoadComponent(
 
             page.tmpContent = cachedPage.content
 
-            // TODO: test the dirty flag
-            // do not persist this copy
-            page.unbox().clearDirty()
             require(!page.isFetched)
             require(page.isNotInternal)
         } else {
@@ -739,7 +735,7 @@ class LoadComponent(
         }
 
         val domStats = page.activeDOMStatTrace
-        val (ni, na) = domStats["lastStat"] ?: ActiveDOMStat()
+        val (ni, na) = domStats?.lastStat ?: ActiveDOMStat()
         if (ni < options.requireImages) {
             return CheckState(FetchState.MISS_FIELD, "miss image")
         }
@@ -777,8 +773,8 @@ class LoadComponent(
         // TODO: check the logic again
         if (page.isCached) {
             require(page is GoraWebPage)
-            page.unbox().clearDirty(GWebPage.Field.CONTENT.index)
-            assert(!page.unbox().isContentDirty)
+//            page.unbox().clearDirty(GWebPage.Field.CONTENT.index)
+//            assert(!page.unbox().isContentDirty)
         }
 
         webDb.put(page)
@@ -819,15 +815,6 @@ class LoadComponent(
     private fun shouldBe(expected: Any?, actual: Any?, lazyMessage: () -> String) {
         if (actual != expected) {
             logger.warn(lazyMessage())
-        }
-    }
-
-    class LazyFieldLoader(
-        val url: String,
-        val db: WebDb
-    ) : Function<String, GWebPage?> {
-        override fun apply(field: String): GWebPage? {
-            return db.get0(url, false, arrayOf(field))
         }
     }
 }
