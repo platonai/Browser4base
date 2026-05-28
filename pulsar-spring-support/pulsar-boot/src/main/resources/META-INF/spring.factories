@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+ai.platon.pulsar.boot.autoconfigure.PulsarContextConfiguration
+
