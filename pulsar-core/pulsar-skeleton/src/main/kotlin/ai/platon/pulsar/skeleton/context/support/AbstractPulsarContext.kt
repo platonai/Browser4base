@@ -12,10 +12,14 @@ import ai.platon.pulsar.external.ModelResponse
 import ai.platon.pulsar.persist.WebDBException
 import ai.platon.pulsar.persist.WebDb
 import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
 import ai.platon.pulsar.skeleton.PulsarSettings
 import ai.platon.pulsar.skeleton.TaskLoops
+import ai.platon.pulsar.skeleton.browser.BrowserFetcher
+import ai.platon.pulsar.skeleton.browser.BrowserManager
+import ai.platon.pulsar.skeleton.browser.driver.WebDriver
+import ai.platon.pulsar.skeleton.common.GlobalCache
+import ai.platon.pulsar.skeleton.common.GlobalCacheFactory
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.common.urls.CombinedUrlNormalizer
 import ai.platon.pulsar.skeleton.common.urls.NormURL
@@ -23,15 +27,10 @@ import ai.platon.pulsar.skeleton.context.PulsarContext
 import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
 import ai.platon.pulsar.skeleton.session.PulsarSession
 import ai.platon.pulsar.skeleton.workflow.common.FetchState
-import ai.platon.pulsar.skeleton.common.GlobalCache
-import ai.platon.pulsar.skeleton.common.GlobalCacheFactory
 import ai.platon.pulsar.skeleton.workflow.component.BatchFetchComponent
 import ai.platon.pulsar.skeleton.workflow.component.LoadComponent
 import ai.platon.pulsar.skeleton.workflow.component.ParseComponent
 import ai.platon.pulsar.skeleton.workflow.component.UpdateComponent
-import ai.platon.pulsar.skeleton.browser.BrowserFetcher
-import ai.platon.pulsar.skeleton.browser.BrowserManager
-import ai.platon.pulsar.skeleton.browser.driver.WebDriver
 import ai.platon.pulsar.skeleton.workflow.filter.ChainedUrlNormalizer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.BeansException
@@ -325,30 +324,6 @@ abstract class AbstractPulsarContext(
      * */
     override fun fetchState(page: WebPage, options: LoadOptions) =
         loadComponentOrNull?.fetchState(page, options) ?: CheckState(FetchState.DO_NOT_FETCH, "closed")
-
-    /**
-     * Scan pages in the storage.
-     * */
-    @Throws(WebDBException::class)
-    override fun scan(urlPrefix: String): Iterator<WebPage> {
-        return webDbOrNull?.scan(urlPrefix) ?: listOf<WebPage>().iterator()
-    }
-
-    /**
-     * Scan pages in the storage.
-     * */
-    @Throws(WebDBException::class)
-    override fun scan(urlPrefix: String, fields: Iterable<GWebPage.Field>): Iterator<WebPage> {
-        return webDbOrNull?.scan(urlPrefix, fields) ?: listOf<WebPage>().iterator()
-    }
-
-    /**
-     * Scan pages in the storage.
-     * */
-    @Throws(WebDBException::class)
-    override fun scan(urlPrefix: String, fields: Array<String>): Iterator<WebPage> {
-        return webDbOrNull?.scan(urlPrefix, fields) ?: listOf<WebPage>().iterator()
-    }
 
     /**
      * Open a web page with a web driver.

@@ -6,17 +6,16 @@ import ai.platon.pulsar.common.urls.UrlAware
 import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.external.ModelResponse
 import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.skeleton.PulsarSettings
 import ai.platon.pulsar.skeleton.TaskLoops
 import ai.platon.pulsar.skeleton.browser.Browser
 import ai.platon.pulsar.skeleton.browser.BrowserManager
 import ai.platon.pulsar.skeleton.browser.driver.BrowserLaunchException
 import ai.platon.pulsar.skeleton.browser.driver.WebDriver
+import ai.platon.pulsar.skeleton.common.GlobalCache
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.common.urls.NormURL
 import ai.platon.pulsar.skeleton.session.PulsarSession
-import ai.platon.pulsar.skeleton.common.GlobalCache
 import ai.platon.pulsar.skeleton.workflow.filter.ChainedUrlNormalizer
 import com.google.common.annotations.Beta
 import org.springframework.beans.BeansException
@@ -289,18 +288,6 @@ interface PulsarContext : java.lang.AutoCloseable {
      * @return The fetch state of the webpage
      */
     fun fetchState(page: WebPage, options: LoadOptions): CheckState
-
-    /**
-     * Scan webpages in the storage whose url start with [urlPrefix]
-     *
-     * @param urlPrefix The url prefix
-     * @return The iterator of the webpages whose url start with [urlPrefix]
-     */
-    fun scan(urlPrefix: String): Iterator<WebPage>
-
-    fun scan(urlPrefix: String, fields: Iterable<GWebPage.Field>): Iterator<WebPage>
-
-    fun scan(urlPrefix: String, fields: Array<String>): Iterator<WebPage>
 
     /**
      * Open a webpage with options and a web driver
