@@ -194,10 +194,10 @@ open class FetchComponent(
         val trace = datum.activeDOMStatTrace
         if (trace != null) {
             page.activeDOMStatus = trace.status
-            page.activeDOMStatTrace = mapOf(
-                "initStat" to trace.initStat, "initD" to trace.initD,
-                "lastStat" to trace.lastStat, "lastD" to trace.lastD
-            )
+//            page.activeDOMStatTrace = mapOf(
+//                "initStat" to trace.initStat, "initD" to trace.initD,
+//                "lastStat" to trace.lastStat, "lastD" to trace.lastD
+//            )
         }
 
         datum.pageCategory?.let { page.pageCategory = it }

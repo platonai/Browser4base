@@ -80,6 +80,11 @@ class WebDb(
     }
 
     @Throws(WebDBException::class)
+    fun getContentAsString(originalUrl: String): String? {
+        TODO()
+    }
+
+    @Throws(WebDBException::class)
     @JvmOverloads
     fun put(page: WebPage, replaceIfExists: Boolean = false) = putInternal(page, replaceIfExists)
 

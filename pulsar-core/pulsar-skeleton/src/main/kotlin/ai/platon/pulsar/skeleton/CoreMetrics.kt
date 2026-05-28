@@ -63,14 +63,6 @@ class CoreMetrics(
                 "loadCompPageCacheHits/s" to Gauge { 1.0 * LoadComponent.pageCacheHits.get() / DateTimes.elapsedSeconds() },
                 "loadCompDbGets" to Gauge { LoadComponent.dbGetCount },
                 "loadCompDbGets/s" to Gauge { 1.0 * LoadComponent.dbGetCount.get() / DateTimes.elapsedSeconds() },
-
-                // TODO: dbGets/dbPuts should be a multiMetric
-                "dbGets" to Gauge { WebDb.dbGetCount },
-                "dbGets/s" to Gauge { 1.0 * WebDb.dbGetCount.get() / DateTimes.elapsedSeconds() },
-                "dbGetAveMillis" to Gauge { WebDb.dbGetAveMillis },
-                "dbPuts" to Gauge { WebDb.dbPutCount },
-                "dbPuts/s" to Gauge { 1.0 * WebDb.dbPutCount.get() / DateTimes.elapsedSeconds() },
-                "dbPutAveMillis" to Gauge { WebDb.dbPutAveMillis },
             ).forEach { MetricsSystem.reg.register(this, it.key, it.value) }
         }
     }
@@ -257,13 +249,13 @@ class CoreMetrics(
         meterContentBytes.mark(bytes)
         meterContentMBytes.inc(ByteUnitConverter.convert(bytes, "M").toLong())
 
-        page.activeDOMStatTrace["lastStat"]?.apply {
-            pageAnchors.update(na)
-            pageImages.update(ni)
-            pageNumbers.update(nnm)
-            pageSmallTexts.update(nst)
-            pageHeights.update(h)
-        }
+//        page.activeDOMStatTrace["lastStat"]?.apply {
+//            pageAnchors.update(na)
+//            pageImages.update(ni)
+//            pageNumbers.update(nnm)
+//            pageSmallTexts.update(nst)
+//            pageHeights.update(h)
+//        }
 
         val urlStats = urlStatistics.computeIfAbsent(host) { UrlStat(it) }
 

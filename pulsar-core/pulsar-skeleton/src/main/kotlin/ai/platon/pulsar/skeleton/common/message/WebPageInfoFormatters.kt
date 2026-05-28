@@ -59,7 +59,6 @@ class PageLoadStatusFormatter(
     private val proxy get() = page.proxy
     private val protocolStatus get() = page.protocolStatus
     private val activeDOMStatTrace = page.activeDOMStatTrace
-    private val m = page.pageModel
 
     private val taskStatusSymbol: String get() = when {
         prefix.isNotBlank() -> ""
@@ -102,27 +101,29 @@ class PageLoadStatusFormatter(
     }
     private val jsSate: String
         get() {
-            val (ni, na, nnm, nst, w, h) = activeDOMStatTrace["lastStat"]?: ActiveDOMStat()
-            val divisor = if (page.id < verboseCount) 10 else verboseCount
-            val prefix = if (page.id % divisor == 0L) {
-                "i/a/nm/st/h:"
-            } else ""
-            return if (ni + na + nnm + nst + h != 0) {
-                String.format("$prefix%d/%d/%d/%d/%d", ni, na, nnm, nst, h)
-            } else ""
+//            val (ni, na, nnm, nst, w, h) = activeDOMStatTrace.lastStat?: ActiveDOMStat()
+//            val divisor = if (page.id < verboseCount) 10 else verboseCount
+//            val prefix = if (page.id % divisor == 0L) {
+//                "i/a/nm/st/h:"
+//            } else ""
+//            return if (ni + na + nnm + nst + h != 0) {
+//                String.format("$prefix%d/%d/%d/%d/%d", ni, na, nnm, nst, h)
+//            } else ""
+            return ""
         }
-    private val fieldCount: String get() = when {
-        m == null -> ""
-        m.numFields == 0 -> ""
-        else -> String.format("%d/%d/%d", m.numNonBlankFields, m.numNonNullFields, m.numFields)
-    }
+    private val fieldCount: String = ""
+//    private val fieldCount: String get() = when {
+//        m == null -> ""
+//        m.numFields == 0 -> ""
+//        else -> String.format("%d/%d/%d", m.numNonBlankFields, m.numNonNullFields, m.numFields)
+//    }
     private val proxyFmt get() = if (proxy.isNullOrBlank()) "%s" else " | %s"
     private val jsFmt get() = if (jsSate.isBlank()) "%s" else " | %s"
     private val fetchCount get() = when {
         page.fetchRetries > 0 -> String.format("%d/%d", page.fetchRetries, page.fetchCount)
         else -> String.format("%d", page.fetchCount)
     }
-    private val fieldCountFmt get() = if (m == null || m.numFields == 0) "%s" else " | nf:%-10s"
+    private val fieldCountFmt get() = "%s" // if (m == null || m.numFields == 0) "%s" else " | nf:%-10s"
     private val failure get() = when {
         page.isCanceled -> String.format(" %s", page.protocolStatus.reason)
         protocolStatus.isFailed -> String.format(" %s", page.protocolStatus.toString())

@@ -87,58 +87,5 @@ class TestWebPage: TestBase() {
         assertTrue { fetchTime1 < page.fetchTime }
         assertEquals(2, page.fetchCount)
     }
-
-    @org.junit.jupiter.api.Test
-    suspend fun testPageModel() {
-        var page = session.load(url)
-        require(page is GoraWebPage)
-        page.unbox().pageModel?.fieldGroups = null
-        page.unbox().pageModel = null
-        page.unbox().setDirty("pageModel")
-        session.persist(page)
-
-        page = session.load(url)
-
-        assertNull(page.pageModel)
-        val pageModel = page.ensurePageModel()
-
-        pageModel.emplace(groupId, "", mapOf("a1" to "1", "b2" to "2", "b22" to "22"))
-        assertEquals("Utf8", pageModel.unbox().fieldGroups.first().fields.keys.first().javaClass.simpleName)
-        assertEquals("String", pageModel.unbox().fieldGroups.first().fields.values.first().javaClass.simpleName)
-        assertEquals("1", pageModel.findGroup(groupId)?.get("a1"))
-        session.persist(page)
-
-        val page2 = webDB.get(url)
-        assertNotEquals(page.id, page2.id)
-        val pageModel2 = page2.pageModel
-        assertNotNull(pageModel2)
-        require(page2 is GoraWebPage)
-        val fieldGroups2 = page2.unbox().pageModel.fieldGroups
-        val fieldGroup2 = pageModel2.findGroup(groupId)
-        val fieldGroup21 = fieldGroups2.firstOrNull { it.id == groupId.toLong() }
-        assertNotNull(fieldGroup21)
-        pageModel2.emplace(groupId, "", mapOf("c3" to "3", "d4" to "4"))
-
-        printlnPro("fieldGroup2.flatMap: " + fieldGroups2.flatMap {
-            it.fields.entries.map { e ->
-                "${e.key}(${e.key.javaClass.simpleName})" to "${e.value}(${e.value.javaClass.simpleName})"
-            } }.associate { it.first to it.second })
-        printlnPro("fieldGroup2.fieldsCopy: " + fieldGroup2?.fieldsCopy)
-
-//        assertEquals("2", fieldGroup2.fields["b"])
-        assertNull(fieldGroup2?.fieldsCopy?.get("b2"), "b2 should be cleared in emplace")
-        assertNull(fieldGroup2?.get("b2"), "b2 should be cleared in emplace")
-
-        assertEquals("3", fieldGroup2?.get("c3"))
-        session.persist(page2)
-
-        val page3 = webDB.get(url)
-        assertNotEquals(page.id, page3.id)
-        val pageModel3 = page3.pageModel
-        val fieldGroup3 = pageModel2.findGroup(groupId)
-        assertNotNull(pageModel3)
-        printlnPro("fieldGroup3.fieldsCopy: " + fieldGroup3?.fieldsCopy)
-        assertEquals("4", fieldGroup3?.get("d4"))
-    }
 }
 
