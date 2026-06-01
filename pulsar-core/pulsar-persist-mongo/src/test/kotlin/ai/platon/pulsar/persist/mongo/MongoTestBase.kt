@@ -2,10 +2,10 @@ package ai.platon.pulsar.persist.mongo
 
 import ai.platon.pulsar.common.NetUtil
 import ai.platon.pulsar.common.printlnPro
+import com.mongodb.client.MongoClient
+import com.mongodb.client.MongoClients
+import org.bson.Document
 import org.junit.jupiter.api.*
-import shaded.com.mongodb.client.MongoClient
-import shaded.com.mongodb.client.MongoClients
-import shaded.org.bson.Document
 import java.time.LocalDate
 import kotlin.test.assertFalse
 

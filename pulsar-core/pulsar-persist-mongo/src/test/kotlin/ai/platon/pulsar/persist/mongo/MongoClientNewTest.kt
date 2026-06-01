@@ -1,9 +1,9 @@
 package ai.platon.pulsar.persist.mongo
 
 import ai.platon.pulsar.common.printlnPro
+import com.mongodb.client.model.Filters
+import org.bson.Document
 import org.junit.jupiter.api.DisplayName
-import shaded.com.mongodb.client.model.Filters
-import shaded.org.bson.Document
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

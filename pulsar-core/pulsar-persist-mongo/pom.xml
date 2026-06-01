@@ -23,10 +23,30 @@
     <name>Pulsar Persist Mongo</name>
 
     <dependencies>
+<!--        <dependency>-->
+<!--            <groupId>ai.platon.pulsar</groupId>-->
+<!--            <artifactId>gora-shaded-mongodb</artifactId>-->
+<!--            <version>${gora-shaded-mongodb.version}</version>-->
+<!--        </dependency>-->
+
         <dependency>
-            <groupId>ai.platon.pulsar</groupId>
-            <artifactId>gora-shaded-mongodb</artifactId>
-            <version>${gora-shaded-mongodb.version}</version>
+            <groupId>ai.platon.gora</groupId>
+            <artifactId>gora-mongodb</artifactId>
+            <version>1.0.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.spark</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sparkutils</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
