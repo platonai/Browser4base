@@ -1,5 +1,7 @@
 package ai.platon.pulsar.persist
 
+import ai.platon.gora.persistency.Persistent
+import ai.platon.gora.store.DataStore
 import ai.platon.pulsar.common.AppContext
 import ai.platon.pulsar.common.IllegalApplicationStateException
 import ai.platon.pulsar.common.Runtimes
@@ -10,8 +12,6 @@ import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.persist.gora.GoraStorage
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import org.apache.commons.lang3.SystemUtils
-import org.apache.gora.persistency.Persistent
-import org.apache.gora.store.DataStore
 import org.slf4j.LoggerFactory
 
 /**

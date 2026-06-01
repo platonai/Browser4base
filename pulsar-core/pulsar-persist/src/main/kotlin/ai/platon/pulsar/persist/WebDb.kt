@@ -1,5 +1,9 @@
 package ai.platon.pulsar.persist
 
+import ai.platon.gora.filter.Filter
+import ai.platon.gora.filter.FilterOp
+import ai.platon.gora.filter.SingleFieldValueFilter
+import ai.platon.gora.store.DataStore
 import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.stringify
@@ -8,10 +12,6 @@ import ai.platon.pulsar.persist.gora.db.DbIterator
 import ai.platon.pulsar.persist.gora.db.DbQuery
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
-import org.apache.gora.filter.Filter
-import org.apache.gora.filter.FilterOp
-import org.apache.gora.filter.SingleFieldValueFilter
-import org.apache.gora.store.DataStore
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit

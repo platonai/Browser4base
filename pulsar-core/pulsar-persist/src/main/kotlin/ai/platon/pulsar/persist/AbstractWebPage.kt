@@ -1,5 +1,6 @@
 package ai.platon.pulsar.persist
 
+import ai.platon.gora.util.ByteUtils
 import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.common.urls.URLUtils.mergeUrlArgs
@@ -7,7 +8,6 @@ import ai.platon.pulsar.common.urls.URLUtils.reverseUrlOrEmpty
 import ai.platon.pulsar.common.urls.URLUtils.unreverseUrl
 import ai.platon.pulsar.persist.metadata.Name
 import ai.platon.pulsar.persist.model.WebPageFormatter
-import org.apache.gora.util.ByteUtils
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer

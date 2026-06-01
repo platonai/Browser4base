@@ -1,5 +1,9 @@
 package ai.platon.pulsar.persist
 
+import ai.platon.gora.mongodb.store.MongoStoreParameters.PROP_MONGO_SERVERS
+import ai.platon.gora.persistency.Persistent
+import ai.platon.gora.store.DataStore
+import ai.platon.gora.util.GoraException
 import ai.platon.pulsar.common.AppContext
 import ai.platon.pulsar.common.IllegalApplicationStateException
 import ai.platon.pulsar.common.ResourceLoader
@@ -12,10 +16,6 @@ import ai.platon.pulsar.persist.gora.GoraStorage
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.mongo.MongoDBUtils
 import org.apache.commons.lang3.SystemUtils
-import org.apache.gora.mongodb.store.MongoStoreParameters.PROP_MONGO_SERVERS
-import org.apache.gora.persistency.Persistent
-import org.apache.gora.store.DataStore
-import org.apache.gora.util.GoraException
 import org.slf4j.LoggerFactory
 
 /**

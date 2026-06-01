@@ -1,9 +1,9 @@
 package ai.platon.pulsar.persist;
 
+import ai.platon.gora.util.ByteUtils;
 import ai.platon.pulsar.common.DateTimes;
 import ai.platon.pulsar.persist.metadata.Name;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.gora.util.ByteUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

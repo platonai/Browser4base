@@ -33,9 +33,23 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.gora</groupId>
+            <groupId>ai.platon.gora</groupId>
             <artifactId>gora-core</artifactId>
-            <version>${gora-shaded-mongodb.version}</version>
+            <version>1.0.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.spark</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sparkutils</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.avro</groupId>

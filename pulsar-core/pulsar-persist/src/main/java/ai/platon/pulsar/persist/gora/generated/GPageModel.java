@@ -5,9 +5,9 @@
  */
 package ai.platon.pulsar.persist.gora.generated;
 
-import org.apache.gora.persistency.Persistent;
+import ai.platon.gora.persistency.Persistent;
 
-public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, org.apache.gora.persistency.Persistent {
+public class GPageModel extends ai.platon.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, ai.platon.gora.persistency.Persistent {
   public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"GPageModel\",\"namespace\":\"ai.platon.pulsar.persist.gora.generated\",\"fields\":[{\"name\":\"fieldGroups\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"GFieldGroup\",\"fields\":[{\"name\":\"id\",\"type\":\"long\",\"default\":0},{\"name\":\"parentId\",\"type\":\"long\",\"default\":0},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"fields\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}}]}},\"default\":[]}]}");
   private static final long serialVersionUID = 1823870798188997057L;
   /** Enum containing all data bean's fields. */
@@ -69,19 +69,19 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
 
   private java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup> fieldGroups;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
-  // Used by DatumWriter.  Applications should not call. 
+  // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return fieldGroups;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
-  
-  // Used by DatumReader.  Applications should not call. 
+
+  // Used by DatumReader.  Applications should not call.
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value) {
     switch (field$) {
-    case 0: fieldGroups = (java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup>)((value instanceof org.apache.gora.persistency.Dirtyable) ? value : new org.apache.gora.persistency.impl.DirtyListWrapper((java.util.List)value)); break;
+    case 0: fieldGroups = (java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup>)((value instanceof ai.platon.gora.persistency.Dirtyable) ? value : new ai.platon.gora.persistency.impl.DirtyListWrapper((java.util.List)value)); break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -98,10 +98,10 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
    * @param value the value to set.
    */
   public void setFieldGroups(java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup> value) {
-    this.fieldGroups = (value instanceof org.apache.gora.persistency.Dirtyable) ? value : new org.apache.gora.persistency.impl.DirtyListWrapper(value);
+    this.fieldGroups = (value instanceof ai.platon.gora.persistency.Dirtyable) ? value : new ai.platon.gora.persistency.impl.DirtyListWrapper(value);
     setDirty(0);
   }
-  
+
   /**
    * Checks the dirty status of the 'fieldGroups' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -114,17 +114,17 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
   public static ai.platon.pulsar.persist.gora.generated.GPageModel.Builder newBuilder() {
     return new ai.platon.pulsar.persist.gora.generated.GPageModel.Builder();
   }
-  
+
   /** Creates a new GPageModel RecordBuilder by copying an existing Builder */
   public static ai.platon.pulsar.persist.gora.generated.GPageModel.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GPageModel.Builder other) {
     return new ai.platon.pulsar.persist.gora.generated.GPageModel.Builder(other);
   }
-  
+
   /** Creates a new GPageModel RecordBuilder by copying an existing GPageModel instance */
   public static ai.platon.pulsar.persist.gora.generated.GPageModel.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GPageModel other) {
     return new ai.platon.pulsar.persist.gora.generated.GPageModel.Builder(other);
   }
-  
+
   private static java.nio.ByteBuffer deepCopyToReadOnlyBuffer(
       java.nio.ByteBuffer input) {
     java.nio.ByteBuffer copy = java.nio.ByteBuffer.allocate(input.capacity());
@@ -147,7 +147,7 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
     copy.limit(limit);
     return copy.asReadOnlyBuffer();
   }
-  
+
   /**
    * RecordBuilder for GPageModel instances.
    */
@@ -160,12 +160,12 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
     private Builder() {
       super(ai.platon.pulsar.persist.gora.generated.GPageModel.SCHEMA$);
     }
-    
+
     /** Creates a Builder by copying an existing Builder */
     private Builder(ai.platon.pulsar.persist.gora.generated.GPageModel.Builder other) {
       super(other);
     }
-    
+
     /** Creates a Builder by copying an existing GPageModel instance */
     private Builder(ai.platon.pulsar.persist.gora.generated.GPageModel other) {
             super(ai.platon.pulsar.persist.gora.generated.GPageModel.SCHEMA$);
@@ -179,39 +179,39 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
     public java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup> getFieldGroups() {
       return fieldGroups;
     }
-    
+
     /** Sets the value of the 'fieldGroups' field */
     public ai.platon.pulsar.persist.gora.generated.GPageModel.Builder setFieldGroups(java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup> value) {
       validate(fields()[0], value);
       this.fieldGroups = value;
       fieldSetFlags()[0] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'fieldGroups' field has been set */
     public boolean hasFieldGroups() {
       return fieldSetFlags()[0];
     }
-    
+
     /** Clears the value of the 'fieldGroups' field */
     public ai.platon.pulsar.persist.gora.generated.GPageModel.Builder clearFieldGroups() {
       fieldGroups = null;
       fieldSetFlags()[0] = false;
       return this;
     }
-    
+
     @Override
     public GPageModel build() {
       try {
         GPageModel record = new GPageModel();
-        record.fieldGroups = fieldSetFlags()[0] ? this.fieldGroups : (java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup>) new org.apache.gora.persistency.impl.DirtyListWrapper((java.util.List)defaultValue(fields()[0]));
+        record.fieldGroups = fieldSetFlags()[0] ? this.fieldGroups : (java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup>) new ai.platon.gora.persistency.impl.DirtyListWrapper((java.util.List)defaultValue(fields()[0]));
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);
       }
     }
   }
-  
+
   public GPageModel.Tombstone getTombstone(){
   	return TOMBSTONE;
   }
@@ -221,18 +221,18 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
   }
 
   private static final Tombstone TOMBSTONE = new Tombstone();
-  
-  public static final class Tombstone extends GPageModel implements org.apache.gora.persistency.Tombstone {
-  
+
+  public static final class Tombstone extends GPageModel implements ai.platon.gora.persistency.Tombstone {
+
       private Tombstone() { }
-  
+
 	  		  /**
 	   * Gets the value of the 'fieldGroups' field.
 		   */
 	  public java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup> getFieldGroups() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'fieldGroups' field.
 		   * @param value the value to set.
@@ -240,7 +240,7 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
 	  public void setFieldGroups(java.util.List<ai.platon.pulsar.persist.gora.generated.GFieldGroup> value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'fieldGroups' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -248,8 +248,8 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
 	  public boolean isFieldGroupsDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
-		  
+
+
   }
 
   private static final org.apache.avro.io.DatumWriter
@@ -288,6 +288,6 @@ public class GPageModel extends org.apache.gora.persistency.impl.PersistentBase 
             .directBinaryDecoder((java.io.InputStream) in,
                     null));
   }
-  
+
 }
 

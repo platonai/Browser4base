@@ -5,9 +5,9 @@
  */
 package ai.platon.pulsar.persist.gora.generated;
 
-import org.apache.gora.persistency.Persistent;
+import ai.platon.gora.persistency.Persistent;
 
-public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, org.apache.gora.persistency.Persistent {
+public class GParseStatus extends ai.platon.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, ai.platon.gora.persistency.Persistent {
   public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"GParseStatus\",\"namespace\":\"ai.platon.pulsar.persist.gora.generated\",\"fields\":[{\"name\":\"majorCode\",\"type\":\"int\",\"default\":0},{\"name\":\"minorCode\",\"type\":\"int\",\"default\":0},{\"name\":\"args\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}}]}");
   private static final long serialVersionUID = -2420792196436275871L;
   /** Enum containing all data bean's fields. */
@@ -75,7 +75,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
   private int minorCode;
   private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> args;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
-  // Used by DatumWriter.  Applications should not call. 
+  // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return majorCode;
@@ -84,14 +84,14 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
-  
-  // Used by DatumReader.  Applications should not call. 
+
+  // Used by DatumReader.  Applications should not call.
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value) {
     switch (field$) {
     case 0: majorCode = (java.lang.Integer)(value); break;
     case 1: minorCode = (java.lang.Integer)(value); break;
-    case 2: args = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)((value instanceof org.apache.gora.persistency.Dirtyable) ? value : new org.apache.gora.persistency.impl.DirtyMapWrapper((java.util.Map)value)); break;
+    case 2: args = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)((value instanceof ai.platon.gora.persistency.Dirtyable) ? value : new ai.platon.gora.persistency.impl.DirtyMapWrapper((java.util.Map)value)); break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -111,7 +111,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
     this.majorCode = value;
     setDirty(0);
   }
-  
+
   /**
    * Checks the dirty status of the 'majorCode' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -135,7 +135,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
     this.minorCode = value;
     setDirty(1);
   }
-  
+
   /**
    * Checks the dirty status of the 'minorCode' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -156,10 +156,10 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
    * @param value the value to set.
    */
   public void setArgs(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-    this.args = (value instanceof org.apache.gora.persistency.Dirtyable) ? value : new org.apache.gora.persistency.impl.DirtyMapWrapper(value);
+    this.args = (value instanceof ai.platon.gora.persistency.Dirtyable) ? value : new ai.platon.gora.persistency.impl.DirtyMapWrapper(value);
     setDirty(2);
   }
-  
+
   /**
    * Checks the dirty status of the 'args' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -172,17 +172,17 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
   public static ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder newBuilder() {
     return new ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder();
   }
-  
+
   /** Creates a new GParseStatus RecordBuilder by copying an existing Builder */
   public static ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder other) {
     return new ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder(other);
   }
-  
+
   /** Creates a new GParseStatus RecordBuilder by copying an existing GParseStatus instance */
   public static ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GParseStatus other) {
     return new ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder(other);
   }
-  
+
   private static java.nio.ByteBuffer deepCopyToReadOnlyBuffer(
       java.nio.ByteBuffer input) {
     java.nio.ByteBuffer copy = java.nio.ByteBuffer.allocate(input.capacity());
@@ -205,7 +205,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
     copy.limit(limit);
     return copy.asReadOnlyBuffer();
   }
-  
+
   /**
    * RecordBuilder for GParseStatus instances.
    */
@@ -220,12 +220,12 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
     private Builder() {
       super(ai.platon.pulsar.persist.gora.generated.GParseStatus.SCHEMA$);
     }
-    
+
     /** Creates a Builder by copying an existing Builder */
     private Builder(ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder other) {
       super(other);
     }
-    
+
     /** Creates a Builder by copying an existing GParseStatus instance */
     private Builder(ai.platon.pulsar.persist.gora.generated.GParseStatus other) {
             super(ai.platon.pulsar.persist.gora.generated.GParseStatus.SCHEMA$);
@@ -247,89 +247,89 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
     public java.lang.Integer getMajorCode() {
       return majorCode;
     }
-    
+
     /** Sets the value of the 'majorCode' field */
     public ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder setMajorCode(int value) {
       validate(fields()[0], value);
       this.majorCode = value;
       fieldSetFlags()[0] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'majorCode' field has been set */
     public boolean hasMajorCode() {
       return fieldSetFlags()[0];
     }
-    
+
     /** Clears the value of the 'majorCode' field */
     public ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder clearMajorCode() {
       fieldSetFlags()[0] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'minorCode' field */
     public java.lang.Integer getMinorCode() {
       return minorCode;
     }
-    
+
     /** Sets the value of the 'minorCode' field */
     public ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder setMinorCode(int value) {
       validate(fields()[1], value);
       this.minorCode = value;
       fieldSetFlags()[1] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'minorCode' field has been set */
     public boolean hasMinorCode() {
       return fieldSetFlags()[1];
     }
-    
+
     /** Clears the value of the 'minorCode' field */
     public ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder clearMinorCode() {
       fieldSetFlags()[1] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'args' field */
     public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getArgs() {
       return args;
     }
-    
+
     /** Sets the value of the 'args' field */
     public ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder setArgs(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
       validate(fields()[2], value);
       this.args = value;
       fieldSetFlags()[2] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'args' field has been set */
     public boolean hasArgs() {
       return fieldSetFlags()[2];
     }
-    
+
     /** Clears the value of the 'args' field */
     public ai.platon.pulsar.persist.gora.generated.GParseStatus.Builder clearArgs() {
       args = null;
       fieldSetFlags()[2] = false;
       return this;
     }
-    
+
     @Override
     public GParseStatus build() {
       try {
         GParseStatus record = new GParseStatus();
         record.majorCode = fieldSetFlags()[0] ? this.majorCode : (java.lang.Integer) defaultValue(fields()[0]);
         record.minorCode = fieldSetFlags()[1] ? this.minorCode : (java.lang.Integer) defaultValue(fields()[1]);
-        record.args = fieldSetFlags()[2] ? this.args : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) new org.apache.gora.persistency.impl.DirtyMapWrapper((java.util.Map)defaultValue(fields()[2]));
+        record.args = fieldSetFlags()[2] ? this.args : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) new ai.platon.gora.persistency.impl.DirtyMapWrapper((java.util.Map)defaultValue(fields()[2]));
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);
       }
     }
   }
-  
+
   public GParseStatus.Tombstone getTombstone(){
   	return TOMBSTONE;
   }
@@ -339,18 +339,18 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
   }
 
   private static final Tombstone TOMBSTONE = new Tombstone();
-  
-  public static final class Tombstone extends GParseStatus implements org.apache.gora.persistency.Tombstone {
-  
+
+  public static final class Tombstone extends GParseStatus implements ai.platon.gora.persistency.Tombstone {
+
       private Tombstone() { }
-  
+
 	  		  /**
 	   * Gets the value of the 'majorCode' field.
 		   */
 	  public java.lang.Integer getMajorCode() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'majorCode' field.
 		   * @param value the value to set.
@@ -358,7 +358,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
 	  public void setMajorCode(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'majorCode' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -366,14 +366,14 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
 	  public boolean isMajorCodeDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'minorCode' field.
 		   */
 	  public java.lang.Integer getMinorCode() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'minorCode' field.
 		   * @param value the value to set.
@@ -381,7 +381,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
 	  public void setMinorCode(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'minorCode' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -389,14 +389,14 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
 	  public boolean isMinorCodeDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'args' field.
 		   */
 	  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getArgs() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'args' field.
 		   * @param value the value to set.
@@ -404,7 +404,7 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
 	  public void setArgs(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'args' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -412,8 +412,8 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
 	  public boolean isArgsDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
-		  
+
+
   }
 
   private static final org.apache.avro.io.DatumWriter
@@ -452,6 +452,6 @@ public class GParseStatus extends org.apache.gora.persistency.impl.PersistentBas
             .directBinaryDecoder((java.io.InputStream) in,
                     null));
   }
-  
+
 }
 

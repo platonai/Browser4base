@@ -20,7 +20,7 @@
     <logger name="ai.platon.pulsar" level="INFO"/>
     <logger name="ai.platon.pulsar.persist" level="TRACE"/>
 
-    <logger name="org.apache.gora.mongodb.store" level="DEBUG"/>
-    <logger name="org.apache.gora" level="DEBUG"/>
+    <logger name="ai.platon.gora.mongodb.store" level="DEBUG"/>
+    <logger name="ai.platon.gora" level="DEBUG"/>
 
 </configuration>
