@@ -4,15 +4,15 @@ import ai.platon.pulsar.common.NetUtil
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.config.MutableConfig
-import ai.platon.pulsar.persist.DataStorageFactory
+import ai.platon.pulsar.persist.MongoDataStorageFactory
 import ai.platon.pulsar.persist.gora.generated.GWebPage
-import shaded.com.mongodb.MongoClient
 import org.apache.commons.lang3.RandomStringUtils
 import org.apache.gora.mongodb.store.MongoStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
+import shaded.com.mongodb.MongoClient
 import kotlin.test.*
 
 /**
@@ -72,7 +72,7 @@ class MongoClientLegacyTest {
         val store = MongoStore<String, GWebPage>()
         assertNull(store.schemaName)
 
-        val provider = DataStorageFactory(conf)
+        val provider = MongoDataStorageFactory(conf)
         val store2 = provider.getOrCreatePageStore()
         assertEquals(AppConstants.MONGO_STORE_CLASS, provider.storeClassName)
         assertTrue("Actual schema name: ${store2.schemaName}") { crawlId in store2.schemaName }

@@ -37,6 +37,7 @@
         <module>pulsar-common</module>
         <module>pulsar-dom</module>
         <module>pulsar-persist</module>
+        <module>pulsar-persist-mongo</module>
         <module>pulsar-plugins</module>
         <module>pulsar-third</module>
         <module>pulsar-skeleton</module>

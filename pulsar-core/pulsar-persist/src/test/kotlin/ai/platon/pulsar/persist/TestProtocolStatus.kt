@@ -1,7 +1,7 @@
 package ai.platon.pulsar.persist
 
 import ai.platon.pulsar.common.printlnPro
-import kotlin.test.*
+import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class TestProtocolStatus {
@@ -14,6 +14,6 @@ class TestProtocolStatus {
 
         val e = Exception()
         printlnPro(e.javaClass.name)
-        printlnPro(Exception::javaClass.toString())
+        printlnPro(Exception::class.java.toString())
     }
 }
