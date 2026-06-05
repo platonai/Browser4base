@@ -1,7 +1,7 @@
 package ai.platon.pulsar.persist
 
-import ai.platon.pulsar.common.printlnPro
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class TestProtocolStatus {
@@ -13,7 +13,9 @@ class TestProtocolStatus {
         assertTrue(status.isRetry(RetryScope.PRIVACY, Exception::class.java))
 
         val e = Exception()
-        printlnPro(e.javaClass.name)
-        printlnPro(Exception::class.java.toString())
+//        printlnPro(e.javaClass.name)
+//        printlnPro(Exception::class.java.toString())
+        assertEquals("java.lang.Exception", e.javaClass.name)
+        assertEquals("class java.lang.Exception", Exception::class.java.toString())
     }
 }
