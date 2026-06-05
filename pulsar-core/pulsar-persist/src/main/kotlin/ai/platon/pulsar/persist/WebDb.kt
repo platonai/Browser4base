@@ -3,7 +3,6 @@ package ai.platon.pulsar.persist
 import ai.platon.pulsar.common.config.AppConstants.EXAMPLE_URL
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.urls.URLUtils
-import ai.platon.pulsar.persist.gora.db.DbQuery
 import ai.platon.pulsar.persist.model.GoraWebPage
 import ai.platon.pulsar.persist.model.WebPageRecord
 import org.slf4j.LoggerFactory
@@ -105,17 +104,6 @@ class WebDb(
     @JvmOverloads
     @Throws(WebDBException::class)
     fun truncate(force: Boolean = false): Boolean {
-        TODO()
-    }
-
-    /**
-     * Scan all pages matches the {@param query}.
-     *
-     * @param query The query
-     * @return The iterator to retrieve pages
-     */
-    @Throws(WebDBException::class)
-    fun query(query: DbQuery): Iterator<WebPage> {
         TODO()
     }
 

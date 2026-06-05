@@ -1,10 +1,13 @@
 package ai.platon.pulsar.persist.mongo
 
 import ai.platon.pulsar.common.printlnPro
+import org.junit.jupiter.api.DisplayName
 import shaded.com.mongodb.client.model.Filters
 import shaded.org.bson.Document
-import kotlin.test.*
-import org.junit.jupiter.api.DisplayName
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * The driver com.mongodb.MongoClient is a Legacy Driver.
@@ -24,7 +27,7 @@ class MongoClientNewTest : MongoTestBase() {
     }
 
     @Test
-        @DisplayName("when querying a document using cursor then it works")
+    @DisplayName("when querying a document using cursor then it works")
     fun whenQueryingADocumentUsingCursorThenItWorks() {
         val document: Document = Document("name", "John Doe")
             .append("age", 30)
@@ -44,7 +47,7 @@ class MongoClientNewTest : MongoTestBase() {
     }
 
     @Test
-        @DisplayName("when inserting a document into MongoDB then it should be inserted successfully")
+    @DisplayName("when inserting a document into MongoDB then it should be inserted successfully")
     fun whenInsertingADocumentIntoMongodbThenItShouldBeInsertedSuccessfully() {
         val document: Document = Document("name", "John Doe")
             .append("age", 30)
@@ -55,7 +58,7 @@ class MongoClientNewTest : MongoTestBase() {
     }
 
     @Test
-        @DisplayName("when deleting a document then it should be deleted successfully")
+    @DisplayName("when deleting a document then it should be deleted successfully")
     fun whenDeletingADocumentThenItShouldBeDeletedSuccessfully() {
         collection.deleteOne(Filters.eq("name", "John Doe"))
         printlnPro("Document deleted")
