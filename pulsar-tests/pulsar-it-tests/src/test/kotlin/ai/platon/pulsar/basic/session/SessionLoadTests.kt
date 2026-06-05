@@ -1,9 +1,8 @@
 package ai.platon.pulsar.basic.session
 
 import ai.platon.pulsar.basic.TestBase
+import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.common.LinkExtractors
-import ai.platon.pulsar.core.api.PulsarSession
-import ai.platon.pulsar.protocol.browser.driver.cdt.PulsarWebDriver
 import ai.platon.pulsar.ql.SQLSession
 import ai.platon.pulsar.skeleton.common.persist.ext.loadEventHandlers
 import org.junit.jupiter.api.BeforeEach
@@ -17,7 +16,7 @@ class SessionLoadTests : TestBase() {
     private val urls = LinkExtractors.fromResource("categories.txt")
 
     @BeforeEach
-    fun clearResources() {
+    suspend fun clearResources() {
         session.globalCache.resetCaches()
 
         session.delete(url)
@@ -136,9 +135,9 @@ class SessionLoadTests : TestBase() {
         logger.info("Tested - whenLoadAllAsyncSecondlyWithoutExpiry_thenPagesAreLoadedFromCache")
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @DisplayName("When loaded a HTML page then the navigate state are correct")
-    fun whenLoadedAHtmlPageThenTheNavigateStateAreCorrect() {
+    suspend fun whenLoadedAHtmlPageThenTheNavigateStateAreCorrect() {
         logger.info("Testing - When loaded a HTML page then the navigate state are correct")
 
         val options = session.options("-refresh")

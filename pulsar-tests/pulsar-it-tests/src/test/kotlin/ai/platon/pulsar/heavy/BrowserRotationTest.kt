@@ -1,15 +1,15 @@
 package ai.platon.pulsar.heavy
 
+import ai.platon.pulsar.browser.AbstractWebDriver
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.collect.UrlFeeder
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.sleepSeconds
 import ai.platon.pulsar.common.urls.URLUtils
+import ai.platon.pulsar.loop.TaskLoop
 import ai.platon.pulsar.persist.ProtocolStatus
 import ai.platon.pulsar.skeleton.PulsarSettings
-import ai.platon.pulsar.skeleton.TaskLoop
 import ai.platon.pulsar.skeleton.workflow.common.url.ListenableHyperlink
-import ai.platon.pulsar.skeleton.browser.driver.AbstractWebDriver
 import kotlinx.coroutines.delay
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions
@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
@@ -52,21 +53,21 @@ class BrowserRotationTest : MassiveTestBase() {
         kotlin.runCatching { AppPaths.LOCAL_STORAGE_DIR.resolve("localfile-org").deleteRecursively() }
     }
 
-    @Test
-    fun testWithSequentialBrowser() {
+    @org.junit.jupiter.api.Test
+    suspend fun testWithSequentialBrowser() {
         Assumptions.assumeTrue { testFileCount > 0 }
         PulsarSettings.withSequentialBrowsers()
         runAndAwait()
     }
 
-    @Test
-    fun testWithTemporaryBrowser() {
+    @org.junit.jupiter.api.Test
+    suspend fun testWithTemporaryBrowser() {
         Assumptions.assumeTrue { testFileCount > 0 }
         PulsarSettings.withTemporaryBrowser()
         runAndAwait()
     }
 
-    private fun runAndAwait() {
+    private suspend fun runAndAwait() {
         if (testFileCount == 0) {
             printlnPro("Skip the test since testFileCount is 0")
             return
@@ -112,7 +113,7 @@ class BrowserRotationTest : MassiveTestBase() {
         be.onDocumentFullyLoaded.addLast { page, driver ->
             val text = driver.selectFirstTextOrNull("body")
             // check text
-            delay(3000)
+            delay(3000.milliseconds)
         }
 
         be.onDidInteract.addLast { page, driver ->

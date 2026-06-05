@@ -115,8 +115,15 @@ public interface CapabilityTypes {
     /**
      * The mode of browser context, case-insensitive.
      * default, system_default, prototype, sequential, temporary
+     * @deprecated Use {@code BROWSER_PROFILE_MODE} instead
      */
-    String BROWSER_CONTEXT_MODE = "browser.context.mode";
+    @Deprecated
+    String BROWSER_CONTEXT_MODE = "browser.profile.mode";
+    /**
+     * The mode of browser profile, case-insensitive.
+     * default, system_default, prototype, sequential, temporary
+     */
+    String BROWSER_PROFILE_MODE = "browser.profile.mode";
     /**
      * The number of active privacy contexts.
      */
@@ -125,12 +132,17 @@ public interface CapabilityTypes {
      * The number of active privacy contexts.
      */
     String BROWSER_CONTEXT_NUMBER = "browser.context.number";
+
     /**
-     * The minimal number of sequential privacy agents, the active privacy contexts is chosen from them.
+     * @deprecated Use {@code MIN_SEQUENTIAL_BROWSER_PROFILE_NUMBER} instead
      * */
     String MIN_SEQUENTIAL_PRIVACY_AGENT_NUMBER = "min.sequential.privacy.agent.number";
     /**
-     * The maximum number of sequential privacy agents, the active privacy contexts is chosen from them.
+     * The minimal number of sequential browser profiles, the active privacy contexts is chosen from them.
+     * */
+    String MIN_SEQUENTIAL_BROWSER_PROFILE_NUMBER = "min.sequential.privacy.agent.number";
+    /**
+     * The maximum number of sequential browser profiles, the active privacy contexts is chosen from them.
      * */
     String MAX_SEQUENTIAL_PRIVACY_AGENT_NUMBER = "max.sequential.privacy.agent.number";
     /**

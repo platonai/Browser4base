@@ -21,7 +21,7 @@
 
     <groupId>ai.platon.pulsar</groupId>
     <artifactId>pulsar</artifactId>
-    <version>4.7.10-SNAPSHOT</version>
+    <version>4.8.3-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Browser4 Base</name>
@@ -91,6 +91,7 @@
         <module>pulsar-bom</module>
         <module>pulsar-spring-support</module>
         <module>pulsar-tests/pulsar-tests-common</module>
+        <module>pulsar-all</module>
     </modules>
 
     <profiles>
@@ -110,6 +111,9 @@
                      Only exclude E2E, SDK, and ManualOnly tests -->
                 <surefire.excludedGroups>E2E,E2ETest,SDK,ManualOnly</surefire.excludedGroups>
             </properties>
+            <modules>
+                <module>pulsar-tests/pulsar-it-tests</module>
+            </modules>
         </profile>
 
         <!-- Deployment profile -->
@@ -276,6 +280,8 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -485,11 +491,6 @@
 
             <dependency>
                 <groupId>ai.platon.pulsar</groupId>
-                <artifactId>pulsar-beans</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ai.platon.pulsar</groupId>
                 <artifactId>pulsar-boot</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -600,3 +601,11 @@
     </properties>
 
 </project>
+
+
+
+
+
+
+
+

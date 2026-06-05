@@ -1,6 +1,8 @@
 package ai.platon.pulsar.driver.chrome.dom
 
-import ai.platon.pulsar.driver.chrome.dom.model.*
+import ai.platon.pulsar.chrome.dom.DOMSerializer
+import ai.platon.pulsar.chrome.dom.DOMStateBuilder
+import ai.platon.pulsar.chrome.dom.model.*
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName

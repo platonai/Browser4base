@@ -52,7 +52,7 @@ object DomToH2Queries {
      * or an array of strings represented by a [ValueArray]
      * @return A collection of [WebPage]s
      */
-    fun loadAll(session: PulsarSession, urls: Value): Collection<WebPage> {
+    suspend fun loadAll(session: PulsarSession, urls: Value): Collection<WebPage> {
         var pages: Collection<WebPage> = listOf()
 
         when (urls) {
@@ -85,7 +85,7 @@ object DomToH2Queries {
      * @param transformer    The transformer used to translate a Web page into something else
      * @return A collection of O
      */
-    fun <O> loadAll(
+    suspend fun <O> loadAll(
         session: PulsarSession,
         configuredUrls: Value, restrictCss: String, offset: Int, limit: Int,
         transformer: (Element, String, Int, Int) -> Collection<O>
@@ -112,7 +112,7 @@ object DomToH2Queries {
         return collection
     }
 
-    fun loadOutPages(
+    suspend fun loadOutPages(
         session: PulsarSession,
         portalUrl: String, restrictCss: String,
         offset: Int = 1, limit: Int = Int.MAX_VALUE,
@@ -308,34 +308,6 @@ object DomToH2Queries {
 
         anchors.forEach {
             rs.addRow(it.url, it.text, it.path, it.left, it.top, it.width, it.height)
-        }
-
-        return rs
-    }
-
-    /**
-     * Get result set of a data class
-     * TODO: test is required
-     */
-    fun toResultSet(objects: Iterable<Any>): ResultSet {
-        val rs = SimpleResultSet()
-        val first = objects.firstOrNull() ?: return rs
-        val primaryConstructor = first::class.primaryConstructor ?: return rs
-
-        val propertyNames = primaryConstructor.parameters.mapIndexed { i, kParameter ->
-            kParameter.name ?: "C${1 + i}"
-        }
-        propertyNames.forEach {
-            rs.addColumn(it.uppercase(Locale.getDefault()))
-        }
-
-        val memberProperties = first::class.memberProperties.filter { it.name in propertyNames }
-        objects.forEach { obj ->
-            val values = memberProperties
-                .filter { it.name in propertyNames }
-                .map { it.getter.call(obj).toString() }
-                .toTypedArray()
-            rs.addRow(*values)
         }
 
         return rs
