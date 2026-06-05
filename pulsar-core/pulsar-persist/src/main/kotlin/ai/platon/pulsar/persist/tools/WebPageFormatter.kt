@@ -1,16 +1,3 @@
-package ai.platon.pulsar.persist.tools
-
-import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.persist.WebPageExt
-import com.google.gson.GsonBuilder
-import org.apache.gora.util.ByteUtils
-import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
-import java.time.Instant
-import java.time.LocalDateTime
-import java.util.stream.Collectors
-import kotlin.collections.iterator
-
 /*******************************************************************************
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,6 +14,18 @@ import kotlin.collections.iterator
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package ai.platon.pulsar.persist.tools
+
+import ai.platon.pulsar.common.serialize.json.prettyPulsarObjectMapper
+import ai.platon.pulsar.persist.WebPage
+import ai.platon.pulsar.persist.WebPageExt
+import org.apache.gora.util.ByteUtils
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import java.time.Instant
+import java.time.LocalDateTime
+import java.util.stream.Collectors
+
 class WebPageFormatter(val page: WebPage) {
     private var withText = false
     private var withContent = false
@@ -251,8 +250,7 @@ class WebPageFormatter(val page: WebPage) {
     }
 
     fun toJson(): String {
-        val gson = GsonBuilder().setPrettyPrinting().create()
-        return gson.toJson(toMap())
+        return prettyPulsarObjectMapper().writeValueAsString(toMap())
     }
 
     private fun format(instant: Instant): String {

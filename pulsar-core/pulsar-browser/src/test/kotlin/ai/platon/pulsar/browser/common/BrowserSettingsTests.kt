@@ -1,6 +1,6 @@
 package ai.platon.pulsar.browser.common
 
-import ai.platon.pulsar.driver.InteractSettings
+import ai.platon.pulsar.browser.InteractSettings
 import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
@@ -21,7 +21,6 @@ class BrowserSettingsTests {
         assertNotNull(json)
 
         val settings2: InteractSettings = pulsarObjectMapper().readValue(json)
-//        val settings2 = Gson().fromJson(json, InteractSettings::class.java)
         assertEquals(settings.toString(), settings2.toString())
     }
 
@@ -68,7 +67,6 @@ class BrowserSettingsTests {
         assertNotNull(json)
 
         val settings2: InteractSettings = pulsarObjectMapper().readValue(json)
-//        val settings2 = Gson().fromJson(json, InteractSettings::class.java)
         assertEquals(settings.toString(), settings2.toString())
     }
 }

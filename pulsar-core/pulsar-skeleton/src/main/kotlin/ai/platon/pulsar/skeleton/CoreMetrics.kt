@@ -11,8 +11,8 @@ import ai.platon.pulsar.common.config.Params
 import ai.platon.pulsar.common.emoji.PopularEmoji
 import ai.platon.pulsar.common.measure.ByteUnitConverter
 import ai.platon.pulsar.common.urls.URLUtils
+import ai.platon.pulsar.core.api.WebPage
 import ai.platon.pulsar.persist.WebDb
-import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.skeleton.common.AppSystemInfo
 import ai.platon.pulsar.skeleton.common.message.MiscMessageWriter
 import ai.platon.pulsar.skeleton.common.metrics.MetricsSystem
@@ -78,12 +78,12 @@ class CoreMetrics(
     /**
      * The start time of the program process
      */
-    val startTime = Instant.now()
+    val startTime: Instant = Instant.now()
 
     /**
      * The elapsed time since the program process starts
      */
-    val elapsedTime get() = Duration.between(startTime, Instant.now())
+    val elapsedTime: Duration get() = Duration.between(startTime, Instant.now())
 
     /**
      * The elapsed time in seconds since the program process starts

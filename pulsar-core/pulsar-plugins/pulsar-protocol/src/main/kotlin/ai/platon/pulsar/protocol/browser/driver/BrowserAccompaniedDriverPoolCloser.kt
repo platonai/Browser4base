@@ -1,11 +1,11 @@
 package ai.platon.pulsar.protocol.browser.driver
 
+import ai.platon.pulsar.browser.AbstractBrowser
+import ai.platon.pulsar.browser.Browser
+import ai.platon.pulsar.browser.BrowserId
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.warnInterruptible
-import ai.platon.pulsar.skeleton.browser.Browser
-import ai.platon.pulsar.skeleton.browser.detail.AbstractBrowser
 import ai.platon.pulsar.skeleton.common.AppSystemInfo
-import ai.platon.pulsar.skeleton.workflow.fetch.privacy.BrowserId
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -33,6 +33,11 @@ internal class BrowserAccompaniedDriverPoolCloser(
      * */
     @Synchronized
     fun closeGracefully(browserId: BrowserId) {
+        kotlin.runCatching { doClose(browserId) }.onFailure { warnInterruptible(this, it) }
+    }
+
+    @Synchronized
+    fun closeForcibly(browserId: BrowserId) {
         kotlin.runCatching { doClose(browserId) }.onFailure { warnInterruptible(this, it) }
     }
 

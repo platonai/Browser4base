@@ -1,30 +1,31 @@
 package ai.platon.pulsar.persist.model
 
 import ai.platon.pulsar.common.config.AppConstants.DEFAULT_VIEWPORT
-import com.google.gson.Gson
+import ai.platon.pulsar.persist.gora.generated.GActiveDOMStat
+import ai.platon.pulsar.persist.gora.generated.GActiveDOMStatus
 
 /**
  * Records the status of a DOM in a real browser.
  * */
 data class ActiveDOMStatus(
-    val n: Int = 0,
-    val scroll: Int = 0,
-    val st: String = "",
-    val r: String = "",
-    val idl: String = "",
-    val ec: String = ""
+        val n: Int = 0,
+        val scroll: Int = 0,
+        val st: String = "",
+        val r: String = "",
+        val idl: String = "",
+        val ec: String = ""
 )
 
 /**
  * The statistics of a DOM in a real browser.
  * */
 data class ActiveDOMStat(
-    val ni: Int = 0,
-    val na: Int = 0,
-    val nnm: Int = 0,
-    val nst: Int = 0,
-    val w: Int = 0,
-    val h: Int = 0
+        val ni: Int = 0,
+        val na: Int = 0,
+        val nnm: Int = 0,
+        val nst: Int = 0,
+        val w: Int = 0,
+        val h: Int = 0
 )
 
 /**
@@ -132,17 +133,8 @@ data class ActiveDOMUrls(
      */
     var referrer: String = "",
 ) {
-    fun toJson(): String {
-        return gson.toJson(this)
-    }
-
     companion object {
-        private val gson = Gson()
         val DEFAULT = ActiveDOMUrls()
-
-        fun fromJson(json: String): ActiveDOMUrls {
-            return gson.fromJson(json, ActiveDOMUrls::class.java)
-        }
     }
 }
 
@@ -154,40 +146,29 @@ data class ActiveDOMStatTrace(
     val lastD: ActiveDOMStat? = ActiveDOMStat()
 ) {
     override fun toString(): String {
-        val s1 = initStat ?: ActiveDOMStat()
-        val s2 = lastStat ?: ActiveDOMStat()
-        val s3 = initD ?: ActiveDOMStat()
-        val s4 = lastD ?: ActiveDOMStat()
+        val s1 = initStat?:ActiveDOMStat()
+        val s2 = lastStat?:ActiveDOMStat()
+        val s3 = initD?:ActiveDOMStat()
+        val s4 = lastD?:ActiveDOMStat()
 
         val s = String.format(
-            "img: %s/%s/%s/%s, a: %s/%s/%s/%s, num: %s/%s/%s/%s, st: %s/%s/%s/%s, " +
-                    "w: %s/%s/%s/%s, h: %s/%s/%s/%s",
-            s1.ni, s2.ni, s3.ni, s4.ni,
-            s1.na, s2.na, s3.na, s4.na,
-            s1.nnm, s2.nnm, s3.nnm, s4.nnm,
-            s1.nst, s2.nst, s3.nst, s4.nst,
-            s1.w, s2.w, s3.w, s4.w,
-            s1.h, s2.h, s3.h, s4.h
+                "img: %s/%s/%s/%s, a: %s/%s/%s/%s, num: %s/%s/%s/%s, st: %s/%s/%s/%s, " +
+                        "w: %s/%s/%s/%s, h: %s/%s/%s/%s",
+                s1.ni, s2.ni, s3.ni, s4.ni,
+                s1.na, s2.na, s3.na, s4.na,
+                s1.nnm, s2.nnm, s3.nnm, s4.nnm,
+                s1.nst, s2.nst, s3.nst, s4.nst,
+                s1.w, s2.w, s3.w, s4.w,
+                s1.h, s2.h, s3.h, s4.h
         )
 
-        val st = status ?: ActiveDOMStatus()
-        return String.format(
-            "n:%s scroll:%s st:%s r:%s idl:%s\t%s\t(is,ls,id,ld)",
-            st.n, st.scroll, st.st, st.r, st.idl, s
-        )
-    }
-
-    fun toJson(): String {
-        return gson.toJson(this)
+        val st = status?:ActiveDOMStatus()
+        return String.format("n:%s scroll:%s st:%s r:%s idl:%s\t%s\t(is,ls,id,ld)",
+                st.n, st.scroll, st.st, st.r, st.idl, s)
     }
 
     companion object {
-        private val gson = Gson()
         val DEFAULT = ActiveDOMStatTrace()
-
-        fun fromJson(json: String): ActiveDOMStatTrace {
-            return gson.fromJson(json, ActiveDOMStatTrace::class.java)
-        }
     }
 }
 
@@ -214,16 +195,7 @@ data class ActiveDOMMessage(
     var urls: ActiveDOMUrls? = null,
     var metadata: ActiveDOMMetadata? = null,
 ) {
-    fun toJson(): String {
-        return gson.toJson(this)
-    }
-
     companion object {
-        private val gson = Gson()
         val DEFAULT = ActiveDOMMessage()
-
-        fun fromJson(json: String): ActiveDOMMessage {
-            return gson.fromJson(json, ActiveDOMMessage::class.java)
-        }
     }
 }

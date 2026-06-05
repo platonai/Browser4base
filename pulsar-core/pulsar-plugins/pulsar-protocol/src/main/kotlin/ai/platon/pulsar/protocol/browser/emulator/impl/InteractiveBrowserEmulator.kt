@@ -15,13 +15,17 @@
  */
 package ai.platon.pulsar.protocol.browser.emulator.impl
 
-import ai.platon.pulsar.driver.common.BrowserSettings
-import ai.platon.pulsar.driver.DomSettlePolicy
+import ai.platon.pulsar.browser.AbstractWebDriver
+import ai.platon.pulsar.browser.DomSettlePolicy
+import ai.platon.pulsar.browser.common.*
+import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.AppConstants.VAR_CAPTURE
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.event.AbstractEventEmitter
+import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
+import ai.platon.pulsar.core.api.WebDriver
 import ai.platon.pulsar.persist.AbstractWebPage
 import ai.platon.pulsar.persist.ProtocolStatus
 import ai.platon.pulsar.persist.RetryScope
@@ -29,15 +33,7 @@ import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.persist.metadata.ProtocolStatusCodes
 import ai.platon.pulsar.persist.model.ActiveDOMMessage
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolManager
-import ai.platon.pulsar.protocol.browser.driver.cdt.PulsarWebDriver
 import ai.platon.pulsar.protocol.browser.emulator.*
-import ai.platon.pulsar.skeleton.browser.driver.AbstractWebDriver
-import ai.platon.pulsar.skeleton.browser.driver.IllegalWebDriverStateException
-import ai.platon.pulsar.skeleton.browser.driver.NavigateEntry
-import ai.platon.pulsar.skeleton.browser.driver.NetworkResourceHelper
-import ai.platon.pulsar.skeleton.browser.driver.WebDriver
-import ai.platon.pulsar.skeleton.browser.driver.WebDriverCancellationException
-import ai.platon.pulsar.skeleton.browser.driver.WebDriverException
 import ai.platon.pulsar.skeleton.common.metrics.MetricsSystem
 import ai.platon.pulsar.skeleton.common.persist.ext.browseEventHandlers
 import ai.platon.pulsar.skeleton.common.persist.ext.options
@@ -47,6 +43,7 @@ import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
 import ai.platon.pulsar.skeleton.workflow.protocol.ForwardingResponse
 import ai.platon.pulsar.skeleton.workflow.protocol.Response
 import ai.platon.pulsar.skeleton.workflow.protocol.http.ProtocolStatusTranslator
+import com.fasterxml.jackson.module.kotlin.readValue
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import java.nio.charset.StandardCharsets
@@ -271,6 +268,7 @@ open class InteractiveBrowserEmulator(
     @Throws(Exception::class)
     protected open suspend fun browseWithDriver(task: FetchTask, driver: WebDriver): FetchResult {
         require(driver is AbstractWebDriver)
+        checkState(driver)
 
         // page.lastBrowser is used by AppFiles.export, so it has to be set before export
         // TODO: page should not be modified in browser phase, it should only be updated using PageDatum
@@ -335,27 +333,6 @@ open class InteractiveBrowserEmulator(
         }
 
         return FetchResult(task, response ?: ForwardingResponse(exception, task.page), exception)
-    }
-
-    private fun handleException(e: Exception, task: FetchTask, driver: WebDriver) {
-        when {
-            e.javaClass.name == "kotlinx.coroutines.JobCancellationException" -> {
-                if (isActive) {
-                    // The system is not closing.
-                    // The coroutine is canceled, it's not a normal case
-                    val message = e.message ?: "Coroutine was cancelled"
-                    logger.warn("{}. {} | {}", task.page.id, message, task.url)
-                } else {
-                    // The system is closing.
-                    // Let the higher level to handle it, usually it's handled by the main loop
-                    throw e
-                }
-            }
-
-            else -> {
-                logger.warn("[Unexpected]", e)
-            }
-        }
     }
 
     @Throws(NavigateTaskCancellationException::class, WebDriverCancellationException::class)
@@ -441,7 +418,7 @@ open class InteractiveBrowserEmulator(
         require(driver is AbstractWebDriver)
 
         val browserSettings = driver.browser.settings
-        // TODO: a better flag to specify whether to attach or navigate
+        // TODO: a better flag to specify whether to capture or navigate
         val page = fetchTask.page
         require(page is AbstractWebPage)
         val capture = page.hasVar(VAR_CAPTURE)
@@ -542,8 +519,6 @@ open class InteractiveBrowserEmulator(
         val result = InteractResult(ProtocolStatus.STATUS_SUCCESS, null)
         val page = task.page
         require(driver is AbstractWebDriver)
-
-        tracer?.trace("InteractSettings: {}", task.interactSettings)
 
         if (result.state.isContinue) {
             updateMetaInfos(page, driver)
@@ -655,6 +630,11 @@ open class InteractiveBrowserEmulator(
         var n = 10
         while (n-- > 0 && !isScriptInjected(driver)) {
             delay(1000.milliseconds)
+            checkState(driver)
+            if (n < 5) {
+                // TODO: Health checks should reside in the driver layer and be managed through a unified strategy
+                driver.healthy()
+            }
         }
 
         if (n <= 0) {
@@ -701,7 +681,7 @@ open class InteractiveBrowserEmulator(
                 msg = evaluate(interactTask, expression)
 
                 if (msg == null || msg == false) {
-                    delay(delayMillis)
+                    delay(delayMillis.milliseconds)
                 }
             }
             message = msg
@@ -746,7 +726,7 @@ open class InteractiveBrowserEmulator(
             if (driver.isNetworkIdle) {
                 break
             }
-            delay(pollMillis)
+            delay(pollMillis.milliseconds)
         }
 
         result.protocolStatus = ProtocolStatus.STATUS_SUCCESS
@@ -769,7 +749,7 @@ open class InteractiveBrowserEmulator(
             // evaluate(interactTask, positions, scrollInterval, bringToFront = bringToFront)
             positions.forEach {
                 driver.scrollToMiddle(it)
-                delay(scrollInterval)
+                delay(scrollInterval.milliseconds)
             }
         }
     }
@@ -810,7 +790,7 @@ open class InteractiveBrowserEmulator(
             counterJsWaits.inc()
             val verbose = false
             exists = expressions.all { expression -> true == evaluate(interactTask, expression, verbose) }
-            delay(delayMillis)
+            delay(delayMillis.milliseconds)
         }
     }
 
@@ -819,7 +799,7 @@ open class InteractiveBrowserEmulator(
         val message = evaluate(interactTask, expression)
 
         if (message is String) {
-            result.activeDOMMessage = ActiveDOMMessage.fromJson(message)
+            result.activeDOMMessage = pulsarObjectMapper().readValue<ActiveDOMMessage>(message)
             if (taskLogger.isDebugEnabled) {
                 val page = interactTask.navigateTask.fetchTask.page
                 taskLogger.debug("{}. {} | {}", page.id, result.activeDOMMessage?.trace, interactTask.url)

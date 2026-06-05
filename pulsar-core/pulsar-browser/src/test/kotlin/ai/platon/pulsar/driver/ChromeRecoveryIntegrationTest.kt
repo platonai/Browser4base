@@ -1,11 +1,11 @@
 package ai.platon.pulsar.driver
 
-import ai.platon.pulsar.driver.chrome.ChromeDestroyer
+import ai.platon.pulsar.chrome.ChromeDestroyer
 import ai.platon.pulsar.common.browser.BrowserFiles
-import ai.platon.pulsar.driver.chrome.BrowserFileSystem
-import ai.platon.pulsar.driver.chrome.ChromeLauncher
-import ai.platon.pulsar.driver.chrome.ChromeOptions
-import ai.platon.pulsar.driver.chrome.LauncherOptions
+import ai.platon.pulsar.chrome.BrowserFileSystem
+import ai.platon.pulsar.chrome.ChromeLauncher
+import ai.platon.pulsar.chrome.util.ChromeOptions
+import ai.platon.pulsar.chrome.util.LauncherOptions
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors

@@ -15,7 +15,7 @@
     <parent>
         <groupId>ai.platon.pulsar</groupId>
         <artifactId>pulsar-spring-support</artifactId>
-        <version>4.7.15-SNAPSHOT</version>
+        <version>4.8.4-SNAPSHOT</version>
     </parent>
 
     <artifactId>pulsar-boot</artifactId>
@@ -32,11 +32,11 @@
         </dependency>
         <dependency>
             <groupId>ai.platon.pulsar</groupId>
-            <artifactId>pulsar-ql</artifactId>
+            <artifactId>pulsar-protocol</artifactId>
         </dependency>
         <dependency>
             <groupId>ai.platon.pulsar</groupId>
-            <artifactId>pulsar-beans</artifactId>
+            <artifactId>pulsar-ql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
