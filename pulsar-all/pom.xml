@@ -23,6 +23,7 @@
     <name>Pulsar All-in-one</name>
 
     <build>
+        <defaultGoal>verify</defaultGoal>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

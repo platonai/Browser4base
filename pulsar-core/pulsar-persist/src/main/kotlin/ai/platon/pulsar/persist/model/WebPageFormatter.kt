@@ -16,10 +16,10 @@
  */
 package ai.platon.pulsar.persist.model
 
-import ai.platon.gora.util.ByteUtils
+import ai.platon.pulsar.common.serialize.json.prettyPulsarObjectMapper
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.persist.WebPageExt
-import com.google.gson.GsonBuilder
+import org.apache.gora.util.ByteUtils
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.time.Instant
@@ -272,8 +272,7 @@ class WebPageFormatter(val page: WebPage) {
     }
 
     fun toJson(): String {
-        val gson = GsonBuilder().setPrettyPrinting().create()
-        return gson.toJson(toMap())
+        return prettyPulsarObjectMapper().writeValueAsString(toMap())
     }
 
     private fun format(instant: Instant): String {
