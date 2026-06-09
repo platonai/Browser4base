@@ -1,8 +1,6 @@
 package ai.platon.pulsar.persist.model
 
 import ai.platon.pulsar.common.config.AppConstants.DEFAULT_VIEWPORT
-import ai.platon.pulsar.persist.gora.generated.GActiveDOMStat
-import ai.platon.pulsar.persist.gora.generated.GActiveDOMStatus
 
 /**
  * Records the status of a DOM in a real browser.
