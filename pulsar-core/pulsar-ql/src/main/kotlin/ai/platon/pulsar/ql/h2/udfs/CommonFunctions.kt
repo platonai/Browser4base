@@ -1,12 +1,12 @@
 package ai.platon.pulsar.ql.h2.udfs
 
 import ai.platon.pulsar.common.RegexExtractor
+import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.ql.common.annotation.UDFGroup
 import ai.platon.pulsar.ql.common.annotation.UDFunction
 import ai.platon.pulsar.ql.common.types.ValueStringJSON
 import com.google.common.annotations.Beta
-import com.google.gson.Gson
 import org.apache.commons.lang3.StringUtils
 import org.h2.value.*
 import java.sql.ResultSet
@@ -57,13 +57,13 @@ object CommonFunctions {
         return ValueArray.get(array)
     }
 
-    @UDFunction
+    @UDFunction(description = "Create a ValueArray from vararg values")
     @JvmStatic
     fun makeArray(vararg values: Value): ValueArray {
         return ValueArray.get(values)
     }
 
-    @UDFunction
+    @UDFunction(description = "Create a ValueArray by repeating a given value n times")
     @JvmStatic
     fun makeArrayN(value: Value, n: Int): ValueArray {
         val values = Array(n) { value }
@@ -73,7 +73,7 @@ object CommonFunctions {
     /**
      * The first column is treated as the key while the second one is treated as the value
      * */
-    @UDFunction
+    @UDFunction(description = "Convert the first two columns of a ResultSet into a JSON object (column 1 = key, column 2 = value)")
     @JvmStatic
     fun toJson(rs: ResultSet): String {
         if (rs.metaData.columnCount < 2) {
@@ -88,78 +88,78 @@ object CommonFunctions {
             map[k] = v
         }
 
-        return Gson().toJson(map)
+        return Pson.toJson(map)
     }
 
     @Beta
-    @UDFunction
+    @UDFunction(description = "Create an empty ValueStringJSON initialized with '{}'")
     @JvmStatic
     fun makeValueStringJSON(): ValueStringJSON {
         return ValueStringJSON.get("{}")
     }
 
     @Beta
-    @UDFunction
+    @UDFunction(description = "Create a ValueStringJSON from a JSON text string and a Java class name for deserialization")
     @JvmStatic
     fun makeValueStringJSON(jsonText: String, javaClassName: String): ValueStringJSON {
         return ValueStringJSON.get(jsonText, javaClassName)
     }
 
     /**
-     * For all ValueInts in the values, find out the minimal value, ignore no-integer values
+     * For all ValueInts in the values, find out the minimal value, ignore non-integer values
      * */
-    @UDFunction
+    @UDFunction(description = "Find the minimum integer value in the array, ignoring non-integer entries")
     @JvmStatic
     fun intArrayMin(values: ValueArray): Value {
         return values.list.filterIsInstance<ValueInt>().minByOrNull { it.int } ?: ValueNull.INSTANCE
     }
 
     /**
-     * For all ValueInts in the values, find out the maximal value, ignore no-integer values
+     * For all ValueInts in the values, find out the maximal value, ignore non-integer values
      * */
-    @UDFunction
+    @UDFunction(description = "Find the maximum integer value in the array, ignoring non-integer entries")
     @JvmStatic
     fun intArrayMax(values: ValueArray): Value {
         return values.list.filterIsInstance<ValueInt>().maxByOrNull { it.int } ?: ValueNull.INSTANCE
     }
 
     /**
-     * For all ValueFloats in the values, find out the minimal value, ignore no-float values
+     * For all ValueFloats in the values, find out the minimal value, ignore non-float values
      * */
-    @UDFunction
+    @UDFunction(description = "Find the minimum float value in the array, ignoring non-float entries")
     @JvmStatic
     fun floatArrayMin(values: ValueArray): Value {
         return values.list.filterIsInstance<ValueFloat>().minByOrNull { it.float } ?: ValueNull.INSTANCE
     }
 
     /**
-     * For all ValueFloats in the values, find out the maximal value, ignore no-float values
+     * For all ValueFloats in the values, find out the maximal value, ignore non-float values
      * */
-    @UDFunction
+    @UDFunction(description = "Find the maximum float value in the array, ignoring non-float entries")
     @JvmStatic
     fun floatArrayMax(values: ValueArray): Value {
         return values.list.filterIsInstance<ValueFloat>().maxByOrNull { it.float } ?: ValueNull.INSTANCE
     }
 
-    @UDFunction
+    @UDFunction(description = "Return the string representation of a Value")
     @JvmStatic
     fun getString(value: Value): String {
         return value.string
     }
 
-    @UDFunction
+    @UDFunction(description = "Check if a ValueArray is empty")
     @JvmStatic
     fun isEmpty(array: ValueArray): Boolean {
         return array.list.isEmpty()
     }
 
-    @UDFunction
+    @UDFunction(description = "Check if a ValueArray is not empty")
     @JvmStatic
     fun isNotEmpty(array: ValueArray): Boolean {
         return array.list.isNotEmpty()
     }
 
-    @UDFunction
+    @UDFunction(description = "Format a timestamp string (milliseconds since epoch) using the given date format pattern")
     @JvmStatic
     @JvmOverloads
     fun formatTimestamp(timestamp: String, fmt: String = "yyyy-MM-dd HH:mm:ss"): String {
