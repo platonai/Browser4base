@@ -4,34 +4,34 @@ import ai.platon.pulsar.basic.TestBase
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.config.AppConstants.LOCAL_FILE_BASE_URL
 import ai.platon.pulsar.common.printlnPro
+import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.persist.model.WebPageFormatter
-import ai.platon.pulsar.common.serialize.json.Pson
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import java.nio.file.Files
-import kotlin.test.*
 
 /**
  * Created by Vincent on 16-7-20.
  * Copyright @ 2013-2016 Platon AI. All rights reserved
  */
-//@SpringBootTest
-//@Import(PulsarAutoConfiguration::class)
-class PulsarSessionTests : TestBase() {
+class PulsarSessionTests: TestBase() {
     private val timestamp = System.currentTimeMillis()
     private val url = "https://www.amazon.com/Best-Sellers/zgbs?t=$timestamp"
     private val url2 = "https://www.amazon.com/Best-Sellers-Beauty/zgbs/beauty?t=$timestamp"
 
     private val resourceUrl = "https://www.amazon.com/robots.txt?t=$timestamp"
 
-    @BeforeTest
+    @BeforeEach
     fun setup() {
         // The data store is FileStore, and delete does not work
 //        webDB.delete(url)
 //        webDB.delete(url2)
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     suspend fun testNormalize() {
         val normURL = session.normalize(url)
         assertNotEquals(session.sessionConfig, normURL.options.conf)
@@ -39,13 +39,14 @@ class PulsarSessionTests : TestBase() {
         assertEquals(normURL.options.conf, page.conf)
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     suspend fun testLoad() {
         val page = session.load(url)
         val page2 = webDB.getOrNull(url)
 
         if (page.protocolStatus.isSuccess) {
             assertNotNull(page2)
+            requireNotNull(page2)
             assertTrue { page2.fetchCount > 0 }
             assertTrue { page2.protocolStatus.isSuccess }
         }
@@ -53,12 +54,12 @@ class PulsarSessionTests : TestBase() {
         if (page2 != null) {
             printlnPro(WebPageFormatter(page2))
             printlnPro(page2.vividLinks)
-            printlnPro(Pson.toJson(page2.activeDOMStatus))
+            printlnPro(Pson.toJson(page2.activeDOMStatus ?: ""))
             printlnPro(Pson.toJson(page2.activeDOMStatTrace))
         }
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     suspend fun testLoadResource() {
         val page = session.loadResource(resourceUrl, url, "-refresh")
 
@@ -70,7 +71,7 @@ class PulsarSessionTests : TestBase() {
         printlnPro("Webpage exported | $path")
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     suspend fun testLoadLocalFile() {
         val path = AppPaths.getTmpDirectory("test.html")
         printlnPro(path)

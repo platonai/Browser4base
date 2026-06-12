@@ -11,11 +11,8 @@ import ai.platon.pulsar.persist.ProtocolStatus
 import ai.platon.pulsar.skeleton.PulsarSettings
 import ai.platon.pulsar.skeleton.workflow.common.url.ListenableHyperlink
 import kotlinx.coroutines.delay
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assumptions
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Tag
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.*
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
 import kotlin.test.Test
@@ -53,18 +50,18 @@ class BrowserRotationTest : MassiveTestBase() {
         kotlin.runCatching { AppPaths.LOCAL_STORAGE_DIR.resolve("localfile-org").deleteRecursively() }
     }
 
-    @org.junit.jupiter.api.Test
-    suspend fun testWithSequentialBrowser() {
+    @Test
+    fun testWithSequentialBrowser() {
         Assumptions.assumeTrue { testFileCount > 0 }
         PulsarSettings.withSequentialBrowsers()
-        runAndAwait()
+        runBlocking { runAndAwait() }
     }
 
-    @org.junit.jupiter.api.Test
-    suspend fun testWithTemporaryBrowser() {
+    @Test
+    fun testWithTemporaryBrowser() {
         Assumptions.assumeTrue { testFileCount > 0 }
         PulsarSettings.withTemporaryBrowser()
-        runAndAwait()
+        runBlocking { runAndAwait() }
     }
 
     private suspend fun runAndAwait() {

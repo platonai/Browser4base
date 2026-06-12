@@ -574,12 +574,12 @@ open class InteractiveBrowserEmulator(
             emit1(EmulateEvents.didScroll, page, driver)
         }
 
-        if (result.state.isContinue && hasScript) {
-            val selectors = task.page.options.waitNonBlank.split(",")
-            if (selectors.isNotEmpty()) {
-                waitForElementUntilNonBlank(task, selectors)
-            }
-        }
+//        if (result.state.isContinue && hasScript) {
+//            val selectors = task.page.options.waitNonBlank.split(",")
+//            if (selectors.isNotEmpty()) {
+//                waitForElementUntilNonBlank(task, selectors)
+//            }
+//        }
 
         if (result.state.isContinue) {
             updateMetaInfos(page, driver)

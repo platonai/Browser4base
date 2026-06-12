@@ -1,7 +1,6 @@
 package ai.platon.pulsar.browser
 
 import ai.platon.pulsar.browser.manage.BrowserFactory
-import ai.platon.pulsar.core.api.Browser
 import ai.platon.pulsar.core.api.WebDriver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -130,7 +129,7 @@ open class WebDriverService(
         var n = scrollCount
         while (n-- > 0) {
             driver.scrollDown(1)
-            delay(1000.milliseconds)
+            delay(1000)
         }
         driver.scrollToTop()
 

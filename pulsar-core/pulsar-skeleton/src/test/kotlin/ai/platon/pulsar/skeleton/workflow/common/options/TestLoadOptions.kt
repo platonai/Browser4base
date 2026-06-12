@@ -4,12 +4,14 @@ import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.urls.URLUtils
+import ai.platon.pulsar.skeleton.common.ApiPublic
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.context.PulsarContexts
 import ai.platon.pulsar.skeleton.context.support.AbstractPulsarContext
 import ai.platon.pulsar.skeleton.workflow.common.url.StatefulListenableHyperlink
 import java.time.Duration
+import kotlin.reflect.jvm.kotlinProperty
 import kotlin.test.*
 
 class TestLoadOptions {
@@ -47,7 +49,7 @@ class TestLoadOptions {
         val normalizer = context.urlNormalizer
         val normalizerOrNull = context.urlNormalizerOrNull
 
-        assertTrue { normalizer.urlNormalizers.isEmpty() }
+        assertTrue { normalizer.urlNormalizers.isEmpty }
         assertNotNull(normalizerOrNull)
     }
 
@@ -118,12 +120,7 @@ class TestLoadOptions {
     @Test
     fun testOptionNames() {
         assertTrue { arrayOf("-l", "-label", "--label").all { it in LoadOptions.getOptionNames("label") } }
-        assertTrue {
-            arrayOf(
-                "-storeContent",
-                "--store-content"
-            ).all { it in LoadOptions.getOptionNames("storeContent") }
-        }
+        assertTrue { arrayOf("-storeContent", "--store-content").all { it in LoadOptions.getOptionNames("storeContent") } }
     }
 
     @Test
@@ -134,8 +131,7 @@ class TestLoadOptions {
 
     @Test
     fun testBooleanOptions() {
-        var options =
-            LoadOptions.parse("-incognito -expires 1s -ignoreFailure -ignoreFailure -storeContent false", conf)
+        var options = LoadOptions.parse("-incognito -expires 1s -ignoreFailure -ignoreFailure -storeContent false", conf)
         assertTrue(options.incognito)
         assertTrue(options.ignoreFailure)
         assertFalse(options.parse)
@@ -223,13 +219,24 @@ class TestLoadOptions {
 
     @Test
     fun testClone() {
-        val options = LoadOptions.parse("$args -incognito -expires 1s -ignoreFailure -storeContent false", conf)
-        val clone = options.clone()
-        assertEquals(options, clone)
-        val clone2 = clone.clone()
-        assertEquals(options, clone)
-        assertEquals(options, clone2)
-        assertEquals(clone, clone2)
+        val argsList = listOf(
+            "",
+            "-refresh",
+            "-incognito -expires 1s -ignoreFailure",
+            "$args -incognito -expires 1s -ignoreFailure -storeContent false"
+        )
+
+        argsList.forEach {
+            val options = LoadOptions.parse(it, conf)
+            val clone = options.clone()
+            assertEquals(options, clone)
+            val clone2 = clone.clone()
+            assertEquals(options, clone)
+            assertEquals(options, clone2)
+            assertEquals(clone, clone2)
+            assertEquals(options.toString(), clone2.toString())
+            assertEquals(clone.toString(), clone2.toString())
+        }
     }
 
     @Test
@@ -263,10 +270,7 @@ class TestLoadOptions {
 
     @Test
     fun testNormalizeOptions2() {
-        val options = LoadOptions.parse(
-            URLUtils.splitUrlArgs("$url $args -incognito -expires 1s -ignoreFailure -storeContent false").second,
-            conf
-        )
+        val options = LoadOptions.parse(URLUtils.splitUrlArgs("$url $args -incognito -expires 1s -ignoreFailure -storeContent false").second, conf)
         val normURL = i.normalize(url, options)
 
         printlnPro(normURL.configuredUrl)
@@ -296,13 +300,11 @@ class TestLoadOptions {
 
     @Test
     fun testNormalizeItemOptions() {
-        val options =
-            LoadOptions.parse(URLUtils.splitUrlArgs("$url -incognito -expires 1s -ignoreFailure").second, conf)
+        val options = LoadOptions.parse(URLUtils.splitUrlArgs("$url -incognito -expires 1s -ignoreFailure").second, conf)
         val normURL = i.normalize(url, options)
         printlnPro(normURL.configuredUrl)
 
-        val normUrl2 =
-            i.normalize(normURL.configuredUrl, LoadOptions.parse("-tl 40 -itemExpires 1d", conf), toItemOption = true)
+        val normUrl2 = i.normalize(normURL.configuredUrl, LoadOptions.parse("-tl 40 -itemExpires 1d", conf), toItemOption = true)
         printlnPro(normUrl2.configuredUrl)
 
         assertEquals(Duration.ofDays(1), normUrl2.options.expires)
@@ -326,6 +328,27 @@ class TestLoadOptions {
 
     private fun assertOptionNotEquals(expected: String, actual: String, msg: String? = null) {
         assertNotEquals(LoadOptions.parse(expected, conf), LoadOptions.parse(actual, conf), msg)
+    }
+
+    @Test
+    fun testDescriptorApiPublicMatches() {
+        // Verify that all descriptors with isApiPublic=true match @ApiPublic-annotated Kotlin properties.
+        // This test uses kotlin.reflect only as a guard rail in the test suite — the runtime code is 100% reflection-free.
+        val apiPublicFieldNames = LoadOptions::class.java.declaredFields
+            .filter { field ->
+                field.kotlinProperty?.annotations?.any { it is ApiPublic } == true
+            }
+            .map { it.name }
+            .toSet()
+
+        val descriptorApiPublic = LoadOptions.optionDescriptors
+            .filter { it.isApiPublic }
+            .map { it.fieldName }
+            .toSet()
+
+        assertEquals(apiPublicFieldNames, descriptorApiPublic,
+            "OptionDescriptor isApiPublic must match @ApiPublic annotations. " +
+                    "If you added/removed @ApiPublic on a field, update the corresponding descriptor's isApiPublic flag.")
     }
 }
 

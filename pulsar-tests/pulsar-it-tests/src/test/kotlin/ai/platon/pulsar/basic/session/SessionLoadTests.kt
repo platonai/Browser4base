@@ -5,6 +5,7 @@ import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.common.LinkExtractors
 import ai.platon.pulsar.ql.SQLSession
 import ai.platon.pulsar.skeleton.common.persist.ext.loadEventHandlers
+import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
@@ -31,6 +32,7 @@ class SessionLoadTests : TestBase() {
     @Test
     fun ensureSessionCreatedBySQLContextIsNotSQLSession() {
         assertFalse { session is SQLSession }
+        assertTrue { session is AbstractPulsarSession }
     }
 
     /**
@@ -134,6 +136,7 @@ class SessionLoadTests : TestBase() {
 
         logger.info("Tested - whenLoadAllAsyncSecondlyWithoutExpiry_thenPagesAreLoadedFromCache")
     }
+
 
     @org.junit.jupiter.api.Test
     @DisplayName("When loaded a HTML page then the navigate state are correct")
