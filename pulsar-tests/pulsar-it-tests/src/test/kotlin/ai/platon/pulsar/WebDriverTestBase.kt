@@ -1,9 +1,10 @@
 package ai.platon.pulsar
 
+import ai.platon.pulsar.boot.autoconfigure.Browser4AutoConfiguration
 import ai.platon.pulsar.browser.BrowserId
 import ai.platon.pulsar.browser.FastWebDriverService
 import ai.platon.pulsar.browser.common.BrowserSettings
-import ai.platon.pulsar.browser.detail.SimpleScriptConfuser
+import ai.platon.pulsar.browser.common.SimpleScriptConfuser
 import ai.platon.pulsar.browser.manage.BrowserFactory
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.dom.model.MergedDOMTreeNode
@@ -18,12 +19,14 @@ import ai.platon.pulsar.util.server.EnableMockServerApplication
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import java.util.concurrent.atomic.AtomicBoolean
 
 @SpringBootTest(
     classes = [EnableMockServerApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT
 )
+@Import(Browser4AutoConfiguration::class)
 open class WebDriverTestBase : MockSiteAccess() {
 
     companion object {

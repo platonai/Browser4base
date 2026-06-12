@@ -1,5 +1,6 @@
 package ai.platon.pulsar.basic
 
+import ai.platon.pulsar.common.B4Constants.VAR_IS_SCRAPE
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.urls.DegenerateUrl
 import ai.platon.pulsar.common.urls.UrlAware
@@ -17,10 +18,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-const val VAR_IS_SCRAPE = "VAR_IS_SCRAPE"
-
-open class MockListenableHyperlink(url: String) : ListenableHyperlink(url, "") {
-
+open class MockListenableHyperlink(url: String): ListenableHyperlink(url, "") {
     val sequencer = AtomicInteger()
     val triggeredEvents = mutableListOf<String>()
     val expectedEvents = listOf(
@@ -35,7 +33,7 @@ open class MockListenableHyperlink(url: String) : ListenableHyperlink(url, "") {
         "9. CrawlEvent.onLoaded"
     )
 
-    class MockCrawlEventHandlers(val hyperlink: MockListenableHyperlink) : AbstractCrawlEventHandlers() {
+    class MockCrawlEventHandlers(val hyperlink: MockListenableHyperlink): AbstractCrawlEventHandlers() {
         val seq get() = hyperlink.sequencer.incrementAndGet()
 
         init {
@@ -135,7 +133,7 @@ open class MockDegeneratedListenableHyperlink : ListenableHyperlink("", ""), Deg
         "2. CrawlEvent.onLoaded"
     )
 
-    class MockCrawlEventHandlers(val hyperlink: MockDegeneratedListenableHyperlink) : AbstractCrawlEventHandlers() {
+    class MockCrawlEventHandlers(val hyperlink: MockDegeneratedListenableHyperlink): AbstractCrawlEventHandlers() {
         val seq get() = hyperlink.sequencer.incrementAndGet()
 
         init {
