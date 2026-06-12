@@ -1,10 +1,5 @@
 package ai.platon.pulsar.chrome.handler.transport
 
-import ai.platon.pulsar.chrome.RemoteDevTools
-import ai.platon.pulsar.chrome.util.ChromeIOException
-import ai.platon.pulsar.chrome.util.ChromeRPCException
-import ai.platon.pulsar.chrome.util.ReflectUtils
-import ai.platon.pulsar.chrome.util.SuspendAwareHandler
 import ai.platon.cdt.kt.protocol.support.annotations.EventName
 import ai.platon.cdt.kt.protocol.support.annotations.ParamName
 import ai.platon.cdt.kt.protocol.support.annotations.ReturnTypeParameter
@@ -12,6 +7,11 @@ import ai.platon.cdt.kt.protocol.support.annotations.Returns
 import ai.platon.cdt.kt.protocol.support.types.EventHandler
 import ai.platon.cdt.kt.protocol.support.types.EventListener
 import ai.platon.pulsar.browser.impl.MethodInvocation
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.util.ChromeIOException
+import ai.platon.pulsar.chrome.util.ChromeRPCException
+import ai.platon.pulsar.deprecated.util.ReflectUtils
+import ai.platon.pulsar.deprecated.util.SuspendAwareHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
