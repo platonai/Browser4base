@@ -115,6 +115,8 @@ application-private.yml
 /**/application-private.properties
 application-private.properties
 
+settings.local.json
+
 /bin/test-results/
 /test-results/
 /release_notes.md
