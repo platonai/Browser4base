@@ -1,6 +1,6 @@
 package ai.platon.pulsar.basic
 
-import ai.platon.pulsar.boot.autoconfigure.Browser4AutoConfiguration
+import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.boot.autoconfigure.test.PulsarTestContextInitializer
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.getLogger
@@ -15,7 +15,7 @@ import org.springframework.test.context.ContextConfiguration
 
 @SpringBootTest
 @ContextConfiguration(initializers = [PulsarTestContextInitializer::class])
-@Import(Browser4AutoConfiguration::class)
+@Import(PulsarAutoConfiguration::class)
 class TestBase {
     val logger get() = getLogger(this)
 

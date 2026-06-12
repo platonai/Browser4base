@@ -1,6 +1,6 @@
 package ai.platon.pulsar
 
-import ai.platon.pulsar.boot.autoconfigure.Browser4AutoConfiguration
+import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.persist.WebDb
 import ai.platon.pulsar.skeleton.session.PulsarSession
@@ -10,7 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
 @SpringBootTest(classes = [EnableMockServerApplication::class])
-@Import(Browser4AutoConfiguration::class)
+@Import(PulsarAutoConfiguration::class)
 class TestBase {
 
     @Autowired

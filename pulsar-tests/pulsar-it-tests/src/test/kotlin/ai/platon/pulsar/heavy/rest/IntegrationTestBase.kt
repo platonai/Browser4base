@@ -1,9 +1,9 @@
 package ai.platon.pulsar.heavy.rest
 
-import ai.platon.pulsar.agentic.tools.advanced.crawl.ScrapeResponse
-import ai.platon.pulsar.boot.autoconfigure.Browser4AutoConfiguration
+import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.sleepSeconds
+import ai.platon.pulsar.rest.api.entities.ScrapeResponse
 import ai.platon.pulsar.skeleton.session.PulsarSession
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -17,7 +17,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.assertTrue
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(Browser4AutoConfiguration::class)
+@Import(PulsarAutoConfiguration::class)
 class IntegrationTestBase {
 
     @LocalServerPort
