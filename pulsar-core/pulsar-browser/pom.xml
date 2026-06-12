@@ -102,6 +102,6 @@
     <properties>
         <!-- Reflect, org.javassist:javassist, required by ProxyClasses -->
         <javassist.version>3.30.2-GA</javassist.version>
-        <cdt-kotlin-client.version>4.0.5</cdt-kotlin-client.version>
+        <cdt-kotlin-client.version>4.8.0</cdt-kotlin-client.version>
     </properties>
 </project>
