@@ -33,6 +33,7 @@ import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
 import ai.platon.cdt.kt.protocol.types.runtime.RemoteObject
+import ai.platon.pulsar.browser.impl.BrowserProtocol.Companion.PROTOCOL_MODE_KEY
 import ai.platon.pulsar.chrome.RemoteDevTools
 import ai.platon.pulsar.chrome.handler.DirectChromeProtocol
 import ai.platon.pulsar.chrome.handler.ReflectiveChromeProtocol
@@ -287,7 +288,7 @@ interface BrowserProtocol {
          * - "reflective" or unset → [ReflectiveChromeProtocol]
          */
         fun create(devTools: ChromeDevTools): BrowserProtocol {
-            val mode = System.getProperty(PROTOCOL_MODE_KEY, "reflective")
+            val mode = System.getProperty(PROTOCOL_MODE_KEY, "direct")
             return when (mode.lowercase()) {
                 "direct" -> DirectChromeProtocol(devTools)
                 else -> ReflectiveChromeProtocol(devTools)
