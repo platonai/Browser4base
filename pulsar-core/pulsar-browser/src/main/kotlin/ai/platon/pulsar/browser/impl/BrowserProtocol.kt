@@ -1,5 +1,6 @@
 package ai.platon.pulsar.browser.impl
 
+import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.events.console.MessageAdded
 import ai.platon.cdt.kt.protocol.events.fetch.AuthRequired
 import ai.platon.cdt.kt.protocol.events.fetch.RequestPaused
@@ -32,9 +33,18 @@ import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
 import ai.platon.cdt.kt.protocol.types.runtime.RemoteObject
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.handler.DirectChromeProtocol
+import ai.platon.pulsar.chrome.handler.ReflectiveChromeProtocol
 
 interface BrowserProtocol {
     val isOpen: Boolean
+
+    /**
+     * The underlying [RemoteDevTools] instance, or null if not available.
+     * Exposed so consumers can access low-level transport details without casting to a concrete implementation.
+     */
+    val remoteDevToolsOrNull: RemoteDevTools?
 
     suspend fun isBrowserAlive(): Boolean
     suspend fun isTargetAlive(): Boolean
@@ -262,4 +272,26 @@ interface BrowserProtocol {
     fun awaitTermination(): Unit
 
     fun close(): Unit
+
+    companion object {
+        /**
+         * System property / config key for selecting the protocol implementation.
+         * Values: "reflective" (reflection-based, default) or "direct" (non-reflection).
+         */
+        const val PROTOCOL_MODE_KEY = "chrome.protocol.mode"
+
+        /**
+         * Create a [BrowserProtocol] for the given [ChromeDevTools].
+         * The implementation is selected via the system property [PROTOCOL_MODE_KEY]:
+         * - "direct" → [DirectChromeProtocol]
+         * - "reflective" or unset → [ReflectiveChromeProtocol]
+         */
+        fun create(devTools: ChromeDevTools): BrowserProtocol {
+            val mode = System.getProperty(PROTOCOL_MODE_KEY, "reflective")
+            return when (mode.lowercase()) {
+                "direct" -> DirectChromeProtocol(devTools)
+                else -> ReflectiveChromeProtocol(devTools)
+            }
+        }
+    }
 }

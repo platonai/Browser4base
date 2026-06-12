@@ -1,6 +1,5 @@
 package ai.platon.pulsar.chrome.handler
 
-import ai.platon.pulsar.chrome.RemoteDevTools
 import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.events.console.MessageAdded
 import ai.platon.cdt.kt.protocol.events.fetch.AuthRequired
@@ -10,97 +9,248 @@ import ai.platon.cdt.kt.protocol.events.network.*
 import ai.platon.cdt.kt.protocol.events.page.DocumentOpened
 import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
 import ai.platon.cdt.kt.protocol.events.page.WindowOpen
+import ai.platon.cdt.kt.protocol.support.types.EventHandler
+import ai.platon.cdt.kt.protocol.support.types.EventListener
+import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
+import ai.platon.cdt.kt.protocol.types.css.CSSComputedStyleProperty
+import ai.platon.cdt.kt.protocol.types.dom.BoxModel
+import ai.platon.cdt.kt.protocol.types.dom.Node
+import ai.platon.cdt.kt.protocol.types.dom.PerformSearch
 import ai.platon.cdt.kt.protocol.types.dom.Rect
 import ai.platon.cdt.kt.protocol.types.domsnapshot.CaptureSnapshot
 import ai.platon.cdt.kt.protocol.types.fetch.AuthChallengeResponse
 import ai.platon.cdt.kt.protocol.types.fetch.HeaderEntry
 import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
+import ai.platon.cdt.kt.protocol.types.fetch.ResponseBody
 import ai.platon.cdt.kt.protocol.types.input.*
+import ai.platon.cdt.kt.protocol.types.network.Cookie
 import ai.platon.cdt.kt.protocol.types.network.ErrorReason
 import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
+import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourcePageResult
 import ai.platon.cdt.kt.protocol.types.page.*
 import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
+import ai.platon.cdt.kt.protocol.types.runtime.RemoteObject
 import ai.platon.pulsar.browser.impl.BrowserProtocol
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.handler.transport.DevToolsInvocationHandler
 
 /**
  * CDP is the single access point for all Chrome DevTools Protocol (CDP) domain APIs.
  *
- * All direct usage of [ai.platon.cdt.kt.protocol.ChromeDevTools] should go through this class to improve
- * maintainability and provide a consistent, centralized interface.
+ * All CDP method invocations go through [RemoteDevTools.execute] or [RemoteDevTools.invoke]
+ * directly instead of using the reflection-based proxy of [ai.platon.cdt.kt.protocol.ChromeDevTools].
+ * This minimizes reflection dependency while providing the same functionality.
+ *
+ * Event subscriptions use [RemoteDevTools.addEventListener] directly with string domain/event names.
  */
-class RemoteChromeProtocol(
+class DirectChromeProtocol(
     val devTools: ChromeDevTools
 ) : BrowserProtocol {
     private data class EmptyResult(val ignored: String? = null)
 
-    val remoteDevTools: RemoteDevTools =
-        (devTools as? RemoteDevTools) ?: error("CDP requires RemoteDevTools for this runtime")
+    private val remoteDevTools: RemoteDevTools =
+        (devTools as? RemoteDevTools) ?: error("DirectChromeProtocol requires RemoteDevTools")
 
-    val remoteDevToolsOrNull: RemoteDevTools? get() = devTools as? RemoteDevTools
+    override val remoteDevToolsOrNull: RemoteDevTools? get() = devTools as? RemoteDevTools
     override val isOpen: Boolean get() = remoteDevToolsOrNull?.isOpen ?: false
 
+    // ---------------------------------------------------------------------------
+    // Domain accessors (kept for backward compatibility — not used internally)
+    // ---------------------------------------------------------------------------
+
+    @Suppress("unused")
+    val browser get() = devTools.browser
+
+    @Suppress("unused")
+    val page get() = devTools.page
+
+    @Suppress("unused")
+    val target get() = devTools.target
+
+    @Suppress("unused")
+    val dom get() = devTools.dom
+
+    @Suppress("unused")
+    val css get() = devTools.css
+
+    @Suppress("unused")
+    val input get() = devTools.input
+
+    @Suppress("unused")
+    val network get() = devTools.network
+
+    @Suppress("unused")
+    val fetch get() = devTools.fetch
+
+    @Suppress("unused")
+    val runtime get() = devTools.runtime
+
+    @Suppress("unused")
+    val emulation get() = devTools.emulation
+
+    @Suppress("unused")
+    val accessibility get() = devTools.accessibility
+
+    @Suppress("unused")
+    val domSnapshot get() = devTools.domSnapshot
+
+    @Suppress("unused")
+    val security get() = devTools.security
+
+    @Suppress("unused")
+    val console get() = devTools.console
+
+    // ---------------------------------------------------------------------------
+    // Private helpers — non-reflective CDP command dispatch
+    // ---------------------------------------------------------------------------
+
+    /** Execute a CDP command with no meaningful return value. */
+    private suspend fun command(method: String, params: Map<String, Any?>? = null) {
+        remoteDevTools.execute(method, params, EmptyResult::class)
+    }
+
+    /** Execute a CDP command returning a deserialized result. */
+    private suspend inline fun <reified T : Any> command(
+        method: String,
+        params: Map<String, Any?>? = null,
+        returnProperty: String? = null,
+    ): T? = remoteDevTools.execute(method, params, T::class, returnProperty)
+
+    /**
+     * Execute a CDP command that returns a typed list.
+     * Uses the full [RemoteDevTools.invoke] to preserve generic element type info.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T> listCommand(
+        method: String,
+        params: Map<String, Any?>?,
+        elementClass: Class<T>,
+        returnProperty: String,
+    ): List<T> {
+        val invocation = DevToolsInvocationHandler.createMethodInvocation(method, params)
+        val typeArgs = arrayOf<Class<*>>(elementClass)
+        return remoteDevTools.invoke(
+            List::class.java, returnProperty, typeArgs, invocation
+        ) as List<T>
+    }
+
+    /**
+     * Execute a CDP command that returns a nested typed list (e.g. List<List<Double>>).
+     */
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T> nestedListCommand(
+        method: String,
+        params: Map<String, Any?>?,
+        elementClass: Class<T>,
+        returnProperty: String,
+    ): List<List<T>> {
+        val invocation = DevToolsInvocationHandler.createMethodInvocation(method, params)
+        val typeArgs = arrayOf<Class<*>>(List::class.java, elementClass)
+        return remoteDevTools.invoke(
+            List::class.java, returnProperty, typeArgs, invocation
+        ) as List<List<T>>
+    }
+
+    /** Subscribe to a CDP event without going through the reflection proxy. */
+    private fun <T : Any> onEvent(
+        domain: String,
+        event: String,
+        eventType: Class<T>,
+        handler: suspend (T) -> Unit,
+    ): EventListener {
+        return remoteDevTools.addEventListener(
+            domain, event,
+            EventHandler { event -> handler(event as T) },
+            eventType,
+        )
+    }
+
+    /** Build a params map, dropping null-valued entries. */
+    private fun params(block: MutableMap<String, Any?>.() -> Unit): Map<String, Any?> {
+        return mutableMapOf<String, Any?>().apply(block)
+    }
+
+    // ---------------------------------------------------------------------------
+    // Health checks
+    // ---------------------------------------------------------------------------
+
     override suspend fun isBrowserAlive(): Boolean {
-        return runCatching { browser.getVersion() }.isSuccess
+        return runCatching { command("Browser.getVersion") }.isSuccess
     }
 
     override suspend fun isTargetAlive(): Boolean {
-        return runCatching { target.getTargets() }.isSuccess
+        return runCatching { command("Target.getTargets") }.isSuccess
     }
 
     override suspend fun isV8Alive(): Boolean {
-        return runCatching { runtime.evaluate("1+1") }.isSuccess
+        return runCatching {
+            command("Runtime.evaluate", mapOf("expression" to "1+1"))
+        }.isSuccess
     }
 
-    val browser get() = devTools.browser
-    val page get() = devTools.page
-    val target get() = devTools.target
-    val dom get() = devTools.dom
-    val css get() = devTools.css
-    val input get() = devTools.input
-    val network get() = devTools.network
-    val fetch get() = devTools.fetch
-    val runtime get() = devTools.runtime
-    val emulation get() = devTools.emulation
-    val accessibility get() = devTools.accessibility
-    val domSnapshot get() = devTools.domSnapshot
-    val security get() = devTools.security
-    val console get() = devTools.console
+    // ---------------------------------------------------------------------------
+    // Page domain
+    // ---------------------------------------------------------------------------
 
-    override suspend fun mainFrame() = page.getFrameTree().frame
+    override suspend fun mainFrame() = command<FrameTree>("Page.getFrameTree", returnProperty = "frameTree")!!.frame
 
-    override suspend fun pageEnable() = page.enable()
-    override suspend fun domEnable() = dom.enable()
-    override suspend fun accessibilityEnable() = accessibility.enable()
-    override suspend fun runtimeEnable() = runtime.enable()
-    override suspend fun networkEnable() = network.enable()
-    override suspend fun cssEnable() = css.enable()
-    override suspend fun fetchEnable() = fetch.enable()
-    override suspend fun fetchEnable(patterns: List<RequestPattern>, handleAuthRequests: Boolean) =
-        fetch.enable(patterns, handleAuthRequests)
+    override suspend fun pageEnable() = command("Page.enable")
+    override suspend fun domEnable() = command("DOM.enable")
+    override suspend fun accessibilityEnable() = command("Accessibility.enable")
+    override suspend fun runtimeEnable() = command("Runtime.enable")
+    override suspend fun networkEnable() = command("Network.enable")
+    override suspend fun cssEnable() = command("CSS.enable")
+    override suspend fun fetchEnable() = command("Fetch.enable")
 
-    override suspend fun securityEnable() {
-        security.enable()
+    override suspend fun fetchEnable(patterns: List<RequestPattern>, handleAuthRequests: Boolean) {
+        command("Fetch.enable", mapOf("patterns" to patterns, "handleAuthRequests" to handleAuthRequests))
     }
 
-    override suspend fun getFrameTree() = page.getFrameTree()
+    override suspend fun securityEnable() = command("Security.enable")
 
-    override suspend fun reload() = page.reload()
-    override suspend fun navigateToHistoryEntry(entryId: Int) = page.navigateToHistoryEntry(entryId)
-    override suspend fun handleJavaScriptDialog(accept: Boolean, promptText: String?) =
-        page.handleJavaScriptDialog(accept, promptText)
+    override suspend fun getFrameTree() = command<FrameTree>("Page.getFrameTree", returnProperty = "frameTree")!!
 
-    override suspend fun bringToFront() = page.bringToFront()
-    override suspend fun stopLoading() = page.stopLoading()
-    override suspend fun addScriptToEvaluateOnNewDocument(script: String) =
-        page.addScriptToEvaluateOnNewDocument(script)
+    override suspend fun reload() = command("Page.reload")
+    override suspend fun navigateToHistoryEntry(entryId: Int) {
+        command("Page.navigateToHistoryEntry", mapOf("entryId" to entryId))
+    }
 
-    override fun onDocumentOpened(handler: suspend (DocumentOpened) -> Unit) = page.onDocumentOpened(handler)
-    override fun onFrameNavigated(handler: suspend (FrameNavigated) -> Unit) = page.onFrameNavigated(handler)
-    override fun onWindowOpen(handler: suspend (WindowOpen) -> Unit) = page.onWindowOpen(handler)
+    override suspend fun handleJavaScriptDialog(accept: Boolean, promptText: String?) {
+        command(
+            "Page.handleJavaScriptDialog",
+            params {
+                put("accept", accept)
+                promptText?.let { put("promptText", it) }
+            }
+        )
+    }
 
-    override suspend fun navigate(url: String): Navigate = page.navigate(url)
+    override suspend fun bringToFront() = command("Page.bringToFront")
+    override suspend fun stopLoading() = command("Page.stopLoading")
+
+    override suspend fun addScriptToEvaluateOnNewDocument(script: String): String {
+        // CDP parameter name is "source", not "script"
+        return command<String>(
+            "Page.addScriptToEvaluateOnNewDocument",
+            mapOf("source" to script),
+            returnProperty = "identifier"
+        )!!
+    }
+
+    override fun onDocumentOpened(handler: suspend (DocumentOpened) -> Unit) =
+        onEvent("Page", "documentOpened", DocumentOpened::class.java, handler)
+
+    override fun onFrameNavigated(handler: suspend (FrameNavigated) -> Unit) =
+        onEvent("Page", "frameNavigated", FrameNavigated::class.java, handler)
+
+    override fun onWindowOpen(handler: suspend (WindowOpen) -> Unit) =
+        onEvent("Page", "windowOpen", WindowOpen::class.java, handler)
+
+    override suspend fun navigate(url: String): Navigate {
+        return command<Navigate>("Page.navigate", mapOf("url" to url))!!
+    }
 
     override suspend fun navigate(
         url: String,
@@ -108,7 +258,22 @@ class RemoteChromeProtocol(
         transitionType: TransitionType?,
         frameId: String?,
         referrerPolicy: ReferrerPolicy?,
-    ): Navigate = page.navigate(url, referrer, transitionType, frameId, referrerPolicy)
+    ): Navigate {
+        return command<Navigate>(
+            "Page.navigate",
+            params {
+                put("url", url)
+                referrer?.let { put("referrer", it) }
+                transitionType?.let { put("transitionType", it) }
+                frameId?.let { put("frameId", it) }
+                referrerPolicy?.let { put("referrerPolicy", it) }
+            }
+        )!!
+    }
+
+    // ---------------------------------------------------------------------------
+    // Runtime domain
+    // ---------------------------------------------------------------------------
 
     override suspend fun evaluate(
         expression: String,
@@ -116,12 +281,15 @@ class RemoteChromeProtocol(
         returnByValue: Boolean?,
         awaitPromise: Boolean?,
     ): Evaluate {
-        return runtime.evaluate(
-            expression = expression,
-            contextId = contextId,
-            returnByValue = returnByValue,
-            awaitPromise = awaitPromise,
-        )
+        return command<Evaluate>(
+            "Runtime.evaluate",
+            params {
+                put("expression", expression)
+                contextId?.let { put("contextId", it) }
+                returnByValue?.let { put("returnByValue", it) }
+                awaitPromise?.let { put("awaitPromise", it) }
+            }
+        )!!
     }
 
     override suspend fun callFunctionOn(
@@ -136,32 +304,45 @@ class RemoteChromeProtocol(
         executionContextId: Int?,
         objectGroup: String?,
     ): CallFunctionOn {
-        return runtime.callFunctionOn(
-            functionDeclaration = functionDeclaration,
-            objectId = objectId,
-            arguments = arguments,
-            silent = silent,
-            returnByValue = returnByValue,
-            generatePreview = generatePreview,
-            userGesture = userGesture,
-            awaitPromise = awaitPromise,
-            executionContextId = executionContextId,
-            objectGroup = objectGroup
-        )
+        return command<CallFunctionOn>(
+            "Runtime.callFunctionOn",
+            params {
+                put("functionDeclaration", functionDeclaration)
+                objectId?.let { put("objectId", it) }
+                arguments?.let { put("arguments", it) }
+                silent?.let { put("silent", it) }
+                returnByValue?.let { put("returnByValue", it) }
+                generatePreview?.let { put("generatePreview", it) }
+                userGesture?.let { put("userGesture", it) }
+                awaitPromise?.let { put("awaitPromise", it) }
+                executionContextId?.let { put("executionContextId", it) }
+                objectGroup?.let { put("objectGroup", it) }
+            }
+        )!!
     }
 
-    override suspend fun releaseObject(objectId: String) = runtime.releaseObject(objectId)
+    override suspend fun releaseObject(objectId: String) {
+        command("Runtime.releaseObject", mapOf("objectId" to objectId))
+    }
 
-    override suspend fun getLayoutMetrics() = page.getLayoutMetrics()
+    // ---------------------------------------------------------------------------
+    // Page domain (continued)
+    // ---------------------------------------------------------------------------
 
-    override suspend fun getNavigationHistory() = page.getNavigationHistory()
+    override suspend fun getLayoutMetrics() = command<LayoutMetrics>("Page.getLayoutMetrics")!!
+
+    override suspend fun getNavigationHistory() = command<NavigationHistory>("Page.getNavigationHistory")!!
 
     override suspend fun createIsolatedWorld(frameId: String, worldName: String, grantUniveralAccess: Boolean): Int {
-        return page.createIsolatedWorld(
-            frameId = frameId,
-            worldName = worldName,
-            grantUniveralAccess = grantUniveralAccess,
-        )
+        return command<Int>(
+            "Page.createIsolatedWorld",
+            mapOf(
+                "frameId" to frameId,
+                "worldName" to worldName,
+                "grantUniveralAccess" to grantUniveralAccess, // matches CDP spec typo
+            ),
+            returnProperty = "executionContextId"
+        )!!
     }
 
     override suspend fun captureScreenshot(
@@ -170,13 +351,23 @@ class RemoteChromeProtocol(
         clip: Viewport?,
         fromSurface: Boolean?,
         captureBeyondViewport: Boolean?,
-    ) = page.captureScreenshot(
-        format = format,
-        quality = quality,
-        clip = clip,
-        fromSurface = fromSurface,
-        captureBeyondViewport = captureBeyondViewport,
-    )
+    ): String {
+        return command<String>(
+            "Page.captureScreenshot",
+            params {
+                format?.let { put("format", it) }
+                quality?.let { put("quality", it) }
+                clip?.let { put("clip", it) }
+                fromSurface?.let { put("fromSurface", it) }
+                captureBeyondViewport?.let { put("captureBeyondViewport", it) }
+            },
+            returnProperty = "data"
+        )!!
+    }
+
+    // ---------------------------------------------------------------------------
+    // Emulation domain
+    // ---------------------------------------------------------------------------
 
     override suspend fun setDeviceMetricsOverride(
         mobile: Boolean,
@@ -186,39 +377,100 @@ class RemoteChromeProtocol(
         screenWidth: Int?,
         screenHeight: Int?,
     ) {
-        emulation.setDeviceMetricsOverride(
-            mobile = mobile,
-            width = width,
-            height = height,
-            deviceScaleFactor = deviceScaleFactor,
-            screenWidth = screenWidth,
-            screenHeight = screenHeight,
+        command(
+            "Emulation.setDeviceMetricsOverride",
+            params {
+                put("mobile", mobile)
+                put("width", width)
+                put("height", height)
+                put("deviceScaleFactor", deviceScaleFactor)
+                screenWidth?.let { put("screenWidth", it) }
+                screenHeight?.let { put("screenHeight", it) }
+            }
         )
     }
 
-    override suspend fun clearDeviceMetricsOverride() = emulation.clearDeviceMetricsOverride()
+    override suspend fun clearDeviceMetricsOverride() = command("Emulation.clearDeviceMetricsOverride")
 
-    override suspend fun getDocument(depth: Int?, pierce: Boolean?) = dom.getDocument(depth, pierce)
+    // ---------------------------------------------------------------------------
+    // DOM domain
+    // ---------------------------------------------------------------------------
 
-    override suspend fun getContentQuads(nodeId: Int) = dom.getContentQuads(nodeId)
+    override suspend fun getDocument(depth: Int?, pierce: Boolean?): Node {
+        return command<Node>(
+            "DOM.getDocument",
+            params {
+                depth?.let { put("depth", it) }
+                pierce?.let { put("pierce", it) }
+            },
+            returnProperty = "root"
+        )!!
+    }
 
-    override suspend fun getBoxModel(nodeId: Int) = dom.getBoxModel(nodeId, null, null)
+    override suspend fun getContentQuads(nodeId: Int): List<List<Double>> {
+        return nestedListCommand(
+            "DOM.getContentQuads",
+            mapOf("nodeId" to nodeId),
+            Double::class.java,
+            "quads"
+        )
+    }
 
-    override suspend fun querySelector(nodeId: Int, selector: String) = dom.querySelector(nodeId, selector)
+    override suspend fun getBoxModel(nodeId: Int): BoxModel {
+        return command<BoxModel>(
+            "DOM.getBoxModel", mapOf("nodeId" to nodeId), returnProperty = "model"
+        )!!
+    }
 
-    override suspend fun querySelectorAll(nodeId: Int, selector: String) = dom.querySelectorAll(nodeId, selector)
+    override suspend fun querySelector(nodeId: Int, selector: String): Int {
+        return command<Int>(
+            "DOM.querySelector",
+            mapOf("nodeId" to nodeId, "selector" to selector),
+            returnProperty = "nodeId"
+        )!!
+    }
 
-    override suspend fun performSearch(query: String, includeUserAgentShadowDOM: Boolean?) =
-        dom.performSearch(query, includeUserAgentShadowDOM)
+    override suspend fun querySelectorAll(nodeId: Int, selector: String): List<Int> {
+        return listCommand(
+            "DOM.querySelectorAll",
+            mapOf("nodeId" to nodeId, "selector" to selector),
+            Int::class.java,
+            "nodeIds"
+        )
+    }
 
-    override suspend fun getSearchResults(searchId: String, fromIndex: Int, toIndex: Int) =
-        dom.getSearchResults(searchId, fromIndex, toIndex)
+    override suspend fun performSearch(query: String, includeUserAgentShadowDOM: Boolean?): PerformSearch {
+        return command<PerformSearch>(
+            "DOM.performSearch",
+            params {
+                put("query", query)
+                includeUserAgentShadowDOM?.let { put("includeUserAgentShadowDOM", it) }
+            }
+        )!!
+    }
 
-    override suspend fun discardSearchResults(searchId: String) = dom.discardSearchResults(searchId)
+    override suspend fun getSearchResults(searchId: String, fromIndex: Int, toIndex: Int): List<Int> {
+        return listCommand(
+            "DOM.getSearchResults",
+            mapOf("searchId" to searchId, "fromIndex" to fromIndex, "toIndex" to toIndex),
+            Int::class.java,
+            "nodeIds"
+        )
+    }
 
-    override suspend fun getAttributes(nodeId: Int) = dom.getAttributes(nodeId)
+    override suspend fun discardSearchResults(searchId: String) {
+        command("DOM.discardSearchResults", mapOf("searchId" to searchId))
+    }
 
-    override suspend fun focus(nodeId: Int) = dom.focus(nodeId)
+    override suspend fun getAttributes(nodeId: Int): List<String> {
+        return listCommand(
+            "DOM.getAttributes", mapOf("nodeId" to nodeId), String::class.java, "attributes"
+        )
+    }
+
+    override suspend fun focus(nodeId: Int) {
+        command("DOM.focus", mapOf("nodeId" to nodeId))
+    }
 
     override suspend fun describeNode(
         nodeId: Int?,
@@ -226,123 +478,258 @@ class RemoteChromeProtocol(
         objectId: String?,
         depth: Int?,
         pierce: Boolean?,
-    ) = dom.describeNode(nodeId, backendNodeId, objectId, depth, pierce)
+    ): Node {
+        return command<Node>(
+            "DOM.describeNode",
+            params {
+                nodeId?.let { put("nodeId", it) }
+                backendNodeId?.let { put("backendNodeId", it) }
+                objectId?.let { put("objectId", it) }
+                depth?.let { put("depth", it) }
+                pierce?.let { put("pierce", it) }
+            },
+            returnProperty = "node"
+        )!!
+    }
 
-    override suspend fun scrollIntoViewIfNeeded(nodeId: Int, backendNodeId: Int?, objectId: String?, rect: Rect?) =
-        dom.scrollIntoViewIfNeeded(nodeId, backendNodeId, objectId, rect)
+    override suspend fun scrollIntoViewIfNeeded(
+        nodeId: Int, backendNodeId: Int?, objectId: String?, rect: Rect?
+    ) {
+        command(
+            "DOM.scrollIntoViewIfNeeded",
+            params {
+                put("nodeId", nodeId)
+                backendNodeId?.let { put("backendNodeId", it) }
+                objectId?.let { put("objectId", it) }
+                rect?.let { put("rect", it) }
+            }
+        )
+    }
 
-    override suspend fun resolveNodeByNodeId(nodeId: Int) = dom.resolveNode(nodeId = nodeId)
+    override suspend fun resolveNodeByNodeId(nodeId: Int): RemoteObject {
+        return command<RemoteObject>(
+            "DOM.resolveNode", mapOf("nodeId" to nodeId), returnProperty = "object"
+        )!!
+    }
 
-    override suspend fun resolveNodeByBackendNodeId(backendNodeId: Int) = dom.resolveNode(backendNodeId = backendNodeId)
+    override suspend fun resolveNodeByBackendNodeId(backendNodeId: Int): RemoteObject {
+        return command<RemoteObject>(
+            "DOM.resolveNode", mapOf("backendNodeId" to backendNodeId), returnProperty = "object"
+        )!!
+    }
 
-    override suspend fun requestNode(objectId: String) = dom.requestNode(objectId)
+    override suspend fun requestNode(objectId: String): Int {
+        return command<Int>(
+            "DOM.requestNode", mapOf("objectId" to objectId), returnProperty = "nodeId"
+        )!!
+    }
 
-    override suspend fun getComputedStyleForNode(nodeId: Int) = css.getComputedStyleForNode(nodeId)
+    // ---------------------------------------------------------------------------
+    // CSS domain
+    // ---------------------------------------------------------------------------
 
-    override suspend fun getFullAXTree(depth: Int?) = accessibility.getFullAXTree(depth)
+    override suspend fun getComputedStyleForNode(nodeId: Int): List<CSSComputedStyleProperty> {
+        return listCommand(
+            "CSS.getComputedStyleForNode",
+            mapOf("nodeId" to nodeId),
+            CSSComputedStyleProperty::class.java,
+            "computedStyle"
+        )
+    }
 
-    override suspend fun clearBrowserCookies() = network.clearBrowserCookies()
-    override suspend fun setBlockedURLs(urls: List<String>) = network.setBlockedURLs(urls)
-    override suspend fun getCookies() = network.getCookies()
-    override suspend fun deleteCookies(name: String, url: String?, domain: String?, path: String?) =
-        network.deleteCookies(name, url, domain, path)
+    // ---------------------------------------------------------------------------
+    // Accessibility domain
+    // ---------------------------------------------------------------------------
 
-    override suspend fun loadNetworkResource(frameId: String, url: String, options: LoadNetworkResourceOptions) =
-        network.loadNetworkResource(frameId, url, options)
+    override suspend fun getFullAXTree(depth: Int?): List<AXNode> {
+        return listCommand(
+            "Accessibility.getFullAXTree",
+            params { depth?.let { put("depth", it) } },
+            AXNode::class.java,
+            "nodes"
+        )
+    }
 
-    override suspend fun failRequest(requestId: String, errorReason: ErrorReason) =
-        fetch.failRequest(requestId, errorReason)
+    // ---------------------------------------------------------------------------
+    // Network domain
+    // ---------------------------------------------------------------------------
 
-    override suspend fun getResponseBody(requestId: String) = fetch.getResponseBody(requestId)
+    override suspend fun clearBrowserCookies() = command("Network.clearBrowserCookies")
 
-    override suspend fun setFileInputFiles(files: List<String>, nodeId: Int) = dom.setFileInputFiles(files, nodeId)
-    override suspend fun getOuterHTML(nodeId: Int, backendNodeId: Int, objectId: String?) =
-        dom.getOuterHTML(nodeId, backendNodeId, objectId)
+    override suspend fun setBlockedURLs(urls: List<String>) {
+        command("Network.setBlockedURLs", mapOf("urls" to urls))
+    }
 
-    override fun onDragIntercepted(handler: (DragIntercepted) -> Unit) = input.onDragIntercepted(handler)
+    override suspend fun getCookies(): List<Cookie> {
+        return listCommand("Network.getCookies", null, Cookie::class.java, "cookies")
+    }
+
+    override suspend fun deleteCookies(name: String, url: String?, domain: String?, path: String?) {
+        command(
+            "Network.deleteCookies",
+            params {
+                put("name", name)
+                url?.let { put("url", it) }
+                domain?.let { put("domain", it) }
+                path?.let { put("path", it) }
+            }
+        )
+    }
+
+    override suspend fun loadNetworkResource(
+        frameId: String, url: String, options: LoadNetworkResourceOptions
+    ): LoadNetworkResourcePageResult {
+        return command<LoadNetworkResourcePageResult>(
+            "Network.loadNetworkResource",
+            mapOf("frameId" to frameId, "url" to url, "options" to options),
+            returnProperty = "resource"
+        )!!
+    }
+
+    override suspend fun setExtraHTTPHeaders(headers: Map<String, Any>) {
+        command("Network.setExtraHTTPHeaders", mapOf("headers" to headers))
+    }
+
+    override suspend fun setCacheDisabled(cacheDisabled: Boolean) {
+        command("Network.setCacheDisabled", mapOf("cacheDisabled" to cacheDisabled))
+    }
+
+    override fun onRequestWillBeSent(handler: suspend (RequestWillBeSent) -> Unit) =
+        onEvent("Network", "requestWillBeSent", RequestWillBeSent::class.java, handler)
+
+    override fun onRequestWillBeSentExtraInfo(handler: suspend (RequestWillBeSentExtraInfo) -> Unit) =
+        onEvent("Network", "requestWillBeSentExtraInfo", RequestWillBeSentExtraInfo::class.java, handler)
+
+    override fun onRequestServedFromCache(handler: suspend (RequestServedFromCache) -> Unit) =
+        onEvent("Network", "requestServedFromCache", RequestServedFromCache::class.java, handler)
+
+    override fun onResponseReceived(handler: suspend (ResponseReceived) -> Unit) =
+        onEvent("Network", "responseReceived", ResponseReceived::class.java, handler)
+
+    override fun onResponseReceivedExtraInfo(handler: suspend (ResponseReceivedExtraInfo) -> Unit) =
+        onEvent("Network", "responseReceivedExtraInfo", ResponseReceivedExtraInfo::class.java, handler)
+
+    override fun onLoadingFinished(handler: suspend (LoadingFinished) -> Unit) =
+        onEvent("Network", "loadingFinished", LoadingFinished::class.java, handler)
+
+    override fun onLoadingFailed(handler: suspend (LoadingFailed) -> Unit) =
+        onEvent("Network", "loadingFailed", LoadingFailed::class.java, handler)
+
+    // ---------------------------------------------------------------------------
+    // Fetch domain
+    // ---------------------------------------------------------------------------
+
+    override suspend fun failRequest(requestId: String, errorReason: ErrorReason) {
+        command("Fetch.failRequest", mapOf("requestId" to requestId, "errorReason" to errorReason))
+    }
+
+    override suspend fun getResponseBody(requestId: String): ResponseBody {
+        return command<ResponseBody>(
+            "Fetch.getResponseBody", mapOf("requestId" to requestId)
+        )!!
+    }
+
+    override suspend fun setFileInputFiles(files: List<String>, nodeId: Int) {
+        command("DOM.setFileInputFiles", mapOf("files" to files, "nodeId" to nodeId))
+    }
+
+    override suspend fun getOuterHTML(nodeId: Int, backendNodeId: Int, objectId: String?): String {
+        return command<String>(
+            "DOM.getOuterHTML",
+            params {
+                put("nodeId", nodeId)
+                put("backendNodeId", backendNodeId)
+                objectId?.let { put("objectId", it) }
+            },
+            returnProperty = "outerHTML"
+        )!!
+    }
+
+    override fun onDragIntercepted(handler: (DragIntercepted) -> Unit) =
+        onEvent("Input", "dragIntercepted", DragIntercepted::class.java, handler)
+
+    // ---------------------------------------------------------------------------
+    // Input domain — mouse
+    // ---------------------------------------------------------------------------
 
     override suspend fun dispatchMouseMoved(x: Double, y: Double, buttons: Int?) {
-        input.dispatchMouseEvent(
-            type = DispatchMouseEventType.MOUSE_MOVED,
-            x = x,
-            y = y,
-            modifiers = null,
-            timestamp = null,
-            button = null,
-            buttons = buttons,
-            clickCount = null,
-            force = null,
-            tangentialPressure = null,
-            tiltX = null,
-            tiltY = null,
-            twist = null,
-            deltaX = null,
-            deltaY = null,
-            pointerType = null,
+        command(
+            "Input.dispatchMouseEvent",
+            params {
+                put("type", DispatchMouseEventType.MOUSE_MOVED)
+                put("x", x)
+                put("y", y)
+                buttons?.let { put("buttons", it) }
+            }
         )
     }
 
-    override suspend fun dispatchMousePressed(x: Double, y: Double, clickCount: Int, modifiers: Int?, buttons: Int) {
-        input.dispatchMouseEvent(
-            type = DispatchMouseEventType.MOUSE_PRESSED,
-            x = x,
-            y = y,
-            button = MouseButton.LEFT,
-            modifiers = modifiers,
-            timestamp = null,
-            buttons = buttons,
-            clickCount = clickCount,
-            force = 0.5,
-            tangentialPressure = null,
-            tiltX = null,
-            tiltY = null,
-            twist = null,
-            deltaX = null,
-            deltaY = null,
-            pointerType = null,
+    override suspend fun dispatchMousePressed(
+        x: Double, y: Double, clickCount: Int, modifiers: Int?, buttons: Int
+    ) {
+        command(
+            "Input.dispatchMouseEvent",
+            params {
+                put("type", DispatchMouseEventType.MOUSE_PRESSED)
+                put("x", x)
+                put("y", y)
+                put("button", MouseButton.LEFT)
+                modifiers?.let { put("modifiers", it) }
+                put("buttons", buttons)
+                put("clickCount", clickCount)
+                put("force", 0.5)
+            }
         )
     }
 
-    override suspend fun dispatchMouseReleased(x: Double, y: Double, clickCount: Int, modifiers: Int?, buttons: Int) {
-        input.dispatchMouseEvent(
-            type = DispatchMouseEventType.MOUSE_RELEASED,
-            x = x,
-            y = y,
-            button = MouseButton.LEFT,
-            clickCount = clickCount,
-            modifiers = modifiers,
-            buttons = buttons,
+    override suspend fun dispatchMouseReleased(
+        x: Double, y: Double, clickCount: Int, modifiers: Int?, buttons: Int
+    ) {
+        command(
+            "Input.dispatchMouseEvent",
+            params {
+                put("type", DispatchMouseEventType.MOUSE_RELEASED)
+                put("x", x)
+                put("y", y)
+                put("button", MouseButton.LEFT)
+                put("clickCount", clickCount)
+                modifiers?.let { put("modifiers", it) }
+                put("buttons", buttons)
+            }
         )
     }
 
     override suspend fun dispatchMouseWheel(x: Double, y: Double, deltaX: Double, deltaY: Double) {
-        input.dispatchMouseEvent(
-            type = DispatchMouseEventType.MOUSE_WHEEL,
-            x = x,
-            y = y,
-            modifiers = null,
-            timestamp = null,
-            button = null,
-            buttons = null,
-            clickCount = null,
-            force = null,
-            tangentialPressure = null,
-            tiltX = null,
-            tiltY = null,
-            twist = null,
-            deltaX = deltaX,
-            deltaY = deltaY,
-            pointerType = null,
+        command(
+            "Input.dispatchMouseEvent",
+            mapOf(
+                "type" to DispatchMouseEventType.MOUSE_WHEEL,
+                "x" to x,
+                "y" to y,
+                "deltaX" to deltaX,
+                "deltaY" to deltaY,
+            )
         )
     }
 
-    override suspend fun setInterceptDrags(enabled: Boolean) = input.setInterceptDrags(enabled)
-
-    override suspend fun dispatchDragEvent(type: DispatchDragEventType, x: Double, y: Double, data: DragData) {
-        input.dispatchDragEvent(type, x, y, data)
+    override suspend fun setInterceptDrags(enabled: Boolean) {
+        command("Input.setInterceptDrags", mapOf("enabled" to enabled))
     }
 
-    override suspend fun insertText(text: String) = input.insertText(text)
+    override suspend fun dispatchDragEvent(type: DispatchDragEventType, x: Double, y: Double, data: DragData) {
+        command(
+            "Input.dispatchDragEvent",
+            mapOf("type" to type, "x" to x, "y" to y, "data" to data)
+        )
+    }
+
+    override suspend fun insertText(text: String) {
+        command("Input.insertText", mapOf("text" to text))
+    }
+
+    // ---------------------------------------------------------------------------
+    // Input domain — keyboard
+    // ---------------------------------------------------------------------------
 
     override suspend fun dispatchKeyEvent(
         type: DispatchKeyEventType,
@@ -357,20 +744,27 @@ class RemoteChromeProtocol(
         isKeypad: Boolean?,
         autoRepeat: Boolean?,
     ) {
-        input.dispatchKeyEvent(
-            type = type,
-            modifiers = modifiers,
-            windowsVirtualKeyCode = windowsVirtualKeyCode,
-            code = code,
-            commands = commands,
-            key = key,
-            text = text,
-            unmodifiedText = unmodifiedText,
-            location = location,
-            isKeypad = isKeypad,
-            autoRepeat = autoRepeat,
+        command(
+            "Input.dispatchKeyEvent",
+            params {
+                put("type", type)
+                modifiers?.let { put("modifiers", it) }
+                windowsVirtualKeyCode?.let { put("windowsVirtualKeyCode", it) }
+                code?.let { put("code", it) }
+                commands?.let { put("commands", it) }
+                key?.let { put("key", it) }
+                text?.let { put("text", it) }
+                unmodifiedText?.let { put("unmodifiedText", it) }
+                location?.let { put("location", it) }
+                isKeypad?.let { put("isKeypad", it) }
+                autoRepeat?.let { put("autoRepeat", it) }
+            }
         )
     }
+
+    // ---------------------------------------------------------------------------
+    // DOMSnapshot domain
+    // ---------------------------------------------------------------------------
 
     override suspend fun domSnapshotCaptureSnapshot(
         computedStyles: List<String>,
@@ -379,46 +773,43 @@ class RemoteChromeProtocol(
         includeBlendedBackgroundColors: Boolean?,
         includeTextColorOpacities: Boolean?,
     ): CaptureSnapshot {
-        return domSnapshot.captureSnapshot(
-            computedStyles,
-            includePaintOrder = includePaintOrder,
-            includeDOMRects = includeDOMRects,
-            includeBlendedBackgroundColors = includeBlendedBackgroundColors,
-            includeTextColorOpacities = includeTextColorOpacities,
+        return command<CaptureSnapshot>(
+            "DOMSnapshot.captureSnapshot",
+            params {
+                put("computedStyles", computedStyles)
+                includePaintOrder?.let { put("includePaintOrder", it) }
+                includeDOMRects?.let { put("includeDOMRects", it) }
+                includeBlendedBackgroundColors?.let { put("includeBlendedBackgroundColors", it) }
+                includeTextColorOpacities?.let { put("includeTextColorOpacities", it) }
+            }
+        )!!
+    }
+
+    // ---------------------------------------------------------------------------
+    // Page domain — reload with options
+    // ---------------------------------------------------------------------------
+
+    override suspend fun reloadPage(ignoreCache: Boolean?, scriptToEvaluateOnLoad: String?) {
+        command(
+            "Page.reload",
+            params {
+                ignoreCache?.let { put("ignoreCache", it) }
+                scriptToEvaluateOnLoad?.let { put("scriptToEvaluateOnLoad", it) }
+            }
         )
     }
 
-    override suspend fun reloadPage(ignoreCache: Boolean?, scriptToEvaluateOnLoad: String?) =
-        page.reload(ignoreCache, scriptToEvaluateOnLoad)
-
+    // ---------------------------------------------------------------------------
+    // Network domain — cookies (already on the target path as the exemplar)
+    // ---------------------------------------------------------------------------
 
     override suspend fun setCookies(cookies: List<Map<String, Any?>>) {
-        val remoteDevTools = remoteDevToolsOrNull
-            ?: throw IllegalStateException("Remote DevTools is not available")
-        remoteDevTools.invoke("Network.setCookies", mapOf("cookies" to cookies), EmptyResult::class)
+        command("Network.setCookies", mapOf("cookies" to cookies))
     }
 
-    override suspend fun setExtraHTTPHeaders(headers: Map<String, Any>) = network.setExtraHTTPHeaders(headers)
-
-    override suspend fun setCacheDisabled(cacheDisabled: Boolean) = network.setCacheDisabled(cacheDisabled)
-
-    override fun onRequestWillBeSent(handler: suspend (RequestWillBeSent) -> Unit) =
-        network.onRequestWillBeSent(handler)
-
-    override fun onRequestWillBeSentExtraInfo(handler: suspend (RequestWillBeSentExtraInfo) -> Unit) =
-        network.onRequestWillBeSentExtraInfo(handler)
-
-    override fun onRequestServedFromCache(handler: suspend (RequestServedFromCache) -> Unit) =
-        network.onRequestServedFromCache(handler)
-
-    override fun onResponseReceived(handler: suspend (ResponseReceived) -> Unit) = network.onResponseReceived(handler)
-
-    override fun onResponseReceivedExtraInfo(handler: suspend (ResponseReceivedExtraInfo) -> Unit) =
-        network.onResponseReceivedExtraInfo(handler)
-
-    override fun onLoadingFinished(handler: suspend (LoadingFinished) -> Unit) = network.onLoadingFinished(handler)
-
-    override fun onLoadingFailed(handler: suspend (LoadingFailed) -> Unit) = network.onLoadingFailed(handler)
+    // ---------------------------------------------------------------------------
+    // Fetch domain — interception
+    // ---------------------------------------------------------------------------
 
     override suspend fun continueRequest(
         requestId: String,
@@ -426,10 +817,25 @@ class RemoteChromeProtocol(
         method: String?,
         postData: String?,
         headers: List<HeaderEntry>?,
-    ) = fetch.continueRequest(requestId, url, method, postData, headers)
+    ) {
+        command(
+            "Fetch.continueRequest",
+            params {
+                put("requestId", requestId)
+                url?.let { put("url", it) }
+                method?.let { put("method", it) }
+                postData?.let { put("postData", it) }
+                headers?.let { put("headers", it) }
+            }
+        )
+    }
 
-    override suspend fun continueWithAuth(requestId: String, authChallengeResponse: AuthChallengeResponse) =
-        fetch.continueWithAuth(requestId, authChallengeResponse)
+    override suspend fun continueWithAuth(requestId: String, authChallengeResponse: AuthChallengeResponse) {
+        command(
+            "Fetch.continueWithAuth",
+            mapOf("requestId" to requestId, "authChallengeResponse" to authChallengeResponse)
+        )
+    }
 
     override suspend fun fulfillRequest(
         requestId: String,
@@ -438,22 +844,44 @@ class RemoteChromeProtocol(
         binaryResponseHeaders: String?,
         body: String?,
         responsePhrase: String?,
-    ) = fetch.fulfillRequest(
-        requestId,
-        responseCode,
-        responseHeaders,
-        binaryResponseHeaders,
-        body,
-        responsePhrase,
-    )
+    ) {
+        command(
+            "Fetch.fulfillRequest",
+            params {
+                put("requestId", requestId)
+                put("responseCode", responseCode)
+                responseHeaders?.let { put("responseHeaders", it) }
+                binaryResponseHeaders?.let { put("binaryResponseHeaders", it) }
+                body?.let { put("body", it) }
+                responsePhrase?.let { put("responsePhrase", it) }
+            }
+        )
+    }
 
-    override fun onRequestPaused(handler: suspend (RequestPaused) -> Unit) = fetch.onRequestPaused(handler)
+    override fun onRequestPaused(handler: suspend (RequestPaused) -> Unit) =
+        onEvent("Fetch", "requestPaused", RequestPaused::class.java, handler)
 
-    override fun onAuthRequired(handler: suspend (AuthRequired) -> Unit) = fetch.onAuthRequired(handler)
+    override fun onAuthRequired(handler: suspend (AuthRequired) -> Unit) =
+        onEvent("Fetch", "authRequired", AuthRequired::class.java, handler)
 
-    override suspend fun setIgnoreCertificateErrors(ignore: Boolean) = security.setIgnoreCertificateErrors(ignore)
+    // ---------------------------------------------------------------------------
+    // Security domain
+    // ---------------------------------------------------------------------------
 
-    override fun onConsoleMessageAdded(handler: suspend (MessageAdded) -> Unit) = console.onMessageAdded(handler)
+    override suspend fun setIgnoreCertificateErrors(ignore: Boolean) {
+        command("Security.setIgnoreCertificateErrors", mapOf("ignore" to ignore))
+    }
+
+    // ---------------------------------------------------------------------------
+    // Console domain
+    // ---------------------------------------------------------------------------
+
+    override fun onConsoleMessageAdded(handler: suspend (MessageAdded) -> Unit) =
+        onEvent("Console", "messageAdded", MessageAdded::class.java, handler)
+
+    // ---------------------------------------------------------------------------
+    // Lifecycle
+    // ---------------------------------------------------------------------------
 
     override fun awaitTermination() {
         remoteDevToolsOrNull?.awaitTermination()

@@ -2,7 +2,7 @@ package ai.platon.pulsar.browser
 
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.handler.RemoteChromeProtocol
+import ai.platon.pulsar.chrome.handler.ReflectiveChromeProtocol
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.core.api.Browser
 import ai.platon.pulsar.core.api.WebDriver
@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
 import java.text.MessageFormat
 import kotlin.test.*
 
-class PulsarWebDriverRemoteChromeProtocolTests : WebDriverTestBase() {
+class PulsarWebDriverReflectiveChromeProtocolTests : WebDriverTestBase() {
     fun setLogLevel(loggerName: String?, level: Level?) {
         val targetLogger: Logger = LoggerFactory.getLogger(loggerName) as Logger
         targetLogger.level = level
@@ -92,7 +92,7 @@ class PulsarWebDriverRemoteChromeProtocolTests : WebDriverTestBase() {
             browser.newDriver().use { driver ->
                 assertIs<PulsarWebDriver>(driver)
 
-                val bp = driver.implementation as RemoteChromeProtocol
+                val bp = driver.implementation as ReflectiveChromeProtocol
 
                 bp.devTools.dom.onAttributeModified { e ->
                     val message = MessageFormat.format("> {0}. node changed | {1} := {2}", e.nodeId, e.name, e.value)
