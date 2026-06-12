@@ -1,5 +1,6 @@
 package ai.platon.pulsar.persist.gora
 
+import ai.platon.gora.memory.store.MemStore
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.config.VolatileConfig
@@ -16,7 +17,6 @@ import org.apache.avro.io.DatumReader
 import org.apache.avro.io.DatumWriter
 import org.apache.avro.specific.SpecificDatumReader
 import org.apache.avro.specific.SpecificDatumWriter
-import org.apache.gora.memory.store.MemStore
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.file.Files

@@ -1,7 +1,7 @@
 package ai.platon.pulsar.persist.mongo
 
 import ai.platon.pulsar.common.NetUtil
-import shaded.com.mongodb.ServerAddress
+import com.mongodb.ServerAddress
 
 object MongoDBUtils {
 

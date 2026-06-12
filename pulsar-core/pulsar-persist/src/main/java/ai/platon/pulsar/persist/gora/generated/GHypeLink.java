@@ -5,9 +5,9 @@
  */
 package ai.platon.pulsar.persist.gora.generated;
 
-import org.apache.gora.persistency.Persistent;
+import ai.platon.gora.persistency.Persistent;
 
-public class GHypeLink extends org.apache.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, org.apache.gora.persistency.Persistent {
+public class GHypeLink extends ai.platon.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, ai.platon.gora.persistency.Persistent {
   public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"GHypeLink\",\"namespace\":\"ai.platon.pulsar.persist.gora.generated\",\"fields\":[{\"name\":\"url\",\"type\":\"string\",\"default\":\"\"},{\"name\":\"anchor\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"order\",\"type\":\"int\",\"default\":0}]}");
   private static final long serialVersionUID = -7365210677982337286L;
   /** Enum containing all data bean's fields. */
@@ -341,7 +341,7 @@ public class GHypeLink extends org.apache.gora.persistency.impl.PersistentBase i
 
   private static final Tombstone TOMBSTONE = new Tombstone();
 
-  public static final class Tombstone extends GHypeLink implements org.apache.gora.persistency.Tombstone {
+  public static final class Tombstone extends GHypeLink implements ai.platon.gora.persistency.Tombstone {
 
       private Tombstone() { }
 

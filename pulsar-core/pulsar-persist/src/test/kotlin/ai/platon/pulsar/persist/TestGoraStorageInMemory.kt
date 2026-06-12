@@ -16,6 +16,8 @@
  */
 package ai.platon.pulsar.persist
 
+import ai.platon.gora.memory.store.MemStore
+import ai.platon.gora.store.DataStore
 import ai.platon.pulsar.common.DateTimes
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.AppConstants.MEM_STORE_CLASS
@@ -26,8 +28,6 @@ import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
 import org.apache.avro.util.Utf8
 import org.apache.commons.lang3.RandomStringUtils
-import org.apache.gora.memory.store.MemStore
-import org.apache.gora.store.DataStore
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.concurrent.Callable
@@ -53,8 +53,8 @@ class TestGoraStorageInMemory {
 
     @BeforeTest
     fun setup() {
-        assertEquals(MEM_STORE_CLASS, conf.get(CapabilityTypes.STORAGE_DATA_STORE_CLASS))
-        assertEquals(MEM_STORE_CLASS, DataStorageFactory.detectDataStoreClassName(conf))
+        assertEquals(MEM_STORE_CLASS, conf[CapabilityTypes.STORAGE_DATA_STORE_CLASS])
+        assertEquals(MEM_STORE_CLASS, DataStorageFactory(conf).detectDataStoreClassName("", conf))
         webDb = WebDb(conf)
 //        assertTrue(store.javaClass.name) { store is MemStore }
         if (store is MemStore) {
@@ -62,7 +62,7 @@ class TestGoraStorageInMemory {
         } else {
             assertTrue(store.schemaName) { store.schemaName.startsWith("test_") }
         }
-        assertEquals(crawlId, conf.get(CapabilityTypes.STORAGE_CRAWL_ID))
+        assertEquals(crawlId, conf[CapabilityTypes.STORAGE_CRAWL_ID])
         webDb.truncate(force = true)
     }
 

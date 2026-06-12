@@ -1,10 +1,13 @@
 package ai.platon.pulsar.persist.mongo
 
 import ai.platon.pulsar.common.printlnPro
-import shaded.com.mongodb.client.model.Filters
-import shaded.org.bson.Document
-import kotlin.test.*
+import com.mongodb.client.model.Filters
+import org.bson.Document
 import org.junit.jupiter.api.DisplayName
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * The driver com.mongodb.MongoClient is a Legacy Driver.

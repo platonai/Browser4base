@@ -5,9 +5,9 @@
  */
 package ai.platon.pulsar.persist.gora.generated;
 
-import org.apache.gora.persistency.Persistent;
+import ai.platon.gora.persistency.Persistent;
 
-public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, org.apache.gora.persistency.Persistent {
+public class GFieldGroup extends ai.platon.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, ai.platon.gora.persistency.Persistent {
   public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"GFieldGroup\",\"namespace\":\"ai.platon.pulsar.persist.gora.generated\",\"fields\":[{\"name\":\"id\",\"type\":\"long\",\"default\":0},{\"name\":\"parentId\",\"type\":\"long\",\"default\":0},{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"fields\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}}]}");
   private static final long serialVersionUID = -1092470099062642149L;
   /** Enum containing all data bean's fields. */
@@ -78,7 +78,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
   private java.lang.CharSequence name;
   private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> fields;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
-  // Used by DatumWriter.  Applications should not call. 
+  // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return id;
@@ -88,15 +88,15 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
-  
-  // Used by DatumReader.  Applications should not call. 
+
+  // Used by DatumReader.  Applications should not call.
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value) {
     switch (field$) {
     case 0: id = (java.lang.Long)(value); break;
     case 1: parentId = (java.lang.Long)(value); break;
     case 2: name = (java.lang.CharSequence)(value); break;
-    case 3: fields = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)((value instanceof org.apache.gora.persistency.Dirtyable) ? value : new org.apache.gora.persistency.impl.DirtyMapWrapper((java.util.Map)value)); break;
+    case 3: fields = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)((value instanceof ai.platon.gora.persistency.Dirtyable) ? value : new ai.platon.gora.persistency.impl.DirtyMapWrapper((java.util.Map)value)); break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -116,7 +116,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     this.id = value;
     setDirty(0);
   }
-  
+
   /**
    * Checks the dirty status of the 'id' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -140,7 +140,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     this.parentId = value;
     setDirty(1);
   }
-  
+
   /**
    * Checks the dirty status of the 'parentId' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -164,7 +164,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     this.name = value;
     setDirty(2);
   }
-  
+
   /**
    * Checks the dirty status of the 'name' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -185,10 +185,10 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
    * @param value the value to set.
    */
   public void setFields(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-    this.fields = (value instanceof org.apache.gora.persistency.Dirtyable) ? value : new org.apache.gora.persistency.impl.DirtyMapWrapper(value);
+    this.fields = (value instanceof ai.platon.gora.persistency.Dirtyable) ? value : new ai.platon.gora.persistency.impl.DirtyMapWrapper(value);
     setDirty(3);
   }
-  
+
   /**
    * Checks the dirty status of the 'fields' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -201,17 +201,17 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
   public static ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder newBuilder() {
     return new ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder();
   }
-  
+
   /** Creates a new GFieldGroup RecordBuilder by copying an existing Builder */
   public static ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder other) {
     return new ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder(other);
   }
-  
+
   /** Creates a new GFieldGroup RecordBuilder by copying an existing GFieldGroup instance */
   public static ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GFieldGroup other) {
     return new ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder(other);
   }
-  
+
   private static java.nio.ByteBuffer deepCopyToReadOnlyBuffer(
       java.nio.ByteBuffer input) {
     java.nio.ByteBuffer copy = java.nio.ByteBuffer.allocate(input.capacity());
@@ -234,7 +234,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     copy.limit(limit);
     return copy.asReadOnlyBuffer();
   }
-  
+
   /**
    * RecordBuilder for GFieldGroup instances.
    */
@@ -250,12 +250,12 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     private Builder() {
       super(ai.platon.pulsar.persist.gora.generated.GFieldGroup.SCHEMA$);
     }
-    
+
     /** Creates a Builder by copying an existing Builder */
     private Builder(ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder other) {
       super(other);
     }
-    
+
     /** Creates a Builder by copying an existing GFieldGroup instance */
     private Builder(ai.platon.pulsar.persist.gora.generated.GFieldGroup other) {
             super(ai.platon.pulsar.persist.gora.generated.GFieldGroup.SCHEMA$);
@@ -281,100 +281,100 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
     public java.lang.Long getId() {
       return id;
     }
-    
+
     /** Sets the value of the 'id' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder setId(long value) {
       validate(fields()[0], value);
       this.id = value;
       fieldSetFlags()[0] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'id' field has been set */
     public boolean hasId() {
       return fieldSetFlags()[0];
     }
-    
+
     /** Clears the value of the 'id' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder clearId() {
       fieldSetFlags()[0] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'parentId' field */
     public java.lang.Long getParentId() {
       return parentId;
     }
-    
+
     /** Sets the value of the 'parentId' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder setParentId(long value) {
       validate(fields()[1], value);
       this.parentId = value;
       fieldSetFlags()[1] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'parentId' field has been set */
     public boolean hasParentId() {
       return fieldSetFlags()[1];
     }
-    
+
     /** Clears the value of the 'parentId' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder clearParentId() {
       fieldSetFlags()[1] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'name' field */
     public java.lang.CharSequence getName() {
       return name;
     }
-    
+
     /** Sets the value of the 'name' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder setName(java.lang.CharSequence value) {
       validate(fields()[2], value);
       this.name = value;
       fieldSetFlags()[2] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'name' field has been set */
     public boolean hasName() {
       return fieldSetFlags()[2];
     }
-    
+
     /** Clears the value of the 'name' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder clearName() {
       name = null;
       fieldSetFlags()[2] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'fields' field */
     public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getFields() {
       return fields;
     }
-    
+
     /** Sets the value of the 'fields' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder setFields(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
       validate(fields()[3], value);
       this.fields = value;
       fieldSetFlags()[3] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'fields' field has been set */
     public boolean hasFields() {
       return fieldSetFlags()[3];
     }
-    
+
     /** Clears the value of the 'fields' field */
     public ai.platon.pulsar.persist.gora.generated.GFieldGroup.Builder clearFields() {
       fields = null;
       fieldSetFlags()[3] = false;
       return this;
     }
-    
+
     @Override
     public GFieldGroup build() {
       try {
@@ -382,14 +382,14 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
         record.id = fieldSetFlags()[0] ? this.id : (java.lang.Long) defaultValue(fields()[0]);
         record.parentId = fieldSetFlags()[1] ? this.parentId : (java.lang.Long) defaultValue(fields()[1]);
         record.name = fieldSetFlags()[2] ? this.name : (java.lang.CharSequence) defaultValue(fields()[2]);
-        record.fields = fieldSetFlags()[3] ? this.fields : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) new org.apache.gora.persistency.impl.DirtyMapWrapper((java.util.Map)defaultValue(fields()[3]));
+        record.fields = fieldSetFlags()[3] ? this.fields : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) new ai.platon.gora.persistency.impl.DirtyMapWrapper((java.util.Map)defaultValue(fields()[3]));
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);
       }
     }
   }
-  
+
   public GFieldGroup.Tombstone getTombstone(){
   	return TOMBSTONE;
   }
@@ -399,18 +399,18 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
   }
 
   private static final Tombstone TOMBSTONE = new Tombstone();
-  
-  public static final class Tombstone extends GFieldGroup implements org.apache.gora.persistency.Tombstone {
-  
+
+  public static final class Tombstone extends GFieldGroup implements ai.platon.gora.persistency.Tombstone {
+
       private Tombstone() { }
-  
+
 	  		  /**
 	   * Gets the value of the 'id' field.
 		   */
 	  public java.lang.Long getId() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'id' field.
 		   * @param value the value to set.
@@ -418,7 +418,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public void setId(java.lang.Long value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'id' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -426,14 +426,14 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public boolean isIdDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'parentId' field.
 		   */
 	  public java.lang.Long getParentId() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'parentId' field.
 		   * @param value the value to set.
@@ -441,7 +441,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public void setParentId(java.lang.Long value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'parentId' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -449,14 +449,14 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public boolean isParentIdDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'name' field.
 		   */
 	  public java.lang.CharSequence getName() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'name' field.
 		   * @param value the value to set.
@@ -464,7 +464,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public void setName(java.lang.CharSequence value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'name' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -472,14 +472,14 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public boolean isNameDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'fields' field.
 		   */
 	  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getFields() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'fields' field.
 		   * @param value the value to set.
@@ -487,7 +487,7 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public void setFields(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'fields' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -495,8 +495,8 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
 	  public boolean isFieldsDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
-		  
+
+
   }
 
   private static final org.apache.avro.io.DatumWriter
@@ -535,6 +535,6 @@ public class GFieldGroup extends org.apache.gora.persistency.impl.PersistentBase
             .directBinaryDecoder((java.io.InputStream) in,
                     null));
   }
-  
+
 }
 

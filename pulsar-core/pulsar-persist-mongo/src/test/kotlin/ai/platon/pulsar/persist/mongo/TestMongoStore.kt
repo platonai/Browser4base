@@ -1,13 +1,13 @@
 package ai.platon.pulsar.persist.mongo
 
+import ai.platon.gora.mongodb.store.MongoStore
+import ai.platon.gora.mongodb.store.MongoStoreParameters.PROP_MONGO_SERVERS
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.config.MutableConfig
-import ai.platon.pulsar.persist.DataStorageFactory
+import ai.platon.pulsar.persist.MongoDataStorageFactory
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import org.apache.commons.lang3.RandomStringUtils
-import org.apache.gora.mongodb.store.MongoStore
-import org.apache.gora.mongodb.store.MongoStoreParameters.PROP_MONGO_SERVERS
 import org.junit.jupiter.api.Assumptions
 import kotlin.test.*
 
@@ -26,10 +26,10 @@ class TestMongoStore : MongoTestBase() {
         val store = MongoStore<String, GWebPage>()
         assertNull(store.schemaName)
 
-        val provider = DataStorageFactory(conf)
+        val provider = MongoDataStorageFactory(conf)
         val store2 = provider.getOrCreatePageStore()
 
-        Assumptions.assumeTrue(DataStorageFactory.checkIfMongoClientAvailable(conf)) {
+        Assumptions.assumeTrue(MongoDataStorageFactory.checkIfMongoClientAvailable(conf)) {
             "MongoDB is not available at ${conf[PROP_MONGO_SERVERS]}"
         }
         assertEquals(AppConstants.MONGO_STORE_CLASS, provider.storeClassName)
@@ -38,7 +38,7 @@ class TestMongoStore : MongoTestBase() {
 
     @Test
     fun testOperation() {
-        val store = DataStorageFactory(conf).getOrCreatePageStore()
+        val store = MongoDataStorageFactory(conf).getOrCreatePageStore()
 
         val key = System.currentTimeMillis().toString()
         store.put(key, GWebPage())

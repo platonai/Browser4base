@@ -5,9 +5,9 @@
  */
 package ai.platon.pulsar.persist.gora.generated;
 
-import org.apache.gora.persistency.Persistent;
+import ai.platon.gora.persistency.Persistent;
 
-public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, org.apache.gora.persistency.Persistent {
+public class GActiveDOMStat extends ai.platon.gora.persistency.impl.PersistentBase implements org.apache.avro.specific.SpecificRecord, ai.platon.gora.persistency.Persistent {
   public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"GActiveDOMStat\",\"namespace\":\"ai.platon.pulsar.persist.gora.generated\",\"fields\":[{\"name\":\"ni\",\"type\":\"int\",\"default\":0},{\"name\":\"na\",\"type\":\"int\",\"default\":0},{\"name\":\"nnm\",\"type\":\"int\",\"default\":0},{\"name\":\"nst\",\"type\":\"int\",\"default\":0},{\"name\":\"w\",\"type\":\"int\",\"default\":0},{\"name\":\"h\",\"type\":\"int\",\"default\":0}]}");
   private static final long serialVersionUID = -526959596255254644L;
   /** Enum containing all data bean's fields. */
@@ -84,7 +84,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
   private int w;
   private int h;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
-  // Used by DatumWriter.  Applications should not call. 
+  // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return ni;
@@ -96,8 +96,8 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
-  
-  // Used by DatumReader.  Applications should not call. 
+
+  // Used by DatumReader.  Applications should not call.
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value) {
     switch (field$) {
@@ -126,7 +126,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     this.ni = value;
     setDirty(0);
   }
-  
+
   /**
    * Checks the dirty status of the 'ni' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -150,7 +150,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     this.na = value;
     setDirty(1);
   }
-  
+
   /**
    * Checks the dirty status of the 'na' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -174,7 +174,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     this.nnm = value;
     setDirty(2);
   }
-  
+
   /**
    * Checks the dirty status of the 'nnm' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -198,7 +198,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     this.nst = value;
     setDirty(3);
   }
-  
+
   /**
    * Checks the dirty status of the 'nst' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -222,7 +222,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     this.w = value;
     setDirty(4);
   }
-  
+
   /**
    * Checks the dirty status of the 'w' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -246,7 +246,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     this.h = value;
     setDirty(5);
   }
-  
+
   /**
    * Checks the dirty status of the 'h' field. A field is dirty if it represents a change that has not yet been written to the database.
    * @param value the value to set.
@@ -259,17 +259,17 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
   public static ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder newBuilder() {
     return new ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder();
   }
-  
+
   /** Creates a new GActiveDOMStat RecordBuilder by copying an existing Builder */
   public static ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder other) {
     return new ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder(other);
   }
-  
+
   /** Creates a new GActiveDOMStat RecordBuilder by copying an existing GActiveDOMStat instance */
   public static ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder newBuilder(ai.platon.pulsar.persist.gora.generated.GActiveDOMStat other) {
     return new ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder(other);
   }
-  
+
   private static java.nio.ByteBuffer deepCopyToReadOnlyBuffer(
       java.nio.ByteBuffer input) {
     java.nio.ByteBuffer copy = java.nio.ByteBuffer.allocate(input.capacity());
@@ -292,7 +292,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     copy.limit(limit);
     return copy.asReadOnlyBuffer();
   }
-  
+
   /**
    * RecordBuilder for GActiveDOMStat instances.
    */
@@ -310,12 +310,12 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     private Builder() {
       super(ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.SCHEMA$);
     }
-    
+
     /** Creates a Builder by copying an existing Builder */
     private Builder(ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder other) {
       super(other);
     }
-    
+
     /** Creates a Builder by copying an existing GActiveDOMStat instance */
     private Builder(ai.platon.pulsar.persist.gora.generated.GActiveDOMStat other) {
             super(ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.SCHEMA$);
@@ -349,146 +349,146 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
     public java.lang.Integer getNi() {
       return ni;
     }
-    
+
     /** Sets the value of the 'ni' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder setNi(int value) {
       validate(fields()[0], value);
       this.ni = value;
       fieldSetFlags()[0] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'ni' field has been set */
     public boolean hasNi() {
       return fieldSetFlags()[0];
     }
-    
+
     /** Clears the value of the 'ni' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder clearNi() {
       fieldSetFlags()[0] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'na' field */
     public java.lang.Integer getNa() {
       return na;
     }
-    
+
     /** Sets the value of the 'na' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder setNa(int value) {
       validate(fields()[1], value);
       this.na = value;
       fieldSetFlags()[1] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'na' field has been set */
     public boolean hasNa() {
       return fieldSetFlags()[1];
     }
-    
+
     /** Clears the value of the 'na' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder clearNa() {
       fieldSetFlags()[1] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'nnm' field */
     public java.lang.Integer getNnm() {
       return nnm;
     }
-    
+
     /** Sets the value of the 'nnm' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder setNnm(int value) {
       validate(fields()[2], value);
       this.nnm = value;
       fieldSetFlags()[2] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'nnm' field has been set */
     public boolean hasNnm() {
       return fieldSetFlags()[2];
     }
-    
+
     /** Clears the value of the 'nnm' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder clearNnm() {
       fieldSetFlags()[2] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'nst' field */
     public java.lang.Integer getNst() {
       return nst;
     }
-    
+
     /** Sets the value of the 'nst' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder setNst(int value) {
       validate(fields()[3], value);
       this.nst = value;
       fieldSetFlags()[3] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'nst' field has been set */
     public boolean hasNst() {
       return fieldSetFlags()[3];
     }
-    
+
     /** Clears the value of the 'nst' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder clearNst() {
       fieldSetFlags()[3] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'w' field */
     public java.lang.Integer getW() {
       return w;
     }
-    
+
     /** Sets the value of the 'w' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder setW(int value) {
       validate(fields()[4], value);
       this.w = value;
       fieldSetFlags()[4] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'w' field has been set */
     public boolean hasW() {
       return fieldSetFlags()[4];
     }
-    
+
     /** Clears the value of the 'w' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder clearW() {
       fieldSetFlags()[4] = false;
       return this;
     }
-    
+
     /** Gets the value of the 'h' field */
     public java.lang.Integer getH() {
       return h;
     }
-    
+
     /** Sets the value of the 'h' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder setH(int value) {
       validate(fields()[5], value);
       this.h = value;
       fieldSetFlags()[5] = true;
-      return this; 
+      return this;
     }
-    
+
     /** Checks whether the 'h' field has been set */
     public boolean hasH() {
       return fieldSetFlags()[5];
     }
-    
+
     /** Clears the value of the 'h' field */
     public ai.platon.pulsar.persist.gora.generated.GActiveDOMStat.Builder clearH() {
       fieldSetFlags()[5] = false;
       return this;
     }
-    
+
     @Override
     public GActiveDOMStat build() {
       try {
@@ -505,7 +505,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
       }
     }
   }
-  
+
   public GActiveDOMStat.Tombstone getTombstone(){
   	return TOMBSTONE;
   }
@@ -515,18 +515,18 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
   }
 
   private static final Tombstone TOMBSTONE = new Tombstone();
-  
-  public static final class Tombstone extends GActiveDOMStat implements org.apache.gora.persistency.Tombstone {
-  
+
+  public static final class Tombstone extends GActiveDOMStat implements ai.platon.gora.persistency.Tombstone {
+
       private Tombstone() { }
-  
+
 	  		  /**
 	   * Gets the value of the 'ni' field.
 		   */
 	  public java.lang.Integer getNi() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'ni' field.
 		   * @param value the value to set.
@@ -534,7 +534,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public void setNi(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'ni' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -542,14 +542,14 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public boolean isNiDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'na' field.
 		   */
 	  public java.lang.Integer getNa() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'na' field.
 		   * @param value the value to set.
@@ -557,7 +557,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public void setNa(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'na' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -565,14 +565,14 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public boolean isNaDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'nnm' field.
 		   */
 	  public java.lang.Integer getNnm() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'nnm' field.
 		   * @param value the value to set.
@@ -580,7 +580,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public void setNnm(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'nnm' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -588,14 +588,14 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public boolean isNnmDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'nst' field.
 		   */
 	  public java.lang.Integer getNst() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'nst' field.
 		   * @param value the value to set.
@@ -603,7 +603,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public void setNst(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'nst' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -611,14 +611,14 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public boolean isNstDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'w' field.
 		   */
 	  public java.lang.Integer getW() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'w' field.
 		   * @param value the value to set.
@@ -626,7 +626,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public void setW(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'w' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -634,14 +634,14 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public boolean isWDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
+
 				  /**
 	   * Gets the value of the 'h' field.
 		   */
 	  public java.lang.Integer getH() {
 	    throw new java.lang.UnsupportedOperationException("Get is not supported on tombstones");
 	  }
-	
+
 	  /**
 	   * Sets the value of the 'h' field.
 		   * @param value the value to set.
@@ -649,7 +649,7 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public void setH(java.lang.Integer value) {
 	    throw new java.lang.UnsupportedOperationException("Set is not supported on tombstones");
 	  }
-	  
+
 	  /**
 	   * Checks the dirty status of the 'h' field. A field is dirty if it represents a change that has not yet been written to the database.
 		   * @param value the value to set.
@@ -657,8 +657,8 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
 	  public boolean isHDirty() {
 	    throw new java.lang.UnsupportedOperationException("IsDirty is not supported on tombstones");
 	  }
-	
-		  
+
+
   }
 
   private static final org.apache.avro.io.DatumWriter
@@ -697,6 +697,6 @@ public class GActiveDOMStat extends org.apache.gora.persistency.impl.PersistentB
             .directBinaryDecoder((java.io.InputStream) in,
                     null));
   }
-  
+
 }
 

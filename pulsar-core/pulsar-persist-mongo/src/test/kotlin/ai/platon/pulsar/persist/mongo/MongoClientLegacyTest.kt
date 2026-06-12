@@ -1,14 +1,14 @@
 package ai.platon.pulsar.persist.mongo
 
+import ai.platon.gora.mongodb.store.MongoStore
 import ai.platon.pulsar.common.NetUtil
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.config.MutableConfig
-import ai.platon.pulsar.persist.DataStorageFactory
+import ai.platon.pulsar.persist.MongoDataStorageFactory
 import ai.platon.pulsar.persist.gora.generated.GWebPage
-import shaded.com.mongodb.MongoClient
+import com.mongodb.MongoClient
 import org.apache.commons.lang3.RandomStringUtils
-import org.apache.gora.mongodb.store.MongoStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeAll
@@ -35,8 +35,8 @@ class MongoClientLegacyTest {
         fun setupClass() {
             Assumptions.assumeTrue { NetUtil.testNetwork("localhost", 27017) }
 
-            conf.set(CapabilityTypes.STORAGE_DATA_STORE_CLASS, AppConstants.MONGO_STORE_CLASS)
-            conf.set(CapabilityTypes.STORAGE_CRAWL_ID, crawlId)
+            conf[CapabilityTypes.STORAGE_DATA_STORE_CLASS] = AppConstants.MONGO_STORE_CLASS
+            conf[CapabilityTypes.STORAGE_CRAWL_ID] = crawlId
             mongoClient = MongoClient("localhost", 27017)
         }
     }
@@ -72,7 +72,7 @@ class MongoClientLegacyTest {
         val store = MongoStore<String, GWebPage>()
         assertNull(store.schemaName)
 
-        val provider = DataStorageFactory(conf)
+        val provider = MongoDataStorageFactory(conf)
         val store2 = provider.getOrCreatePageStore()
         assertEquals(AppConstants.MONGO_STORE_CLASS, provider.storeClassName)
         assertTrue("Actual schema name: ${store2.schemaName}") { crawlId in store2.schemaName }

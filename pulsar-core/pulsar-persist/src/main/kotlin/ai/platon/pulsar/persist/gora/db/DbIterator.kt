@@ -16,6 +16,7 @@
  */
 package ai.platon.pulsar.persist.gora.db
 
+import ai.platon.gora.query.Result
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.persist.WebDBException
@@ -23,7 +24,6 @@ import ai.platon.pulsar.persist.WebDb
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
-import org.apache.gora.query.Result
 import org.slf4j.LoggerFactory
 import java.util.function.Predicate
 

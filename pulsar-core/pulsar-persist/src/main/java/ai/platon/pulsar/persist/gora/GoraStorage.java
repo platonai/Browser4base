@@ -1,12 +1,12 @@
 package ai.platon.pulsar.persist.gora;
 
+import ai.platon.gora.persistency.Persistent;
+import ai.platon.gora.store.DataStore;
+import ai.platon.gora.store.DataStoreFactory;
+import ai.platon.gora.util.GoraException;
 import ai.platon.pulsar.common.config.ImmutableConfig;
 import ai.platon.pulsar.persist.HadoopUtils;
 import ai.platon.pulsar.persist.gora.generated.GWebPage;
-import org.apache.gora.persistency.Persistent;
-import org.apache.gora.store.DataStore;
-import org.apache.gora.store.DataStoreFactory;
-import org.apache.gora.util.GoraException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Properties;
 
 import static ai.platon.pulsar.common.LogsKt.warnForClose;
-import static ai.platon.pulsar.common.config.AppConstants.MONGO_STORE_CLASS;
 import static ai.platon.pulsar.common.config.AppConstants.WEBPAGE_SCHEMA;
 import static ai.platon.pulsar.common.config.CapabilityTypes.*;
 
@@ -24,7 +23,7 @@ public class GoraStorage {
 
     /**
      * Loads properties from the `gora.properties` file.
-     * See org.apache.gora.mongodb.store.MongoStoreParameters#load for property loading details:
+     * See ai.platon.gora.mongodb.store.MongoStoreParameters#load for property loading details:
      * 1. Loads from the `gora.properties` file.
      * 2. If `gora.mongodb.override_hadoop_configuration` is false, uses properties from the Hadoop configuration.
      * 3. In Browser4, the `gora.properties` file is located at `pulsar-persist/src/main/resources/gora.properties`
