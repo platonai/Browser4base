@@ -15,7 +15,7 @@
     <parent>
         <groupId>ai.platon.pulsar</groupId>
         <artifactId>pulsar</artifactId>
-        <version>4.8.4-mongo</version>
+        <version>4.9.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -26,7 +26,7 @@
         <dependency>
             <groupId>ai.platon.gora</groupId>
             <artifactId>gora-mongodb</artifactId>
-            <version>1.0.0</version>
+            <version>${platon-gora.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.spark</groupId>
@@ -62,7 +62,7 @@
     </dependencies>
 
     <properties>
-        <gora-shaded-mongodb.version>0.9</gora-shaded-mongodb.version>
+        <platon-gora.version>1.0.0</platon-gora.version>
     </properties>
 
 </project>
