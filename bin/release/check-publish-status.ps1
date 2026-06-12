@@ -186,7 +186,7 @@ Write-Host "-------------------------------------------------"
 $mavenAvailable = $false
 
 try {
-    $response = Invoke-WebRequest -Uri $mavenUrl -Method Head -TimeoutSec 30 -ErrorAction SilentlyContinue
+    $response = Invoke-WebRequest -Uri $mavenUrl -Method Head -TimeoutSec 30 -UseBasicParsing -ErrorAction SilentlyContinue
     if ($response.StatusCode -eq 200) {
         $mavenAvailable = $true
         Write-Host "  [OK] pulsar-bom $Version is available on Maven Central."
