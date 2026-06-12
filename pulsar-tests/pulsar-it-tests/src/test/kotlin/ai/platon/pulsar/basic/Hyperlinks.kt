@@ -1,6 +1,6 @@
 package ai.platon.pulsar.basic
 
-import ai.platon.pulsar.common.B4Constants.VAR_IS_SCRAPE
+import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.urls.DegenerateUrl
 import ai.platon.pulsar.common.urls.UrlAware
@@ -59,7 +59,7 @@ open class MockListenableHyperlink(url: String): ListenableHyperlink(url, "") {
                         assertNotNull(page.tmpContent) { "if the page is fetched, the content must be cached" }
                     }
                 }
-                assertTrue(page.hasVar(VAR_IS_SCRAPE))
+                assertTrue(page.hasVar(AppConstants.VAR_IS_SCRAPE))
             }
         }
     }
@@ -79,7 +79,7 @@ open class MockListenableHyperlink(url: String): ListenableHyperlink(url, "") {
                 printlnPro("............onWillParseHTMLDocument " + page.id)
                 printlnPro("$this " + page.loadEventHandlers)
                 require(page is AbstractWebPage)
-                page.variables[VAR_IS_SCRAPE] = true
+                page.variables[AppConstants.VAR_IS_SCRAPE] = true
                 null
             }
             onWillParseHTMLDocument.addFirst { page ->
@@ -92,7 +92,7 @@ open class MockListenableHyperlink(url: String): ListenableHyperlink(url, "") {
                 printlnPro("............onHTMLDocumentParsed " + page.id)
 //                assertSame(thisHandler, page.loadEvent)
                 require(page is AbstractWebPage)
-                assertTrue(page.hasVar(VAR_IS_SCRAPE))
+                assertTrue(page.hasVar(AppConstants.VAR_IS_SCRAPE))
             }
             onParsed.addFirst { page ->
                 hyperlink.triggeredEvents.add("$seq. LoadEvent.onParsed")

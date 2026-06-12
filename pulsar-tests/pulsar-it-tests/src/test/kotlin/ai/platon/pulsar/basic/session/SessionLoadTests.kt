@@ -5,6 +5,7 @@ import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.common.LinkExtractors
 import ai.platon.pulsar.ql.SQLSession
 import ai.platon.pulsar.skeleton.common.persist.ext.loadEventHandlers
+import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
@@ -31,7 +32,7 @@ class SessionLoadTests : TestBase() {
     @Test
     fun ensureSessionCreatedBySQLContextIsNotSQLSession() {
         assertFalse { session is SQLSession }
-        assertTrue { session is GenericPulsarSession }
+        assertTrue { session is AbstractPulsarSession }
     }
 
     /**
