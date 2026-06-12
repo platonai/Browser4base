@@ -7,7 +7,9 @@
       "Bash(git tag *)",
       "Bash(git push *)",
       "Bash(powershell *)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'refactor: simplify browser profile generator, add Caffeine cache, improve load options *)"
     ]
   }
 }

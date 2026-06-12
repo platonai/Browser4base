@@ -70,6 +70,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.crawler-commons</groupId>
             <artifactId>crawler-commons</artifactId>
             <version>0.5</version>
@@ -152,5 +157,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 </project>
