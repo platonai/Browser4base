@@ -81,24 +81,6 @@
             <artifactId>okhttp</artifactId>
         </dependency>
 
-        <!-- Stax2 API is an extension to standard Stax API ("the STandard Api for Xml processing"), pull-parser API of JDK. -->
-        <!-- https://mvnrepository.com/artifact/org.codehaus.woodstox/stax2-api/4.2.2 -->
-        <dependency>
-            <groupId>org.codehaus.woodstox</groupId>
-            <artifactId>stax2-api</artifactId>
-            <version>${stax2-api.version}</version>
-        </dependency>
-        <!--
-            Woodstox is required by KConfiguration to parse xml files.
-            Woodstox is a high-performance XML processor that implements Stax (JSR-173), SAX2 and Stax2 APIs
-         -->
-        <!-- https://mvnrepository.com/artifact/org.codehaus.woodstox/woodstox-core-asl -->
-        <dependency>
-            <groupId>org.codehaus.woodstox</groupId>
-            <artifactId>woodstox-core-asl</artifactId>
-            <version>${woodstox-core-asl.version}</version>
-        </dependency>
-
         <!-- Jackson support for kotlin -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
@@ -188,7 +170,5 @@
     </dependencies>
 
     <properties>
-        <stax2-api.version>4.2.1</stax2-api.version>
-        <woodstox-core-asl.version>4.4.1</woodstox-core-asl.version>
     </properties>
 </project>
