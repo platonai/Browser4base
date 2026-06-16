@@ -1,5 +1,6 @@
 package ai.platon.pulsar.ql
 
+import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -21,7 +22,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- String functions (namespace STR) ------------------------------------
 
     @Test
-    fun `IS_NUMERIC returns true for numeric string`() {
+    @DisplayName("test IS_NUMERIC returns true for numeric string")
+    fun testIsNumericReturnsTrueForNumericString() {
         query("SELECT IS_NUMERIC('12345') AS result") { rs ->
             assertTrue(rs.next())
             assertTrue(rs.getBoolean("RESULT"))
@@ -29,7 +31,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `IS_NUMERIC returns false for non-numeric string`() {
+    @DisplayName("test IS_NUMERIC returns false for non-numeric string")
+    fun testIsNumericReturnsFalseForNonNumericString() {
         query("SELECT IS_NUMERIC('abc123') AS result") { rs ->
             assertTrue(rs.next())
             assertEquals(false, rs.getBoolean("RESULT"))
@@ -37,7 +40,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `STR_LENGTH returns string length`() {
+    @DisplayName("test STR_LENGTH returns string length")
+    fun testStrLengthReturnsStringLength() {
         query("SELECT STR_LENGTH('hello') AS len") { rs ->
             assertTrue(rs.next())
             assertEquals(5, rs.getInt("LEN"))
@@ -45,7 +49,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `STR_UPPER_CASE converts to uppercase`() {
+    @DisplayName("test STR_UPPER_CASE converts to uppercase")
+    fun testStrUpperCaseConvertsToUppercase() {
         query("SELECT STR_UPPER_CASE('hello') AS result") { rs ->
             assertTrue(rs.next())
             assertEquals("HELLO", rs.getString("RESULT"))
@@ -53,7 +58,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `STR_TRIM removes whitespace`() {
+    @DisplayName("test STR_TRIM removes whitespace")
+    fun testStrTrimRemovesWhitespace() {
         query("SELECT STR_TRIM('  hello  ') AS result") { rs ->
             assertTrue(rs.next())
             assertEquals("hello", rs.getString("RESULT"))
@@ -63,7 +69,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- Regex functions (CommonFunctions, no namespace) ----------------------
 
     @Test
-    fun `RE1 extracts first regex group`() {
+    @DisplayName("test RE1 extracts first regex group")
+    fun testRe1ExtractsFirstRegexGroup() {
         // In H2 SQL, backslash has no special meaning in string literals.
         // Kotlin string "\\d+" → SQL string \d+ → regex \d+
         query("SELECT RE1('hello world 123', '\\d+') AS num") { rs ->
@@ -73,7 +80,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `RE2 extracts two regex groups`() {
+    @DisplayName("test RE2 extracts two regex groups")
+    fun testRe2ExtractsTwoRegexGroups() {
         query("SELECT RE2('key=value', '(\\w+)=(\\w+)') AS pair") { rs ->
             assertTrue(rs.next())
             assertNotNull(rs.getArray("PAIR"))
@@ -83,7 +91,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- URL functions (CommonFunctions, no namespace) -------------------------
 
     @Test
-    fun `GET_TOP_PRIVATE_DOMAIN extracts domain from URL`() {
+    @DisplayName("test GET_TOP_PRIVATE_DOMAIN extracts domain from URL")
+    fun testGetTopPrivateDomainExtractsDomainFromUrl() {
         query("SELECT GET_TOP_PRIVATE_DOMAIN('http://www.example.com/path') AS domain") { rs ->
             assertTrue(rs.next())
             assertEquals("example.com", rs.getString("DOMAIN"))
@@ -93,7 +102,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- DOM_BASE_URI on loaded pages ----------------------------------------
 
     @Test
-    fun `DOM_BASE_URI of loaded page contains localhost`() {
+    @DisplayName("test DOM_BASE_URI of loaded page contains localhost")
+    fun testDomBaseUriOfLoadedPageContainsLocalhost() {
         query("SELECT DOM_BASE_URI(DOM_LOAD('$domPageUrl')) AS uri") { rs ->
             assertTrue(rs.next())
             val uri = rs.getString("URI")
@@ -106,7 +116,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- MAKE_ARRAY (CommonFunctions, no namespace) --------------------------
 
     @Test
-    fun `MAKE_ARRAY creates array from values`() {
+    @DisplayName("test MAKE_ARRAY creates array from values")
+    fun testMakeArrayCreatesArrayFromValues() {
         query("SELECT MAKE_ARRAY('a', 'b', 'c') AS arr") { rs ->
             assertTrue(rs.next())
             assertNotNull(rs.getArray("ARR"))
@@ -116,7 +127,8 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- XSQL_HELP (CommonFunctionTables, no namespace) ------------------------
 
     @Test
-    fun `XSQL_HELP shows available functions`() {
+    @DisplayName("test XSQL_HELP shows available functions")
+    fun testXsqlHelpShowsAvailableFunctions() {
         query("SELECT * FROM XSQL_HELP()") { rs ->
             assertTrue(rs.metaData.columnCount >= 3,
                 "Expected at least 3 columns (NAMESPACE, XSQL FUNCTION, etc.)")
@@ -130,15 +142,16 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- ADMIN_SAVE (AdminFunctions, namespace ADMIN) -------------------------
 
     @Test
-    fun `ADMIN_SAVE persists a loaded page`() {
-        // This saves the page to disk for inspection; should not throw
+    @DisplayName("test ADMIN_SAVE persists a loaded page")
+    fun testAdminSavePersistsALoadedPage() {
         execute("CALL ADMIN_SAVE('$domPageUrl', 'ql-it-dom-page.html')")
     }
 
     // -- STRING functions on loaded content ----------------------------------
 
     @Test
-    fun `DOM_TEXT combined with string UDFs`() {
+    @DisplayName("test DOM_TEXT combined with string UDFs")
+    fun testDomTextCombinedWithStringUdfs() {
         query(
             """SELECT STR_LENGTH(DOM_FIRST_TEXT(DOM_LOAD('$formPageUrl'), 'h1')) AS len"""
         ) { rs ->
@@ -151,12 +164,14 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     // -- Test loading different content types from the mock server ------------
 
     @Test
-    fun `LOAD_AND_SELECT on a text page`() {
+    @DisplayName("test LOAD_AND_SELECT on a text page")
+    fun testLoadAndSelectOnTextPage() {
         execute("SELECT * FROM LOAD_AND_SELECT('$textUrl', 'body')")
     }
 
     @Test
-    fun `load multiple different pages from mock server`() {
+    @DisplayName("test load multiple different pages from mock server")
+    fun testLoadMultipleDifferentPagesFromMockServer() {
         query(
             """
             SELECT

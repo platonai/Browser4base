@@ -1,5 +1,6 @@
 package ai.platon.pulsar.ql
 
+import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -20,23 +21,24 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- LOAD_AND_SELECT ----------------------------------------------------
 
     @Test
-    fun `LOAD_AND_SELECT returns all elements matching css query`() {
-        // The EC category page has product cards - verify we can select them
+    @DisplayName("test LOAD_AND_SELECT returns all elements matching css query")
+    fun testLoadAndSelectReturnsAllMatchingElements() {
         execute(
             "SELECT * FROM LOAD_AND_SELECT('$ecCategoryUrl', '.product-card')"
         )
     }
 
     @Test
-    fun `LOAD_AND_SELECT with offset and limit`() {
-        // Select only first 3 product cards
+    @DisplayName("test LOAD_AND_SELECT with offset and limit")
+    fun testLoadAndSelectWithOffsetAndLimit() {
         execute(
             "SELECT * FROM LOAD_AND_SELECT('$ecCategoryUrl', '.product-card', 1, 3)"
         )
     }
 
     @Test
-    fun `LOAD_AND_SELECT on dom page selects by id`() {
+    @DisplayName("test LOAD_AND_SELECT on dom page selects by id")
+    fun testLoadAndSelectOnDomPageSelectsById() {
         query(
             "SELECT * FROM LOAD_AND_SELECT('$domPageUrl', '#outer')"
         ) { rs ->
@@ -45,7 +47,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `LOAD_AND_SELECT product cards have expected columns`() {
+    @DisplayName("test LOAD_AND_SELECT product cards have expected columns")
+    fun testLoadAndSelectProductCardsHaveExpectedColumns() {
         query(
             "SELECT * FROM LOAD_AND_SELECT('$ecCategoryUrl', '.product-card')"
         ) { rs ->
@@ -53,11 +56,9 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
             val columnCount = metaData.columnCount
             assertTrue(columnCount > 0, "Expected at least 1 column, got $columnCount")
 
-            // Print column names for debugging
             val columns = (1..columnCount).map { metaData.getColumnName(it) }
             logger.info("LOAD_AND_SELECT columns: $columns")
 
-            // Verify we have rows
             var rowCount = 0
             while (rs.next()) rowCount++
             assertTrue(rowCount > 0, "Expected at least 1 row")
@@ -66,7 +67,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `LOAD_AND_SELECT on form page selects labels`() {
+    @DisplayName("test LOAD_AND_SELECT on form page selects labels")
+    fun testLoadAndSelectOnFormPageSelectsLabels() {
         query(
             "SELECT * FROM LOAD_AND_SELECT('$formPageUrl', 'label')"
         ) { rs ->
@@ -79,7 +81,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- DOM_SELECT (table function, takes a DOM value) ----------------------
 
     @Test
-    fun `DOM_SELECT table function selects elements from a loaded DOM`() {
+    @DisplayName("test DOM_SELECT table function selects elements from a loaded DOM")
+    fun testDomSelectTableFunctionSelectsElementsFromDom() {
         execute(
             """
             SELECT * FROM DOM_SELECT(DOM_LOAD('$ecCategoryUrl'), '.product-card', 1, 5)
@@ -88,7 +91,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_SELECT with DOM_LOAD chain extracts product info`() {
+    @DisplayName("test DOM_SELECT with DOM_LOAD chain extracts product info")
+    fun testDomSelectWithDomLoadChainExtractsProductInfo() {
         query(
             """
             SELECT
@@ -108,7 +112,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_SELECT on form page with chained UDFs`() {
+    @DisplayName("test DOM_SELECT on form page with chained UDFs")
+    fun testDomSelectOnFormPageWithChainedUdfs() {
         query(
             """
             SELECT
@@ -133,14 +138,16 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- LOAD_AND_GET_LINKS --------------------------------------------------
 
     @Test
-    fun `LOAD_AND_GET_LINKS extracts links from loaded page`() {
+    @DisplayName("test LOAD_AND_GET_LINKS extracts links from loaded page")
+    fun testLoadAndGetLinksExtractsLinksFromPage() {
         execute(
             "SELECT * FROM LOAD_AND_GET_LINKS('$ecCategoryUrl', '.product-link')"
         )
     }
 
     @Test
-    fun `LOAD_AND_GET_LINKS returns non-empty result`() {
+    @DisplayName("test LOAD_AND_GET_LINKS returns non-empty result")
+    fun testLoadAndGetLinksReturnsNonEmptyResult() {
         query(
             "SELECT * FROM LOAD_AND_GET_LINKS('$ecCategoryUrl', '.product-link')"
         ) { rs ->
@@ -153,7 +160,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `LOAD_AND_GET_LINKS with offset and limit`() {
+    @DisplayName("test LOAD_AND_GET_LINKS with offset and limit")
+    fun testLoadAndGetLinksWithOffsetAndLimit() {
         query(
             "SELECT * FROM LOAD_AND_GET_LINKS('$ecCategoryUrl', '.product-link', 1, 3)"
         ) { rs ->
@@ -164,7 +172,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `LOAD_AND_GET_LINKS from form page extracts anchor href`() {
+    @DisplayName("test LOAD_AND_GET_LINKS from form page extracts anchor href")
+    fun testLoadAndGetLinksFromFormPage() {
         query(
             "SELECT * FROM LOAD_AND_GET_LINKS('$formPageUrl', 'a')"
         ) { rs ->
@@ -175,14 +184,16 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- LOAD_AND_GET_FEATURES -----------------------------------------------
 
     @Test
-    fun `LOAD_AND_GET_FEATURES returns element features`() {
+    @DisplayName("test LOAD_AND_GET_FEATURES returns element features")
+    fun testLoadAndGetFeaturesReturnsElementFeatures() {
         execute(
             "SELECT * FROM LOAD_AND_GET_FEATURES('$ecCategoryUrl', '.product-card', 1, 5)"
         )
     }
 
     @Test
-    fun `LOAD_AND_GET_FEATURES returns columns for product cards`() {
+    @DisplayName("test LOAD_AND_GET_FEATURES returns columns for product cards")
+    fun testLoadAndGetFeaturesReturnsColumnsForProductCards() {
         query(
             "SELECT * FROM LOAD_AND_GET_FEATURES('$ecCategoryUrl', '.product-card', 1, 5)"
         ) { rs ->
@@ -202,7 +213,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- LOAD_AND_GET_ANCHORS -----------------------------------------------
 
     @Test
-    fun `LOAD_AND_GET_ANCHORS extracts anchor elements`() {
+    @DisplayName("test LOAD_AND_GET_ANCHORS extracts anchor elements")
+    fun testLoadAndGetAnchorsExtractsAnchorElements() {
         execute(
             "SELECT * FROM LOAD_AND_GET_ANCHORS('$ecCategoryUrl', '.product-link')"
         )
@@ -211,7 +223,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- XSQL_HELP -----------------------------------------------------------
 
     @Test
-    fun `XSQL_HELP returns list of registered functions`() {
+    @DisplayName("test XSQL_HELP returns list of registered functions")
+    fun testXsqlHelpReturnsListOfRegisteredFunctions() {
         query("SELECT * FROM XSQL_HELP()") { rs ->
             val metaData = rs.metaData
             val columns = (1..metaData.columnCount).map { metaData.getColumnName(it) }
@@ -227,7 +240,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     // -- Project pattern (from TestCases example) ----------------------------
 
     @Test
-    fun `project fields from EC category page`() {
+    @DisplayName("test project fields from EC category page")
+    fun testProjectFieldsFromEcCategoryPage() {
         execute(
             """
             SELECT
@@ -239,7 +253,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `extract title and href from EC product links`() {
+    @DisplayName("test extract title and href from EC product links")
+    fun testExtractTitleAndHrefFromEcProductLinks() {
         execute(
             """
             SELECT

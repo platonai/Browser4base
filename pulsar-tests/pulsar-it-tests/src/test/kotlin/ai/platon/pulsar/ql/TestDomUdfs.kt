@@ -1,5 +1,6 @@
 package ai.platon.pulsar.ql
 
+import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -20,13 +21,15 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_LOAD and DOM_IS_NIL / DOM_IS_NOT_NIL ---------------------------
 
     @Test
-    fun `DOM_LOAD loads a page and returns non-nil DOM`() {
+    @DisplayName("test DOM_LOAD loads a page and returns non-nil DOM")
+    fun testDomLoadReturnsNonNilDom() {
         execute("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$domPageUrl'))")
         execute("SELECT DOM_IS_NIL(DOM_LOAD('$domPageUrl'))")
     }
 
     @Test
-    fun `DOM_IS_NOT_NIL returns true for a valid loaded page`() {
+    @DisplayName("test DOM_IS_NOT_NIL returns true for a valid loaded page")
+    fun testDomIsNotNilReturnsTrueForValidPage() {
         query("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$domPageUrl')) AS is_valid") { rs ->
             assertTrue(rs.next())
             assertTrue(rs.getBoolean("IS_VALID"))
@@ -34,7 +37,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_IS_NIL returns false for a valid loaded page`() {
+    @DisplayName("test DOM_IS_NIL returns false for a valid loaded page")
+    fun testDomIsNilReturnsFalseForValidPage() {
         query("SELECT DOM_IS_NIL(DOM_LOAD('$domPageUrl')) AS is_nil") { rs ->
             assertTrue(rs.next())
             assertEquals(false, rs.getBoolean("IS_NIL"))
@@ -44,7 +48,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_BASE_URI -------------------------------------------------------
 
     @Test
-    fun `DOM_BASE_URI returns the page URL`() {
+    @DisplayName("test DOM_BASE_URI returns the page URL")
+    fun testDomBaseUriReturnsPageUrl() {
         query("SELECT DOM_BASE_URI(DOM_LOAD('$domPageUrl')) AS base_uri") { rs ->
             assertTrue(rs.next())
             val baseUri = rs.getString("BASE_URI")
@@ -54,7 +59,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_BASE_URI of EC category page contains ec path`() {
+    @DisplayName("test DOM_BASE_URI of EC category page contains ec path")
+    fun testDomBaseUriOfEcCategoryContainsEcPath() {
         query("SELECT DOM_BASE_URI(DOM_LOAD('$ecCategoryUrl')) AS base_uri") { rs ->
             assertTrue(rs.next())
             val baseUri = rs.getString("BASE_URI")
@@ -66,7 +72,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_DOC_TITLE -------------------------------------------------------
 
     @Test
-    fun `DOM_DOC_TITLE returns the document title`() {
+    @DisplayName("test DOM_DOC_TITLE returns the document title")
+    fun testDomDocTitleReturnsDocumentTitle() {
         query("SELECT DOM_DOC_TITLE(DOM_LOAD('$formPageUrl')) AS title") { rs ->
             assertTrue(rs.next())
             val title = rs.getString("TITLE")
@@ -75,7 +82,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_DOC_TITLE of EC category page is non-empty`() {
+    @DisplayName("test DOM_DOC_TITLE of EC category page is non-empty")
+    fun testDomDocTitleOfEcCategoryIsNonEmpty() {
         query("SELECT DOM_DOC_TITLE(DOM_LOAD('$ecCategoryUrl')) AS title") { rs ->
             assertTrue(rs.next())
             val title = rs.getString("TITLE")
@@ -87,7 +95,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_TEXT and DOM_SELECT_FIRST ---------------------------------------
 
     @Test
-    fun `DOM_FIRST_TEXT extracts text from a selected element`() {
+    @DisplayName("test DOM_FIRST_TEXT extracts text from a selected element")
+    fun testDomFirstTextExtractsText() {
         query(
             "SELECT DOM_FIRST_TEXT(DOM_LOAD('$domPageUrl'), '#outer') AS text"
         ) { rs ->
@@ -99,7 +108,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_FIRST_TEXT extracts h1 text from form page`() {
+    @DisplayName("test DOM_FIRST_TEXT extracts h1 text from form page")
+    fun testDomFirstTextExtractsH1FromFormPage() {
         query(
             "SELECT DOM_FIRST_TEXT(DOM_LOAD('$formPageUrl'), 'h1') AS heading"
         ) { rs ->
@@ -109,7 +119,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_FIRST_TEXT on EC category page finds product titles`() {
+    @DisplayName("test DOM_FIRST_TEXT on EC category page finds product titles")
+    fun testDomFirstTextOnEcCategoryFindsProductTitles() {
         query(
             "SELECT DOM_FIRST_TEXT(DOM_LOAD('$ecCategoryUrl'), '.product-title') AS product"
         ) { rs ->
@@ -123,8 +134,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_ALL_TEXTS -------------------------------------------------------
 
     @Test
-    fun `DOM_ALL_TEXTS returns multiple element texts`() {
-        // dom.html has: #outer > #inner with "Text,\nmore text"
+    @DisplayName("test DOM_ALL_TEXTS returns multiple element texts")
+    fun testDomAllTextsReturnsMultipleElementTexts() {
         query(
             "SELECT DOM_ALL_TEXTS(DOM_LOAD('$domPageUrl'), 'div') AS texts"
         ) { rs ->
@@ -135,7 +146,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_ALL_TEXTS on EC category page returns multiple product titles`() {
+    @DisplayName("test DOM_ALL_TEXTS on EC category page returns multiple product titles")
+    fun testDomAllTextsOnEcCategoryReturnsMultipleProductTitles() {
         query(
             """SELECT DOM_ALL_TEXTS(DOM_LOAD('$ecCategoryUrl'), '.product-title') AS products"""
         ) { rs ->
@@ -148,7 +160,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_SELECT_FIRST ----------------------------------------------------
 
     @Test
-    fun `DOM_SELECT_FIRST returns a DOM for the first matched element`() {
+    @DisplayName("test DOM_SELECT_FIRST returns a DOM for the first matched element")
+    fun testDomSelectFirstReturnsDomForFirstMatchedElement() {
         query(
             """SELECT DOM_TEXT(DOM_SELECT_FIRST(DOM_LOAD('$domPageUrl'), '#inner')) AS inner_text"""
         ) { rs ->
@@ -160,7 +173,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_SELECT_FIRST on form page selects first input`() {
+    @DisplayName("test DOM_SELECT_FIRST on form page selects first input")
+    fun testDomSelectFirstOnFormPageSelectsFirstInput() {
         query(
             """SELECT DOM_ATTR(DOM_SELECT_FIRST(DOM_LOAD('$formPageUrl'), 'input[type=text]'), 'id') AS input_id"""
         ) { rs ->
@@ -172,8 +186,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_ATTR ------------------------------------------------------------
 
     @Test
-    fun `DOM_ATTR extracts element attributes`() {
-        // dom.html has: <div id="outer" name="value">
+    @DisplayName("test DOM_ATTR extracts element id attribute")
+    fun testDomAttrExtractsElementId() {
         query(
             """SELECT DOM_ATTR(DOM_SELECT_FIRST(DOM_LOAD('$domPageUrl'), '#outer'), 'id') AS id"""
         ) { rs ->
@@ -183,7 +197,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_ATTR extracts name attribute`() {
+    @DisplayName("test DOM_ATTR extracts element name attribute")
+    fun testDomAttrExtractsNameAttribute() {
         query(
             """SELECT DOM_ATTR(DOM_SELECT_FIRST(DOM_LOAD('$domPageUrl'), '#outer'), 'name') AS name"""
         ) { rs ->
@@ -193,7 +208,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_ATTR on form page extracts data-testid`() {
+    @DisplayName("test DOM_ATTR on form page extracts data-testid")
+    fun testDomAttrOnFormPageExtractsDataTestid() {
         query(
             """SELECT DOM_ATTR(DOM_SELECT_FIRST(DOM_LOAD('$formPageUrl'), '#clickButton'), 'data-testid') AS testid"""
         ) { rs ->
@@ -205,7 +221,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_ABS_HREF --------------------------------------------------------
 
     @Test
-    fun `DOM_ABS_HREF returns absolute URL for links`() {
+    @DisplayName("test DOM_ABS_HREF returns absolute URL for links")
+    fun testDomAbsHrefReturnsAbsoluteUrlForLinks() {
         query(
             """SELECT DOM_ABS_HREF(DOM_SELECT_FIRST(DOM_LOAD('$formPageUrl'), 'a')) AS href"""
         ) { rs ->
@@ -217,7 +234,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     }
 
     @Test
-    fun `DOM_ABS_HREF on EC category page resolves product links`() {
+    @DisplayName("test DOM_ABS_HREF on EC category page resolves product links")
+    fun testDomAbsHrefOnEcCategoryResolvesProductLinks() {
         query(
             """SELECT DOM_ABS_HREF(DOM_SELECT_FIRST(DOM_LOAD('$ecCategoryUrl'), '.product-link')) AS link"""
         ) { rs ->
@@ -231,13 +249,12 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_NTH_TEXT --------------------------------------------------------
 
     @Test
-    fun `DOM_NTH_TEXT selects nth element text`() {
-        // form page has multiple input elements
+    @DisplayName("test DOM_NTH_TEXT selects nth element text")
+    fun testDomNthTextSelectsNthElementText() {
         query(
             """SELECT DOM_NTH_TEXT(DOM_LOAD('$formPageUrl'), 'input', 1) AS first_input"""
         ) { rs ->
             assertTrue(rs.next())
-            // Just verify we can get a non-null result
             assertNotNull(rs.getString("FIRST_INPUT"))
         }
     }
@@ -245,7 +262,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_INLINE_SELECT_TEXT -----------------------------------------------
 
     @Test
-    fun `DOM_INLINE_SELECT_TEXT extracts text from selected elements`() {
+    @DisplayName("test DOM_INLINE_SELECT_TEXT extracts text from selected elements")
+    fun testDomInlineSelectTextExtractsText() {
         query(
             """SELECT DOM_INLINE_SELECT_TEXT(DOM_LOAD('$formPageUrl'), 'label') AS labels"""
         ) { rs ->
@@ -258,7 +276,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_SELECT_ALL ------------------------------------------------------
 
     @Test
-    fun `DOM_SELECT_ALL returns array of DOMs`() {
+    @DisplayName("test DOM_SELECT_ALL returns array of DOMs")
+    fun testDomSelectAllReturnsArrayOfDoms() {
         query(
             """SELECT DOM_SELECT_ALL(DOM_LOAD('$formPageUrl'), 'input') AS inputs"""
         ) { rs ->
@@ -271,7 +290,8 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- Combined UDF usage --------------------------------------------------
 
     @Test
-    fun `chained UDFs on EC product page extract structured data`() {
+    @DisplayName("test chained UDFs on EC product page extract structured data")
+    fun testChainedUdfsOnEcProductExtractStructuredData() {
         query(
             """
             SELECT
@@ -291,14 +311,16 @@ class TestDomUdfs : QlIntegrationTestBase() {
     // -- DOM_LOAD with options ------------------------------------------------
 
     @Test
-    fun `DOM_LOAD with expires option`() {
+    @DisplayName("test DOM_LOAD with expires option")
+    fun testDomLoadWithExpiresOption() {
         execute("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$domPageUrl -expires 1d'))")
     }
 
     // -- DOM_FETCH (force refresh) ------------------------------------------
 
     @Test
-    fun `DOM_FETCH forces page refresh`() {
+    @DisplayName("test DOM_FETCH forces page refresh")
+    fun testDomFetchForcesPageRefresh() {
         execute("SELECT DOM_IS_NOT_NIL(DOM_FETCH('$domPageUrl'))")
     }
 }
