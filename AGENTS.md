@@ -172,6 +172,14 @@ browser4base/
 - `pulsar-tests/pulsar-it-tests` — integration tests
 - `pulsar-tests/pulsar-e2e-tests` — end-to-end tests
 
+### Naming Conventions
+- Unit tests: `<ClassName>Test.kt`
+- Integration tests: `<ClassName>IT.kt`
+- E2E tests: `<ClassName>E2ETest.kt`
+- **Method names: Use camelCase (NOT backtick naming)**
+    - ✅ `testUserLoginWithValidCredentials()` + `@DisplayName("test user login with valid credentials")`
+    - ❌ `` `test user login with valid credentials` ``
+
 ## Key Dependencies
 
 - **Chrome DevTools Protocol**: `ai.platon.cdt:cdt-kt` — Kotlin CDP bindings
