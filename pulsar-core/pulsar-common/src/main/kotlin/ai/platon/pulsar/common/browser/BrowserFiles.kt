@@ -72,7 +72,7 @@ object BrowserFiles {
 
     /**
      * Compute the next sequential test context directory.
-     * A typical context directory is like: /tmp/pulsar-vincent/context/group/test/cx.1
+     * A typical context directory is like: /tmp/pulsar-vincent/context/group/test/cx.001
      *
      * @param fingerprint The fingerprint
      * @param maxAgents The maximum number of available agents, every agent has its own context directory
@@ -92,7 +92,7 @@ object BrowserFiles {
 
     /**
      * Compute the next sequential context directory.
-     * A typical context directory is like: /tmp/pulsar-vincent/context/group/default/cx.1
+     * A typical context directory is like: /tmp/pulsar-vincent/context/group/default/cx.001
      *
      * @param group The group name, default is "default"
      * @param fingerprint The fingerprint
@@ -193,7 +193,7 @@ object BrowserFiles {
         }
 
         // a typical path is:
-        // %USERPROFILE%\context\groups\rand\PULSAR_CHROME\cx.2\PULSAR_CHROME
+        // %USERPROFILE%\context\groups\rand\PULSAR_CHROME\cx.002\PULSAR_CHROME
         val groupName = contextDir.parent.fileName.toString()
         Files.list(contextDir)
             .filter { it.fileName.toString().uppercase() == "PULSAR_CHROME" }
@@ -356,7 +356,7 @@ object BrowserFiles {
 
     /**
      * Compute the next sequential context directory.
-     * A typical context directory is like: /tmp/pulsar-vincent/context/group/default/PULSAR_CHROME/cx.1
+     * A typical context directory is like: /tmp/pulsar-vincent/context/group/default/PULSAR_CHROME/cx.001
      *
      * @param group The group name.
      * @param fingerprint The fingerprint of the browser.
@@ -378,7 +378,7 @@ object BrowserFiles {
         val contextBaseDir = AppPaths.getContextBaseDir(group, fingerprint.browserType)
 
         val expectedContextPaths = IntRange(1, maxAgents)
-            .map { String.format("%s%s", prefix, it) }
+            .map { String.format("%s%03d", prefix, it) }
             .map { contextBaseDir.resolve(it) }
         expectedContextPaths.filter { it.notExists() }.forEach {
             Files.createDirectories(it)

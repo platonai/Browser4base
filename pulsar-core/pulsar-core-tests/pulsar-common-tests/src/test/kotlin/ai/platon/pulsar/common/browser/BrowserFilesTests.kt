@@ -76,11 +76,11 @@ class BrowserFilesTests {
             assertTrue { Files.exists(path) }
         }
 
-        assertTrue { Files.exists(contextBaseDir.resolve("cx.1")) }
-        assertTrue { Files.exists(contextBaseDir.resolve("cx.13")) }
+        assertTrue { Files.exists(contextBaseDir.resolve("cx.001")) }
+        assertTrue { Files.exists(contextBaseDir.resolve("cx.013")) }
 
         IntRange(14, 110).forEach {
-            assertFalse { Files.exists(contextBaseDir.resolve("cx.$it")) }
+            assertFalse { Files.exists(contextBaseDir.resolve(String.format("cx.%03d", it))) }
         }
     }
 
