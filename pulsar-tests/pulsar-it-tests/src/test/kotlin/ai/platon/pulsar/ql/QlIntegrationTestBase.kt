@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Import
 import java.sql.ResultSet
+import java.time.Duration
 import java.util.*
 
 /**
@@ -37,6 +38,7 @@ open class QlIntegrationTestBase {
              * after PulsarContextInitializer.
              */
             LoadOptionDefaults.apply {
+                expires = Duration.ofSeconds(30)
                 parse = true
                 ignoreFailure = true
                 nJitRetry = 3

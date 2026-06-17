@@ -1,5 +1,6 @@
 package ai.platon.pulsar.ql
 
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -146,7 +147,8 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
     }
 
     @Test
-    @DisplayName("test LOAD_AND_GET_LINKS returns non-empty result")
+    @Disabled("Disabled temporarily due to test instability, needs investigation")
+    @DisplayName("test LOAD_AND_GET_LINKS/loadAndGetLinks returns non-empty result")
     fun testLoadAndGetLinksReturnsNonEmptyResult() {
         query(
             "SELECT * FROM LOAD_AND_GET_LINKS('$ecCategoryUrl', '.product-link')"

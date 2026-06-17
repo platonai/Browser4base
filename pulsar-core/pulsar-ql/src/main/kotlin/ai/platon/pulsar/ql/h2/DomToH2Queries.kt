@@ -24,7 +24,6 @@ import ai.platon.pulsar.skeleton.workflow.common.url.CompletableListenableHyperl
 import org.apache.commons.math3.linear.RealVector
 import org.h2.api.ErrorCode
 import org.h2.message.DbException
-import org.h2.tools.SimpleResultSet
 import org.h2.value.DataType
 import org.h2.value.Value
 import org.h2.value.ValueArray
@@ -35,6 +34,10 @@ import java.sql.ResultSet
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -45,12 +48,12 @@ object DomToH2Queries {
     private val logger = getLogger(this::class)
 
     /**
-     * Load all Web pages
+     * Load all Web pages.
      *
-     * @param session The session
-     * @param urls The urls to load, can be a single string represented by a [ValueString]
+     * @param session the session
+     * @param urls the URLs to load, can be a single string represented by a [ValueString]
      * or an array of strings represented by a [ValueArray]
-     * @return A collection of [WebPage]s
+     * @return a collection of [WebPage] instances
      */
     suspend fun loadAll(session: PulsarSession, urls: Value): Collection<WebPage> {
         var pages: Collection<WebPage> = listOf()
@@ -74,42 +77,39 @@ object DomToH2Queries {
     }
 
     /**
-     * Load all Web pages, and translate Web pages to targets using the given transformer
+     * Load all Web pages, and translate Web pages to targets using the given transformer.
      *
-     * @param session        The session
-     * @param configuredUrls The configured urls, can be a single string represented by a {@link ValueString},
-     *                       or an array of strings represented by a {@link ValueArray}
-     * @param cssQuery       The css query
-     * @param offset         The offset
-     * @param limit          The limit
-     * @param transformer    The transformer used to translate a Web page into something else
-     * @return A collection of O
+     * @param session        the session
+     * @param configuredUrls the configured URLs, can be a single string represented by a [ValueString],
+     *                       or an array of strings represented by a [ValueArray]
+     * @param restrictCss    the CSS query to restrict elements
+     * @param offset         the offset
+     * @param limit          the limit
+     * @param transformer    the transformer used to translate a Web page element into a collection of [O]
+     * @return a collection of [O], the transformed results
      */
     suspend fun <O> loadAll(
         session: PulsarSession,
         configuredUrls: Value, restrictCss: String, offset: Int, limit: Int,
         transformer: (Element, String, Int, Int) -> Collection<O>
     ): Collection<O> {
-        val collection: Collection<O>
-
-        when (configuredUrls) {
+        return when (configuredUrls) {
             is ValueString -> {
                 val doc = session.loadDocument(configuredUrls.string)
-                collection = transformer(doc.document, restrictCss, offset, limit)
+                transformer(doc.document, restrictCss, offset, limit)
             }
 
-            is ValueArray -> {
-                collection = ArrayList()
-                for (configuredUrl in configuredUrls.list) {
-                    val doc = session.loadDocument(configuredUrl.string)
-                    collection.addAll(transformer(doc.document, restrictCss, offset, limit))
-                }
+            is ValueArray -> coroutineScope {
+                configuredUrls.list.map { configuredUrl ->
+                    async {
+                        val doc = session.loadDocument(configuredUrl.string)
+                        transformer(doc.document, restrictCss, offset, limit)
+                    }
+                }.awaitAll().flatten()
             }
 
-            else -> throw DbException.get(ErrorCode.FUNCTION_NOT_FOUND_1, "Unknown custom type")
+            else -> throw DbException.get(ErrorCode.FUNCTION_NOT_FOUND_1, "Unsupported type ${configuredUrls::class}")
         }
-
-        return collection
     }
 
     suspend fun loadOutPages(
@@ -139,21 +139,27 @@ object DomToH2Queries {
 
     /**
      * Load all pages specified by [normUrls], wait until all pages are loaded or timeout.
-     * */
+     */
     private fun loadAll(
         session: PulsarSession,
         normUrls: Iterable<NormURL>
     ): List<WebPage> {
-        if (!normUrls.iterator().hasNext()) {
+        val distinctUrls = normUrls.distinctBy { it.urlString }
+        if (distinctUrls.isEmpty()) {
             return listOf()
         }
 
-        val futures = session.loadAllAsync(normUrls.distinctBy { it.urlString })
+        val futures = session.loadAllAsync(distinctUrls)
 
-        logger.info("Waiting for {} completable hyperlinks | @{}", futures.size, futures.hashCode())
+        val timeoutSeconds = distinctUrls.maxOfOrNull { it.options.pageLoadTimeout.seconds }?.plus(30) ?: 120
+        logger.info("Waiting for {} completable hyperlinks, timeout={}s | @{}", futures.size, timeoutSeconds, futures.hashCode())
 
-        val future = CompletableFuture.allOf(*futures.toTypedArray())
-        future.join()
+        try {
+            CompletableFuture.allOf(*futures.toTypedArray()).get(timeoutSeconds, TimeUnit.SECONDS)
+        } catch (e: TimeoutException) {
+            logger.warn("Timeout after {}s waiting for {} completable hyperlinks, {} completed",
+                timeoutSeconds, futures.size, futures.count { it.isDone })
+        }
 
         val pages = futures.mapNotNull { it.get() }.filter { it.isNotInternal }
 
@@ -163,8 +169,8 @@ object DomToH2Queries {
     }
 
     /**
-     * Load all pages specified by [normUrls], wait until all pages are loaded or timeout
-     * */
+     * Load all pages specified by [normUrls], wait until all pages are loaded or timeout.
+     */
     private fun loadAll2(
         session: PulsarSession,
         normUrls: Iterable<NormURL>,
@@ -180,12 +186,11 @@ object DomToH2Queries {
             .toList()
 
         queue.addAll(links)
-        logger.info(
-            "Waiting for {} completable hyperlinks, {}@{}, {}", links.size,
-            globalCache.javaClass, globalCache.hashCode(), globalCache.urlPool.hashCode()
+        logger.debug(
+            "Waiting for {} completable hyperlinks, timeout={}s", links.size, timeoutSeconds
         )
 
-        var i = 90
+        var i = timeoutSeconds.toInt()
         val pendingLinks = links.toMutableList()
         while (i-- > 0 && pendingLinks.isNotEmpty()) {
             val finishedLinks = pendingLinks.filter { it.isDone }
@@ -201,40 +206,29 @@ object DomToH2Queries {
             sleepSeconds(1)
         }
 
-        // timeout process?
-//        val future = CompletableFuture.allOf(*links.toTypedArray())
-//        future.join()
-
         return links.filter { it.isDone }.mapNotNull { it.get() }.filter { it.isNotInternal }
     }
 
     /**
+     * Select elements matching [cssQuery] from [dom] and transform each to a string value.
+     * Null transform results are silently filtered out.
+     *
      * TODO: any type support, only array of strings are supported now
-     * */
+     */
     fun <O> select(dom: ValueDom, cssQuery: String, transform: (Element) -> O): ValueArray {
-        val values = dom.element.select(cssQuery) { ValueString.get(transform(it).toString()) }.toTypedArray()
+        val values = dom.element.select(cssQuery) { transform(it) }
+            .filterNotNull()
+            .map { ValueString.get(it.toString()) }
+            .toTypedArray()
         return ValueArray.get(values)
     }
 
     fun <O> selectFirstOrNull(dom: ValueDom, cssQuery: String, transformer: (Element) -> O): O? {
-        val result = dom.element.selectFirstOrNull(cssQuery, transformer)
-        if (result != null && result is Element) {
-            // feature: mark element matching query
-            // select first element matched
-            // result.attr("sf-match")
-        }
-        return result
+        return dom.element.selectFirstOrNull(cssQuery, transformer)
     }
 
     fun <O> selectNthOrNull(dom: ValueDom, cssQuery: String, n: Int, transform: (Element) -> O): O? {
-        val result = dom.element.select(cssQuery, n, 1).firstOrNull()
-        if (result != null) {
-            // feature: mark element matching query
-            // select n-th element matched
-            // result.attr("sn-match")
-            return transform(result)
-        }
-        return null
+        return dom.element.select(cssQuery, n, 1).firstOrNull()?.let { transform(it) }
     }
 
     fun getTexts(ele: Element, restrictCss: String, offset: Int, limit: Int): Collection<String> {
@@ -266,7 +260,10 @@ object DomToH2Queries {
     }
 
     /**
-     * Get a result set, the result set contains just one column DOM
+     * Get a result set containing a single column with the given [colName].
+     *
+     * When [colName] is "DOM" (case-insensitive), the elements in [collection] must be of type [ValueDom],
+     * otherwise they are converted to [ValueString] via [Any.toString].
      */
     fun <E> toResultSet(colName: String, collection: Iterable<E>): ResultSet {
         val rs = ResultSets.newSimpleResultSet()
@@ -277,14 +274,14 @@ object DomToH2Queries {
         if (colType == ValueDom.type) {
             collection.forEach { rs.addRow(it) }
         } else {
-            collection.forEach { e -> rs.addRow(ValueString.get(e.toString())) }
+            collection.forEach { e -> rs.addRow(ValueString.get(e?.toString() ?: "")) }
         }
 
         return rs
     }
 
     /**
-     * Get a result set, the result set contains just one column DOM
+     * Get a result set with two columns: DOM (the element) and DOC (the document).
      */
     fun toDOMResultSet(document: FeaturedDocument, elements: Collection<ValueDom>): ResultSet {
         val rs = ResultSets.newSimpleResultSet()
@@ -300,10 +297,10 @@ object DomToH2Queries {
     }
 
     /**
-     * Get result set for each field in Web page
+     * Get result set for each field in a collection of [GeoAnchor].
      */
     fun toResultSet(anchors: Collection<GeoAnchor>): ResultSet {
-        val rs = SimpleResultSet()
+        val rs = ResultSets.newSimpleResultSet()
         rs.addColumns("URL", "TEXT", "PATH", "LEFT", "TOP", "WIDTH", "HEIGHT")
 
         anchors.forEach {
@@ -314,15 +311,15 @@ object DomToH2Queries {
     }
 
     /**
-     * Get result set for each field in Web page
+     * Get result set with KEY/VALUE columns for each field in a [WebPage].
      */
     fun toResultSet(page: WebPage): ResultSet {
-        val rs = SimpleResultSet()
+        val rs = ResultSets.newSimpleResultSet()
         rs.addColumns("KEY", "VALUE")
 
         val fields = WebPageFormatter(page).toMap()
         for (entry in fields.entries) {
-            val value = entry.value.toString()
+            val value = entry.value?.toString() ?: ""
             rs.addRow(entry.key, value)
         }
 
@@ -330,11 +327,11 @@ object DomToH2Queries {
     }
 
     /**
-     * Get a row of data contains the DOM itself and all it's feature values
-     * Every float feature has 2 fraction digits
+     * Get a row of data containing the DOM itself and all its feature values.
+     * Every float feature has 2 fraction digits.
      */
     fun getFeatureRow(ele: Element): Array<Any?> {
-        val columnCount = 1 + registeredFeatures.size + 1
+        val columnCount = 1 + registeredFeatures.size
         val values = arrayOfNulls<Any>(columnCount)
         values[0] = ValueDom.get(ele)
         val features = if (!ele.extension.features.isEmpty) ele.extension.features else return values

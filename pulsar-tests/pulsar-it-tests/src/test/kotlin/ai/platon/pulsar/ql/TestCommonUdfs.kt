@@ -73,7 +73,7 @@ class TestCommonUdfs : QlIntegrationTestBase() {
     fun testRe1ExtractsFirstRegexGroup() {
         // In H2 SQL, backslash has no special meaning in string literals.
         // Kotlin string "\\d+" → SQL string \d+ → regex \d+
-        query("SELECT RE1('hello world 123', '\\d+') AS num") { rs ->
+        query("SELECT RE1('hello world 123', '(\\d+)') AS num") { rs ->
             assertTrue(rs.next())
             assertEquals("123", rs.getString("NUM"))
         }
