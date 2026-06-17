@@ -59,7 +59,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
     @Disabled("Feature not implemented yet: mainRequestCookies may not be captured if RequestWillBeSentExtraInfo is not received yet")
     @DisplayName("When navigate to a HTML page then the navigate state are correct")
     fun whenNavigateAHtmlPageThenTheNavigateStateAreCorrect() = runEnhancedWebDriverTest(browser) { driver ->
-        openEnhanced(e2eProductUrl, driver, 1)
+        openEnhanced(realE2EProductUrl, driver, 1)
 
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
@@ -83,7 +83,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
     @DisplayName("When navigate to a HTML page then mainRequestCookies are captured")
     fun whenNavigateAHtmlPageThenMainRequestCookiesAreCaptured() = runEnhancedWebDriverTest(browser) { driver ->
         // Navigate to the page with cookies
-        openEnhanced(e2eProductUrl, driver, 1)
+        openEnhanced(realE2EProductUrl, driver, 1)
 
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
@@ -107,7 +107,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
 
     @Test
     @DisplayName("when open a HTML page then script is injected")
-    fun whenOpenAHtmlPageThenScriptIsInjected() = runEnhancedWebDriverTest(e2eOriginUrl, browser) { driver ->
+    fun whenOpenAHtmlPageThenScriptIsInjected() = runEnhancedWebDriverTest(realE2EOriginUrl, browser) { driver ->
         var detail = driver.evaluateDetail("typeof(window)")
         printlnPro(detail)
         // assertNotNull(detail?.value)
@@ -134,7 +134,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
 
     @Test
     @DisplayName("open a HTML page and compute metadata")
-    fun openAHtmlPageAndComputeMetadata() = runEnhancedWebDriverTest(e2eOriginUrl, browser) { driver ->
+    fun openAHtmlPageAndComputeMetadata() = runEnhancedWebDriverTest(realE2EOriginUrl, browser) { driver ->
         driver.evaluate("__pulsar_utils__.scrollToMiddle()")
         var detail = driver.evaluateDetail("__pulsar_utils__.compute()")
         printlnPro(detail)
@@ -147,7 +147,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
         val message = pulsarObjectMapper().readValue<ActiveDOMMessage>(data)
         val urls = message.urls
         assertNotNull(urls)
-        assertEquals(e2eOriginUrl, urls.URL)
+        assertEquals(realE2EOriginUrl, urls.URL)
 
         val metadata = message.metadata
         assertNotNull(metadata)
@@ -163,7 +163,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
 
     @Test
     fun test_selectAttributeAll() = runEnhancedWebDriverTest(browser) { driver ->
-        driver.navigate(e2eProductUrl)
+        driver.navigate(realE2EProductUrl)
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
         Assumptions.assumeTrue { navbarMain != null || title != null }
@@ -189,7 +189,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
     @Test
     @Ignore("Disabled temporarily")
     fun testClickTextMatches() = runEnhancedWebDriverTest(browser) { driver ->
-        openEnhanced(e2eProductUrl, driver, 1)
+        openEnhanced(realE2EProductUrl, driver, 1)
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
         Assumptions.assumeTrue { navbarMain != null || title != null }
@@ -212,7 +212,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
         Assumptions.assumeTrue { (pageSource?.length ?: 0) > 1000 }
         Assumptions.assumeTrue { pageSource?.contains("iphone", ignoreCase = true) == true }
 
-        assertNotEquals(e2eProductUrl, currentUrl)
+        assertNotEquals(realE2EProductUrl, currentUrl)
         // assertContains(currentUrl, "iphone", ignoreCase = true)
     }
 
@@ -247,7 +247,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
 
     @Test
     fun testKeyPress() = runEnhancedWebDriverTest(browser) { driver ->
-        driver.navigate(e2eProductUrl)
+        driver.navigate(realE2EProductUrl)
         delay(1000.milliseconds)
 
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
@@ -306,13 +306,13 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
         // TODO: FIXME: enter seems not working
         driver.press("Enter", selector)
         driver.waitForNavigation()
-        assertTrue { driver.currentUrl() != e2eProductUrl }
+        assertTrue { driver.currentUrl() != realE2EProductUrl }
     }
 
     @Test
     @Tag("ManualOnly")
     fun testTypeText() = runEnhancedWebDriverTest(browser) { driver ->
-        driver.navigate(e2eProductUrl)
+        driver.navigate(realE2EProductUrl)
         driver.waitForSelector("#productTitle")
 
         assertTrue { driver.exists("#productTitle") }
@@ -369,7 +369,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
     }
 
     @Test
-    fun testCaptureScreenshot() = runEnhancedWebDriverTest(e2eProductUrl, browser) { driver ->
+    fun testCaptureScreenshot() = runEnhancedWebDriverTest(realE2EProductUrl, browser) { driver ->
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
         Assumptions.assumeTrue { navbarMain != null || title != null }
@@ -402,7 +402,7 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
 
     @Test
     @DisplayName("When call queryClientRects then return client rects")
-    fun whenCallQueryClientRectsThenReturnClientRects() = runEnhancedWebDriverTest(e2eProductUrl, browser) { driver ->
+    fun whenCallQueryClientRectsThenReturnClientRects() = runEnhancedWebDriverTest(realE2EProductUrl, browser) { driver ->
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
         Assumptions.assumeTrue { navbarMain != null || title != null }

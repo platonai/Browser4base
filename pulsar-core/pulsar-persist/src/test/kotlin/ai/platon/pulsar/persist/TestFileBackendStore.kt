@@ -5,14 +5,14 @@ import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.persist.gora.FileBackendPageStore
 import ai.platon.pulsar.persist.model.GoraWebPage
-import ai.platon.pulsar.test.TestUrls
+import ai.platon.pulsar.test.RealTestUrls
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomUtils
 import java.nio.file.Files
 import kotlin.test.*
 
 class TestFileBackendStore {
-    private val url = TestUrls.PRODUCT_DETAIL_URL
+    private val url = RealTestUrls.PRODUCT_DETAIL_URL
     private val persistDirectory = AppPaths.TEST_DIR.resolve("unittests/TestFileBackendStore")
     private val store = FileBackendPageStore(persistDirectory)
     private lateinit var page: WebPage

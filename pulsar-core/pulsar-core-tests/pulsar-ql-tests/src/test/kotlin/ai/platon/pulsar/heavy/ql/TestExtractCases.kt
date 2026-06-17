@@ -1,17 +1,11 @@
 package ai.platon.pulsar.heavy.ql
 
-import ai.platon.pulsar.common.printlnPro
-import ai.platon.pulsar.common.sql.SQLTemplate
-import ai.platon.pulsar.ql.h2.DomToH2Queries
-import ai.platon.pulsar.ql.h2.utils.ResultSetUtils
-import ai.platon.pulsar.test.TestUrls
+import ai.platon.pulsar.test.RealTestUrls
 import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class TestExtractCases : TestBase() {
-    private val newsIndexUrl = TestUrls.NEWS_INDEX_URL
-    private val newsDetailUrl = TestUrls.NEWS_DETAIL_URL
+    private val newsIndexUrl = RealTestUrls.NEWS_INDEX_URL
+    private val newsDetailUrl = RealTestUrls.NEWS_DETAIL_URL
 
     @Test
     fun testSavePages() {

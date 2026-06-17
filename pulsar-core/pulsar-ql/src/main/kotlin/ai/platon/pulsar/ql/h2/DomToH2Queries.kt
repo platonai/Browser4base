@@ -21,6 +21,9 @@ import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.common.urls.NormURL
 import ai.platon.pulsar.skeleton.session.PulsarSession
 import ai.platon.pulsar.skeleton.workflow.common.url.CompletableListenableHyperlink
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.apache.commons.math3.linear.RealVector
 import org.h2.api.ErrorCode
 import org.h2.message.DbException
@@ -31,18 +34,12 @@ import org.h2.value.ValueString
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.sql.ResultSet
-import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 
 object DomToH2Queries {
     private val logger = getLogger(this::class)
@@ -152,12 +149,18 @@ object DomToH2Queries {
         val futures = session.loadAllAsync(distinctUrls)
 
         val timeoutSeconds = distinctUrls.maxOfOrNull { it.options.pageLoadTimeout.seconds }?.plus(30) ?: 120
-        logger.info("Waiting for {} completable hyperlinks, timeout={}s | @{}", futures.size, timeoutSeconds, futures.hashCode())
+        logger.info(
+            "Waiting for {} completable hyperlinks, timeout={}s | @{}",
+            futures.size,
+            timeoutSeconds,
+            futures.hashCode()
+        )
 
         try {
             CompletableFuture.allOf(*futures.toTypedArray()).get(timeoutSeconds, TimeUnit.SECONDS)
         } catch (e: TimeoutException) {
-            logger.warn("Timeout after {}s waiting for {} completable hyperlinks, {} completed",
+            logger.warn(
+                "Timeout after {}s waiting for {} completable hyperlinks, {} completed",
                 timeoutSeconds, futures.size, futures.count { it.isDone })
         }
 

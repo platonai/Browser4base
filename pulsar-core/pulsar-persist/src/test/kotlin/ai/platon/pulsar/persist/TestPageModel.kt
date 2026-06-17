@@ -2,7 +2,7 @@ package ai.platon.pulsar.persist
 
 import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.persist.model.GoraWebPage
-import ai.platon.pulsar.test.TestUrls
+import ai.platon.pulsar.test.RealTestUrls
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 class TestPageModel {
 
-    private val baseUrl = TestUrls.PRODUCT_DETAIL_URL
+    private val baseUrl = RealTestUrls.PRODUCT_DETAIL_URL
     private val conf = VolatileConfig()
     private val webDb = WebDb(conf)
     private val groupId = 43853791

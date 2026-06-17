@@ -1,6 +1,5 @@
 package ai.platon.pulsar.heavy.rest
 
-// import ai.platon.pulsar.test.BasicTestHelper
 import ai.platon.pulsar.common.sql.SQLTemplate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
@@ -13,7 +12,7 @@ open class ScrapeControllerTestBase : IntegrationTestBase() {
     companion object {
         @JvmStatic
         @BeforeAll
-                @DisplayName("Ensure resources are prepared")
+        @DisplayName("Ensure resources are prepared")
         fun ensureResourcesArePrepared() {
         }
     }
@@ -45,7 +44,7 @@ open class ScrapeControllerTestBase : IntegrationTestBase() {
     }
 
     @Test
-        @DisplayName("When say hello then returns hello")
+    @DisplayName("When say hello then returns hello")
     fun whenSayHelloThenReturnsHello() {
         assertThat(getHtml("/api/system/hello").body).contains("hello")
     }

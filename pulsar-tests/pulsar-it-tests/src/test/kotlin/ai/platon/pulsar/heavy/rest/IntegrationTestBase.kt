@@ -1,23 +1,24 @@
 package ai.platon.pulsar.heavy.rest
 
-import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.sleepSeconds
+import ai.platon.pulsar.rest.ApiApplication
 import ai.platon.pulsar.rest.api.entities.ScrapeResponse
+import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
 import ai.platon.pulsar.skeleton.session.PulsarSession
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.context.annotation.Import
-import org.springframework.context.support.AbstractApplicationContext
 import org.springframework.http.ResponseEntity
 import org.springframework.test.web.servlet.client.RestTestClient
 import org.springframework.test.web.servlet.client.expectBody
 import kotlin.test.BeforeTest
 import kotlin.test.assertTrue
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(PulsarAutoConfiguration::class)
+@SpringBootTest(
+    classes = [ApiApplication::class],
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+)
 class IntegrationTestBase {
 
     @LocalServerPort
@@ -46,7 +47,7 @@ class IntegrationTestBase {
 
     @BeforeTest
     fun setup() {
-        assertTrue("Session should be AbstractApplicationContext, actual ${session.javaClass}") { session is AbstractApplicationContext }
+        assertTrue("Session should be AbstractApplicationContext, actual ${session.javaClass}") { session is AbstractPulsarSession }
     }
 
     /**

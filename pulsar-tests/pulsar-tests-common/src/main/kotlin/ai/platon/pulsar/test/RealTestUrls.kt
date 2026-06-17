@@ -1,6 +1,8 @@
 package ai.platon.pulsar.test
 
-object TestUrls {
+object RealTestUrls {
+
+    val ORIGIN_URL = "https://www.amazon.com/"
 
     var PRODUCT_LIST_URL = "https://www.amazon.com/b?node=1292115011"
 
@@ -13,11 +15,6 @@ object TestUrls {
     var PRODUCT_INDEX_URL_ZH = "https://e.dangdang.com/index_page.html"
 
     var PRODUCT_DETAIL_URL_ZH = "https://e.dangdang.com/products/1900089800.html"
-
-    // Using mock EC server URLs instead of real Amazon URLs
-    const val MOCK_PRODUCT_LIST_URL = "http://localhost:18080/ec/b?node=1292115012"
-
-    const val MOCK_PRODUCT_DETAIL_URL = "http://localhost:18080/ec/dp/B0E000001"
 
     var urlGroups = mutableMapOf<String, Array<String>>()
 

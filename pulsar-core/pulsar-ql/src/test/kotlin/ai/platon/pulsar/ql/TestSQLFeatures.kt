@@ -11,7 +11,7 @@ class TestSQLFeatures : TestBase() {
 
     @Test
     fun testStringConcat() {
-        // There different behaviour in different DBs
+        // There different behavior in different DBs
         execute("SELECT NULL||'A'")
     }
 

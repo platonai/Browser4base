@@ -2,10 +2,10 @@
 
 ## Prerequisite
 
-Read `README-AI.md` in the project root to guide your actions.
+Read `AGENTS.md` in the project root to guide your actions.
 
 ## Purpose
-Implement a fully dynamic mock ecommerce website served under the `/ec` path using `MockSiteApplication.kt`.
+Implement a fully dynamic mock ecommerce website served under the `/ec` path via `EcommerceController.kt` (bootstrapped by `MockSiteApplication.kt`).
 All pages (home, category/list, product) must be rendered server-side from a **single JSON data file** loaded once at startup.
 
 ## High-Level Goals
@@ -26,10 +26,11 @@ All pages (home, category/list, product) must be rendered server-side from a **s
 | (any other `/ec/*`) | Not found | 404 |
 
 ## Data Source
-Single JSON file (example path):
+Single JSON file loaded from classpath at:
 ```
-/pulsar-tests-common/src/main/resources/static/generated/mock-amazon/data/products.json
+/static/generated/mock-amazon/data/products.json
 ```
+(filesystem: `src/main/resources/static/generated/mock-amazon/data/products.json`)
 Load once at application start; keep immutable in memory.
 
 ### JSON Structure (Schema)
@@ -76,11 +77,20 @@ Load once at application start; keep immutable in memory.
 - Prices: positive, formatted with 2 decimals when rendered.
 - Deterministic generation: if you implement a generator, seed the RNG (store seed in `meta.seed`).
 
-## Page Templates (Base)
-- Category list: `/pulsar-tests-common/src/main/resources/static/generated/mock-amazon/list/index.html`
-- Product page: `/pulsar-tests-common/src/main/resources/static/generated/mock-amazon/product/index.html`
+## Page Templates
+Three templates are loaded from the classpath at startup by `HtmlRenderer.kt`:
+- Home: `ec-home.html` — category navigation with `<!--CATEGORY_LINKS-->` placeholder.
+- Category list: `ec-category.html` — product grid with `<!--PRODUCT_LIST-->` placeholder.
+- Product detail: `ec-product.html` — full product rendering with `{{PLACEHOLDER}}` markers.
 
-> **CRITICAL REQUIREMENT: DO NOT ALTER THE TEMPLATE LAYOUT, EXISTING JAVASCRIPT, OR CSS—ONLY INJECT DYNAMIC PRODUCT DATA INTO PLACEHOLDERS.**
+All templates are under:
+```
+/static/generated/mock-amazon/ec-home.html
+/static/generated/mock-amazon/ec-category.html
+/static/generated/mock-amazon/ec-product.html
+```
+
+> **CRITICAL REQUIREMENT: DO NOT ALTER THE TEMPLATE LAYOUT, EXISTING JAVASCRIPT, OR CSS—ONLY INJECT DYNAMIC PRODUCT DATA INTO PLACEHOLDERS. EXISTING ID AND CLASS CONVENTIONS MUST BE PRESERVED TO KEEP TESTS STABLE.**
 
 ## Rendering Requirements
 ### Common
@@ -92,10 +102,10 @@ Load once at application start; keep immutable in memory.
 ### Suggested ID / Class Conventions
 - Home: `#category-list`, items: `li.category-item[data-category-id]`, link id: `cat-link-{categoryId}`.
 - Category Page wrapper: `#category-page[data-category-id]`.
-- Product cards: `article.product-card#product-{productId}`.
+- Product cards: `article.product-card#product-{productId}[data-category-id]`.
 - Inside card: `h2.product-title`, price span: `span.product-price[data-product-id]`, rating: `span.product-rating`, badge container: `.product-badges`.
-- Product Detail root: `#product-page[data-product-id]`.
-- Detail fields: `#product-title`, `#product-price`, `#product-rating`, `#product-category-link`, features list `#product-features`, specs table `#product-specs`.
+- Product Detail root: `#product-page[data-product-id][data-category-id]`.
+- Detail fields: `#product-title`, `#product-price`, `#product-rating`, `#product-rating-count`, `#product-category-link`, features list `#product-features`, specs table `#product-specs`.
 - Use `alt` attributes for images: `alt="{name}"`.
 
 ### Accessibility / Semantics
@@ -143,27 +153,25 @@ Automated or manual tests should assert:
 - Deterministic repeatable product set.
 - Semantic, test-friendly HTML.
 
-## Quick Implementation Steps
-1. Create JSON data file with categories & products.
-2. Implement data loader + indexes.
-3. Implement route handlers.
-4. Wire template loader & placeholder replacement.
-5. Add error responses.
-6. Verify with test checklist.
+## Architecture Overview
 
-## Seeds & Determinism (If Generating)
-Pseudo approach:
-```
-val rng = Random(seed)
-val categoryIds = listOf("1292115012", ... total 20 ...)
-// For each category: (5..12).random(rng) products
-// Product ID: 'B' + (uppercase letters/digits) length 9 deterministic generation
-```
-Keep original seed inside JSON `meta` for traceability.
+The implementation consists of six files in the `ec` package:
+
+| File | Role |
+|------|------|
+| `CatalogModels.kt` | Data classes: `CatalogMeta`, `Category`, `Product`, `Catalog` |
+| `CatalogLoader.kt` | Loads and parses `products.json` at startup, builds lookup indexes |
+| `CatalogService.kt` | Service layer exposing category/product queries |
+| `HtmlRenderer.kt` | Server-side HTML rendering via template + placeholder injection |
+| `EcommerceController.kt` | Spring MVC `@Controller` — route handlers for all `/ec/*` endpoints |
+| `EcControllers.kt` | Reserved for additional controllers (currently empty) |
+
+Data is pre-generated and stored in a single JSON file (`products.json`). There is no runtime generation step — the JSON is the source of truth. The seed in `meta.seed` records how the data was originally generated for reproducibility.
 
 ## Maintenance Notes
-- If schema evolves, bump `meta.version` and handle backward compatibility in loader.
-- Avoid large images; placeholders or data URIs acceptable.
+- If schema evolves, bump `meta.version` and handle backward compatibility in `CatalogLoader`.
+- All product images reference `/ec/static/img/placeholder.png` — a single placeholder served from `static/ec/static/img/`.
+- If adding new ID or class names, update this document's conventions section.
 
 ---
 This document supersedes the previous minimal instructions and provides a precise, testable contract for the mock ecommerce site implementation.

@@ -8,7 +8,7 @@ import ai.platon.pulsar.persist.metadata.Name
 import ai.platon.pulsar.persist.model.GoraWebPage
 import ai.platon.pulsar.skeleton.common.message.PageLoadStatusFormatter
 import ai.platon.pulsar.skeleton.common.persist.ext.options
-import ai.platon.pulsar.test.TestUrls
+import ai.platon.pulsar.test.RealTestUrls
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeEach
@@ -20,7 +20,7 @@ import kotlin.test.*
  * Copyright @ 2013-2016 Platon AI. All rights reserved
  */
 class TestWebPage: TestBase() {
-    private val url = TestUrls.PRODUCT_DETAIL_URL
+    private val url = RealTestUrls.PRODUCT_DETAIL_URL
     private val groupId = 43853791
 
     @BeforeEach

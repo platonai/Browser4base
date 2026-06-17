@@ -4,16 +4,16 @@ import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.external.ChatModelFactory
 import ai.platon.pulsar.heavy.ql.TestBase
 import ai.platon.pulsar.ql.h2.utils.ResultSetUtils
-import ai.platon.pulsar.test.TestUrls
+import ai.platon.pulsar.test.RealTestUrls
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
 import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import org.junit.jupiter.api.DisplayName
 
 class LLMFunctionsTest : TestBase() {
-    val url = TestUrls.PRODUCT_DETAIL_URL
+    val url = RealTestUrls.PRODUCT_DETAIL_URL
     val sql = """
   select
       llm_extract(dom, 'product name, price, ratings') as llm_extracted_data,
