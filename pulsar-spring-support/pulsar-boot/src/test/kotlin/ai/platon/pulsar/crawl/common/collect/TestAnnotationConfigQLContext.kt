@@ -1,6 +1,6 @@
 package ai.platon.pulsar.crawl.common.collect
 
-import ai.platon.pulsar.boot.autoconfigure.PulsarContextConfiguration
+import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.core.api.BrowserManager
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolManager
 import ai.platon.pulsar.protocol.browser.emulator.context.MultiPrivacyContextManager
@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class TestAnnotationConfigQLContext {
 
-    val context = DefaultAnnotationConfigPulsarContext(PulsarContextConfiguration::class.java)
+    val context = DefaultAnnotationConfigPulsarContext(PulsarAutoConfiguration::class.java)
 
     @Test
     suspend fun whenCloseSession_thenBrowserClosed() {

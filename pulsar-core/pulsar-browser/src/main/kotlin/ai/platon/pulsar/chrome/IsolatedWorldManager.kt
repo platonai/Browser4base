@@ -147,7 +147,7 @@ class IsolatedWorldManager constructor(
      * @param contextId The execution context ID of the isolated world
      */
     suspend fun injectRuntime(runtimeScript: String, contextId: Int) {
-        logger.info(
+        logger.debug(
             "Injecting Browser4 runtime (v{}) into isolated world context {}",
             RUNTIME_VERSION,
             contextId

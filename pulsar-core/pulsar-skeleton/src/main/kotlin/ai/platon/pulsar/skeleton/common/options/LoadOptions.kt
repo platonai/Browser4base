@@ -921,12 +921,10 @@ open class LoadOptions(
      */
     override fun getParams(): Params {
         val rowFormat = "%40s: %s"
-        return optionDescriptors
-            .mapNotNull { desc ->
-                val value = desc.get(this)
-                if (value != null) "-${desc.fieldName}" to value else null
-            }
-            .toMap()
+        return optionDescriptors.associate { desc ->
+            val value = desc.get(this)
+            "-${desc.fieldName}" to value
+        }
             .let { Params.of(it).withRowFormat(rowFormat) }
     }
 
