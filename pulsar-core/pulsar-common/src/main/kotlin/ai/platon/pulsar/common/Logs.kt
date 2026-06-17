@@ -71,6 +71,13 @@ fun warnInterruptible(target: Any, t: Throwable) = warnInterruptible(target, t, 
 fun warnInterruptible(target: Any, t: Throwable, message: String?, vararg args: Any?) {
     val message1 = message ?: ""
     try {
+        if (t is java.util.concurrent.CancellationException) {
+            // Cancellation during shutdown is expected, not a warning
+            // Use t.message (not message1 which contains the full stringified stack trace)
+            getLogger(target).info("Cancelled: ${t.javaClass.simpleName}: ${t.message}", *args)
+            return
+        }
+
         getLogger(target).warn(message1, *args)
     } catch (t2: Throwable) {
         catastrophicError(t2, message1, *args)
@@ -123,9 +130,10 @@ fun warnUnexpected(target: Any, t: Throwable, message: String, vararg args: Any?
             return
         }
 
-        if (t.toString().contains("kotlinx.coroutines.JobCancellationException")) {
-            // We will suppress the message
-            logger.info("JobCancelled $message", *args)
+        if (t is java.util.concurrent.CancellationException) {
+            // Cancellation is expected during shutdown/cleanup
+            // Use t.message (not the pre-stringified message which may contain the full stack trace)
+            logger.info("Cancelled: ${t.javaClass.simpleName}: ${t.message}", *args)
             return
         }
 
@@ -170,6 +178,13 @@ fun warnForClose(target: Any, t: Throwable) = warnForClose(target, t, t.stringif
 fun warnForClose(target: Any, t: Throwable, message: String, vararg args: Any?) {
     if (Thread.currentThread().isInterrupted) {
         System.err.println("System is shutting down $message")
+        return
+    }
+
+    if (t is java.util.concurrent.CancellationException) {
+        // Cancellation during close is expected, not a warning
+        // Use t.message (not the pre-stringified message which contains the full stack trace)
+        getLogger(target).info("Cancelled during close: ${t.javaClass.simpleName}: ${t.message}", *args)
         return
     }
 
