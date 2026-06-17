@@ -2,11 +2,10 @@ package ai.platon.pulsar.ql.h2
 
 import ai.platon.pulsar.common.IllegalApplicationStateException
 import ai.platon.pulsar.common.config.CapabilityTypes
-import ai.platon.pulsar.skeleton.context.PulsarContexts
-import ai.platon.pulsar.ql.*
-import ai.platon.pulsar.ql.context.SQLContexts
 import ai.platon.pulsar.ql.SQLSession
 import ai.platon.pulsar.ql.common.H2Config
+import ai.platon.pulsar.ql.context.SQLContexts
+import ai.platon.pulsar.skeleton.context.PulsarContexts
 import org.h2.engine.*
 import org.h2.jdbc.JdbcConnection
 import org.h2.message.TraceSystem
@@ -19,7 +18,7 @@ object H2SessionFactory : org.h2.engine.SessionFactory {
 
     private val log = LoggerFactory.getLogger(H2SessionFactory::class.java)!!
 
-    private val sqlContext get() = SQLContexts.create()
+    private val sqlContext get() = SQLContexts.getOrCreate()
 
     init {
         H2Config.config()

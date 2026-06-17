@@ -37,6 +37,11 @@ interface PulsarContext : java.lang.AutoCloseable {
     val id: Int
 
     /**
+     * The UUID
+     * */
+    val uuid: String
+
+    /**
      * Flag that indicates whether this context is currently active.
      * */
     val isActive: Boolean

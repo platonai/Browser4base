@@ -261,7 +261,7 @@ object QLContexts {
     }
 
     @Synchronized
-    fun createSession(): PulsarSession = create().createSession()
+    fun createSession(): PulsarSession = getOrCreate().createSession()
 
     /**
      * Create a new [PulsarSession] with the provided [settings].
@@ -270,7 +270,7 @@ object QLContexts {
      * @return A newly created [PulsarSession].
      */
     @Synchronized
-    fun createSession(settings: PulsarSettings): PulsarSession = create().createSession(settings)
+    fun createSession(settings: PulsarSettings): PulsarSession = getOrCreate().createSession(settings)
 
     /**
      * Block the current thread until the context shutdown is triggered.

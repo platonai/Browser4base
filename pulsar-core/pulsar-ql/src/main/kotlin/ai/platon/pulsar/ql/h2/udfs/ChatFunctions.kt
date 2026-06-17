@@ -15,7 +15,7 @@ import kotlinx.coroutines.runBlocking
 @UDFGroup(namespace = "DOM")
 object ChatFunctions {
 
-    private val sqlContext get() = SQLContexts.create()
+    private val sqlContext get() = SQLContexts.getOrCreate()
     private val configuration get() = sqlContext.configuration
 
     @UDFunction(description = "Chat with the AI model")

@@ -15,7 +15,7 @@ import java.sql.Connection
 @UDFGroup(namespace = "ADMIN")
 object AdminFunctions {
     val log = LoggerFactory.getLogger(AdminFunctions::class.java)
-    private val sqlContext get() = SQLContexts.create()
+    private val sqlContext get() = SQLContexts.getOrCreate()
 
     @UDFunction(deterministic = true, description = "Return the input message unchanged, useful for debugging")
     @JvmStatic

@@ -121,7 +121,6 @@ internal class KtorTransport : Transport {
         val ws = session ?: return
 
         tracer?.trace("▶ Send {}", shortenMessage(message))
-
         ws.send(Frame.Text(message))
     }
 

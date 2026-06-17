@@ -52,7 +52,7 @@ abstract class TestBase {
         @JvmStatic
         @BeforeAll
         fun setUp(): Unit {
-            context = SQLContexts.create(
+            context = SQLContexts.getOrCreate(
                 GenericApplicationContext().apply {
                     beanFactory.registerSingleton("conf", MutableConfig(loadDefaults = true))
                     refresh()

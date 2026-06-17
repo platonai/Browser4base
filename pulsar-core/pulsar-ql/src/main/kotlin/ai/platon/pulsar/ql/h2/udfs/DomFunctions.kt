@@ -31,7 +31,7 @@ import java.time.Duration
 @Suppress("unused")
 @UDFGroup(namespace = "DOM")
 object DomFunctions {
-    private val sqlContext get() = SQLContexts.create()
+    private val sqlContext get() = SQLContexts.getOrCreate()
 
     @UDFunction(
         description = "Load the page specified by url from db, if absent or expired, " +

@@ -34,7 +34,7 @@ abstract class TestBase {
 
         val history = mutableListOf<String>()
 
-        val context = SQLContexts.create()
+        val context = SQLContexts.getOrCreate()
         val session = context.getOrCreateSession()
 
         suspend fun ensurePage(url: String) {

@@ -127,6 +127,8 @@ abstract class AbstractPulsarContext(
      * */
     override val id = instanceSequencer.incrementAndGet()
 
+    override val uuid: String = UUID.randomUUID().toString()
+
     init {
         AppContext.start()
     }

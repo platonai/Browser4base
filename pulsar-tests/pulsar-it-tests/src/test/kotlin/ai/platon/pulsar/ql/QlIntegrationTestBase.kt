@@ -6,7 +6,6 @@ import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.sql.ResultSetFormatter
 import ai.platon.pulsar.ql.context.SQLContext
-import ai.platon.pulsar.ql.context.SQLContexts
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
 import ai.platon.pulsar.util.server.EnableMockServerApplication
 import org.springframework.beans.factory.annotation.Autowired
@@ -59,11 +58,10 @@ open class QlIntegrationTestBase {
      * The SQL context wrapping the Spring application context.
      * All UDFs (DOM_*, LOAD_*, etc.) are registered in the H2 database.
      */
-    val sqlContext: SQLContext by lazy {
-        SQLContexts.create(applicationContext)
-    }
+    @Autowired
+    lateinit var sqlContext: SQLContext
 
-    val session by lazy { sqlContext.getOrCreateSession() }
+    val session get() = sqlContext.getOrCreateSession()
 
     /** Port the mock server is listening on (matches server.port=18080 in application.properties). */
     open val port: Int get() = 18080

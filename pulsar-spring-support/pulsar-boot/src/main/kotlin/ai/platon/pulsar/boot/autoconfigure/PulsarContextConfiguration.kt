@@ -15,7 +15,7 @@ class PulsarContextConfiguration(
 ) {
     @Bean
     fun pulsarContext(): SQLContext {
-        val context = SQLContexts.create(applicationContext)
+        val context = SQLContexts.getOrCreate(applicationContext)
         require(context is AbstractPulsarContext)
         require(context.applicationContext == applicationContext)
         return context
