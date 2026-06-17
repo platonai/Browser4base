@@ -46,6 +46,7 @@ jobs:
         id: tests
         uses: ./.github/actions/run-tests
         with:
+          maven_profiles: 'tests-integration,tests-e2e'
           timeout_minutes: '45'
           report_name: 'nightly-test-reports'
 
