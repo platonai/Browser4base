@@ -100,6 +100,12 @@ internal abstract class ChromeDevToolsImpl(
         val message = dispatcher.serialize(invocation.id, invocation.method, invocation.params, null)
 
         val rpcResult = sendAndReceive(invocation.id, method, returnProperty, message) ?: return null
+
+        // Handle CDP error responses (e.g. "Could not find node with given id")
+        if (!rpcResult.isSuccess) {
+            throw handleFailedFurther(rpcResult)
+        }
+
         val jsonNode = rpcResult.result ?: return null
 
         return dispatcher.deserialize(returnClass.java, jsonNode)
