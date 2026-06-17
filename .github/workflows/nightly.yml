@@ -16,6 +16,7 @@ on:
 env:
   JAVA_VERSION: '17'
   MAVEN_OPTS: '-Xmx3g -XX:+UseG1GC'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   ci-build:
