@@ -152,7 +152,7 @@ runs:
         echo ""
 
         # Execute tests with timeout
-        timeout_seconds=$(( ${{ fromJSON(inputs.timeout_minutes) }} * 60 ))
+        timeout_seconds=$(( inputs.timeout_minutes * 60 ))
 
         if timeout $timeout_seconds $test_cmd; then
           end_time=$(date +%s)
@@ -221,9 +221,8 @@ runs:
             # Store files in a temporary file to avoid pipe issues
             tmp_failed_files=$(mktemp)
 
-            # Find files with failures or errors
-            find . -name "TEST-*.xml" -type f -exec grep -l 'failures="[1-9]' {} \; 2>/dev/null > "$tmp_failed_files" || true
-            find . -name "TEST-*.xml" -type f -exec grep -l 'errors="[1-9]' {} \; 2>/dev/null >> "$tmp_failed_files" || true
+            # Find files with failures or errors (match any digit count)
+            find . -name "TEST-*.xml" -type f | xargs grep -lE 'failures="[1-9][0-9]*"|errors="[1-9][0-9]*"' 2>/dev/null > "$tmp_failed_files" || true
 
             # Process each file
             if [ -s "$tmp_failed_files" ]; then

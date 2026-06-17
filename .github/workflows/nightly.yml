@@ -3,15 +3,14 @@ name: Nightly Build
 on:
   schedule:
     # Runs at 00:00 UTC every day
-    # This is a comprehensive nightly build including:
-    # - All unit tests (Fast + Slow)
-    # - Integration tests
-    # - Docker image building
-    # - Python SDK tests
-    # Note: E2E tests run separately in cli-e2e-tests.yml (manual only)
     - cron: '0 0 * * *'
   # Allow manual workflow runs
   workflow_dispatch:
+
+# Prevent concurrent nightly builds
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   JAVA_VERSION: '17'
@@ -21,6 +20,7 @@ env:
 jobs:
   ci-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     outputs:
       test_results: ${{ steps.tests.outputs.test_status }}
@@ -64,4 +64,4 @@ jobs:
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ needs.ci-build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Results | ${{ needs.ci-build.outputs.test_results || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Image Tag | ${{ needs.ci-build.outputs.image_tag || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY

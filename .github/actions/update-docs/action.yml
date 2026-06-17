@@ -171,14 +171,11 @@ runs:
 
         # Export outputs
         if [ ${#UPDATED_FILES[@]} -eq 0 ]; then
-          # 空数组的情况下输出空JSON数组
+          # Output empty JSON array when no files were updated
           echo "updated_files=[]" >> $GITHUB_OUTPUT
           echo "changes_made=false" >> $GITHUB_OUTPUT
         else
-          # 将文件路径数组转换为正确的JSON格式
-          # 注意：使用JSON序列化来避免特殊字符和格式问题
-
-          # 方法1：使用简单的JSON输出方式，避免格式问题
+          # Serialize file paths to JSON using jq to avoid formatting issues
           echo "changes_made=true" >> $GITHUB_OUTPUT
           echo "updated_files<<EOF" >> $GITHUB_OUTPUT
           echo "$(printf '%s\n' "${UPDATED_FILES[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')" >> $GITHUB_OUTPUT

@@ -21,7 +21,7 @@ on:
 
 # Prevent concurrent releases
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -38,6 +38,7 @@ env:
 jobs:
   ci-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -87,6 +88,7 @@ jobs:
         uses: ./.github/actions/create-release-notes
         with:
           version: ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
           java_version: ${{ env.JAVA_VERSION }}
           output_file: 'release_notes.md'
 
@@ -107,6 +109,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs: ci-build
     if: needs.ci-build.result == 'success'
     permissions:
@@ -170,6 +173,20 @@ jobs:
             exit 1
           fi
 
+      - name: Setup Deploy Tooling
+        shell: bash
+        run: |
+          echo "::group::Installing Deploy Prerequisites"
+          if ! command -v jq &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y jq
+          fi
+          if ! command -v python3 &> /dev/null; then
+            sudo apt-get install -y python3
+          fi
+          echo "✅ jq: $(jq --version)"
+          echo "✅ python3: $(python3 --version)"
+          echo "::endgroup::"
+
       - name: Set up JDK ${{ env.JAVA_VERSION }} for Deployment
         uses: actions/setup-java@v4
         with:
@@ -177,10 +194,10 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
           server-id: 'central'
-          server-username: CENTRAL_USERNAME
-          server-password: CENTRAL_PASSWORD
+          server-username: ${{ secrets.CENTRAL_USERNAME }}
+          server-password: ${{ secrets.CENTRAL_PASSWORD }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: GPG_PASSPHRASE
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Prepare Maven Wrapper
         shell: bash

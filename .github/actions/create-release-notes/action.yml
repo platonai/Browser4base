@@ -7,6 +7,9 @@ inputs:
   java_version:
     description: 'Java version requirement'
     required: true
+  tag_name:
+    description: 'Current release tag (e.g., v1.0.0)'
+    required: true
   output_file:
     description: 'Output file name'
     required: true
@@ -20,8 +23,10 @@ runs:
       run: |
         echo "📝 Generating release notes..."
 
-        # Get previous tag for changelog
-        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        # Get previous tag for changelog using tag listing (robust for both
+        # push-tag and workflow_dispatch triggers)
+        CURRENT_TAG="${{ inputs.tag_name }}"
+        PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1 || echo "")
 
         # Get commit count and contributors
         if [ -n "$PREV_TAG" ]; then
