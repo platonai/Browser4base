@@ -192,7 +192,7 @@ object PulsarContexts {
     @Synchronized
     @JvmStatic
     fun shutdown() {
-        contexts.forEach { cx -> cx.runCatching { close() }.onFailure { warnForClose(this, it) } }
+        contexts.values.forEach { cx -> cx.runCatching { cx.close() }.onFailure { warnForClose(this, it) } }
         contexts.clear()
         activeContext = null
     }
