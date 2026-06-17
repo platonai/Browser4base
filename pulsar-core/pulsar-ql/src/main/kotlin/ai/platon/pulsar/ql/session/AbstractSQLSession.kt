@@ -1,9 +1,11 @@
-package ai.platon.pulsar.ql
+package ai.platon.pulsar.ql.session
 
-import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
-import ai.platon.pulsar.skeleton.context.support.AbstractPulsarContext
 import ai.platon.pulsar.persist.WebPage
+import ai.platon.pulsar.ql.SQLSession
+import ai.platon.pulsar.ql.SessionConfig
 import ai.platon.pulsar.ql.common.types.ValueDom
+import ai.platon.pulsar.skeleton.context.support.AbstractPulsarContext
+import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
 import kotlin.reflect.KClass
 
 abstract class AbstractSQLSession(

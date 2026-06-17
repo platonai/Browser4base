@@ -1,6 +1,6 @@
 package ai.platon.pulsar.ql.h2
 
-import ai.platon.pulsar.ql.SessionDelegate
+import ai.platon.pulsar.ql.session.SessionDelegate
 
 /**
  * DbSession is a wrapper for underlying database session, it is a bridge between database session and pulsar query

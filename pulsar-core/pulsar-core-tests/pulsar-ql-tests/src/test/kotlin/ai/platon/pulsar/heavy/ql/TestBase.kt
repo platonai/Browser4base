@@ -5,13 +5,12 @@ import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.sql.ResultSetFormatter
 import ai.platon.pulsar.persist.WebPage
+import ai.platon.pulsar.ql.context.AnnotationConfigSQLContext
 import ai.platon.pulsar.ql.context.SQLContexts
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
 import ai.platon.pulsar.test.RealTestUrls
 import org.junit.jupiter.api.Assumptions
-import org.slf4j.LoggerFactory
 import java.sql.ResultSet
-import java.time.Instant
 import java.util.*
 import kotlin.test.assertEquals
 
@@ -34,12 +33,10 @@ abstract class TestBase {
             }
         }
 
-        val logger = LoggerFactory.getLogger(TestBase::class.java)
-
         val history = mutableListOf<String>()
-        val startTime = Instant.now()
 
-        val context = SQLContexts.create()
+        val applicationContext = AnnotationConfigSQLContext().apply { applicationContext.refresh() }
+        val context = SQLContexts.create(applicationContext)
         val session = context.getOrCreateSession()
 
         suspend fun ensurePage(url: String) {

@@ -1,4 +1,4 @@
-package ai.platon.pulsar.ql
+package ai.platon.pulsar.ql.session
 
 /**
  * DbSession is a wrapper for underlying database session, it is a bridge between database session and pulsar query

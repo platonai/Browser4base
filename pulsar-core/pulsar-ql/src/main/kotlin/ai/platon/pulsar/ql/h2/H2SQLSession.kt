@@ -1,7 +1,6 @@
 package ai.platon.pulsar.ql.h2
 
 import ai.platon.pulsar.common.warnForClose
-import ai.platon.pulsar.ql.AbstractSQLSession
 import ai.platon.pulsar.ql.SessionConfig
 import ai.platon.pulsar.ql.common.annotation.UDAggregation
 import ai.platon.pulsar.ql.common.annotation.UDFGroup
@@ -9,6 +8,7 @@ import ai.platon.pulsar.ql.common.annotation.UDFunction
 import ai.platon.pulsar.ql.h2.udas.GroupCollect
 import ai.platon.pulsar.ql.h2.udas.GroupFetch
 import ai.platon.pulsar.ql.h2.udfs.*
+import ai.platon.pulsar.ql.session.AbstractSQLSession
 import ai.platon.pulsar.skeleton.context.support.AbstractPulsarContext
 import com.google.common.reflect.ClassPath
 import org.h2.api.Aggregate

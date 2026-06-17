@@ -4,9 +4,9 @@ import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.sql.SQLUtils
-import ai.platon.pulsar.ql.AbstractSQLSession
 import ai.platon.pulsar.ql.SQLSession
-import ai.platon.pulsar.ql.SessionDelegate
+import ai.platon.pulsar.ql.session.AbstractSQLSession
+import ai.platon.pulsar.ql.session.SessionDelegate
 import ai.platon.pulsar.skeleton.PulsarSettings
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.common.urls.NormURL

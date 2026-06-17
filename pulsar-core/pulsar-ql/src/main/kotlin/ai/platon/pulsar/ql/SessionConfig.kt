@@ -2,6 +2,7 @@ package ai.platon.pulsar.ql
 
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.config.VolatileConfig
+import ai.platon.pulsar.ql.session.SessionDelegate
 
 class SessionConfig(
     private val sessionDelegate: SessionDelegate,
