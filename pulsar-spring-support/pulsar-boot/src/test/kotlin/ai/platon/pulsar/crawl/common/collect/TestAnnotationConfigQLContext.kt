@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.milliseconds
 
-class TestAnnotationConfigAgenticContext {
+class TestAnnotationConfigQLContext {
 
     val context = DefaultAnnotationConfigPulsarContext(PulsarContextConfiguration::class.java)
 

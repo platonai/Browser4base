@@ -5,7 +5,6 @@ import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.sql.ResultSetFormatter
 import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.ql.context.AnnotationConfigSQLContext
 import ai.platon.pulsar.ql.context.SQLContexts
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
 import ai.platon.pulsar.test.RealTestUrls
@@ -35,8 +34,7 @@ abstract class TestBase {
 
         val history = mutableListOf<String>()
 
-        val applicationContext = AnnotationConfigSQLContext().apply { applicationContext.refresh() }
-        val context = SQLContexts.create(applicationContext)
+        val context = SQLContexts.create()
         val session = context.getOrCreateSession()
 
         suspend fun ensurePage(url: String) {

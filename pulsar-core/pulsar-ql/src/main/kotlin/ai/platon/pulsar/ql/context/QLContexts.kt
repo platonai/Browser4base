@@ -2,15 +2,14 @@ package ai.platon.pulsar.ql.context
 
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.ql.SQLSession
-import ai.platon.pulsar.ql.context.SQLContexts.createSession
-import ai.platon.pulsar.ql.context.SQLContexts.shutdown
+import ai.platon.pulsar.ql.context.QLContexts.createSession
+import ai.platon.pulsar.ql.context.QLContexts.shutdown
 import ai.platon.pulsar.ql.session.BasicSQLSession
 import ai.platon.pulsar.ql.session.GenericSQLSession
 import ai.platon.pulsar.ql.session.StaticSQLSession
 import ai.platon.pulsar.skeleton.PulsarSettings
 import ai.platon.pulsar.skeleton.context.PulsarContexts
 import ai.platon.pulsar.skeleton.context.support.TrivialContextDefaults
-import ai.platon.pulsar.skeleton.session.AbstractPulsarSession
 import ai.platon.pulsar.skeleton.session.BasicPulsarSession
 import ai.platon.pulsar.skeleton.session.PulsarSession
 import org.springframework.context.ApplicationContext
@@ -19,24 +18,7 @@ import org.springframework.context.support.AbstractApplicationContext
 import org.springframework.context.support.GenericApplicationContext
 import org.springframework.context.support.StaticApplicationContext
 
-abstract class AbstractAgenticContext(
-    applicationContext: AbstractApplicationContext
-) : AbstractH2SQLContext(applicationContext), SQLContext {
-
-    abstract override fun createSession(): AbstractPulsarSession
-
-    abstract override fun createSession(settings: PulsarSettings): AbstractPulsarSession
-
-    override fun getOrCreateSession(): AbstractPulsarSession =
-        sessions.values.filterIsInstance<AbstractPulsarSession>().firstOrNull() ?: createSession()
-
-    override fun getOrCreateSession(settings: PulsarSettings): AbstractPulsarSession {
-        // TODO: consider changed settings, for example, REST-level sessionId requires associated PulsarSession
-        return sessions.values.filterIsInstance<AbstractPulsarSession>().firstOrNull() ?: createSession()
-    }
-}
-
-open class BasicAgenticContext(
+open class BasicQLContext(
     override val applicationContext: AbstractApplicationContext
 ) : AbstractH2SQLContext(applicationContext) {
 
@@ -61,7 +43,7 @@ open class BasicAgenticContext(
     }
 }
 
-open class GenericAgenticContext(
+open class GenericQLContext(
     override val applicationContext: GenericApplicationContext,
     autoRefresh: Boolean = false
 ) : AbstractH2SQLContext(applicationContext) {
@@ -99,10 +81,10 @@ open class GenericAgenticContext(
 /**
  * Simple static agentic context, components might be incomplete or trivial, used for test only.
  * */
-open class StaticAgenticContext(
+open class StaticQLContext(
     override val applicationContext: StaticApplicationContext = StaticApplicationContext(),
     autoRefresh: Boolean = false
-) : GenericAgenticContext(applicationContext, false) {
+) : GenericQLContext(applicationContext, false) {
 
     private val defaults by lazy { TrivialContextDefaults(this) }
 
@@ -174,9 +156,9 @@ open class StaticAgenticContext(
     }
 }
 
-open class AnnotationConfigAgenticContext(
+open class AnnotationConfigQLContext(
     override val applicationContext: AnnotationConfigApplicationContext,
-) : AbstractAgenticContext(applicationContext) {
+) : AbstractH2SQLContext(applicationContext) {
 
     constructor(vararg componentClasses: Class<*>) : this(AnnotationConfigApplicationContext(*componentClasses))
 
@@ -216,7 +198,7 @@ open class AnnotationConfigAgenticContext(
  * - Use [createSession] / [getOrCreateSession] for convenient session bootstrap.
  */
 @Suppress("unused")
-object SQLContexts {
+object QLContexts {
     /**
      * Create or return the active [ai.platon.pulsar.exp.context.SQLContext].
      * If no active context exists, a default classpath XML based context is created.
@@ -225,7 +207,7 @@ object SQLContexts {
      */
     @Synchronized
     fun create(): SQLContext {
-        return create(StaticAgenticContext(autoRefresh = true))
+        return create(StaticQLContext(autoRefresh = true))
     }
 
     @Synchronized
@@ -260,10 +242,10 @@ object SQLContexts {
     @Synchronized
     fun create(applicationContext: ApplicationContext): SQLContext {
         return when (applicationContext) {
-            is AnnotationConfigApplicationContext -> create(AnnotationConfigAgenticContext(applicationContext))
-            is StaticApplicationContext -> create(StaticAgenticContext(applicationContext))
-            is GenericApplicationContext -> create(GenericAgenticContext(applicationContext))
-            else -> create(BasicAgenticContext(applicationContext as AbstractApplicationContext))
+            is AnnotationConfigApplicationContext -> create(AnnotationConfigQLContext(applicationContext))
+            is StaticApplicationContext -> create(StaticQLContext(applicationContext))
+            is GenericApplicationContext -> create(GenericQLContext(applicationContext))
+            else -> create(BasicQLContext(applicationContext as AbstractApplicationContext))
         }
     }
 
@@ -277,6 +259,9 @@ object SQLContexts {
 
         return create(applicationContext)
     }
+
+    @Synchronized
+    fun createSession(): PulsarSession = create().createSession()
 
     /**
      * Create a new [PulsarSession] with the provided [settings].
@@ -315,3 +300,6 @@ object SQLContexts {
         return null
     }
 }
+
+// compatibility alias
+typealias SQLContexts = QLContexts
