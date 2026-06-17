@@ -285,14 +285,23 @@ runs:
         echo "  - Execution Status: $EXEC_STATUS"
         echo "  - Failed Test Count: $FAILED_COUNT"
 
-        # Reconcile: if no tests failed, override status to success
-        # This handles cases where Maven exits non-zero for non-test-failure reasons
-        if [ "$FAILED_COUNT" == "0" ]; then
-          FINAL_STATUS="success"
-          echo "  - Final Status: success (no test failures detected)"
+        # If Maven reported success, trust it.
+        # If Maven reported failure but we have Surefire reports showing 0 failures,
+        # this is likely a build/environment failure — still report as failed so the
+        # pipeline doesn't silently pass. Only override failure→success when we are
+        # certain the reports exist and show zero failures.
+        TEST_FILES_EXIST=0
+        find . -name "TEST-*.xml" -type f -print -quit | grep -q . && TEST_FILES_EXIST=1
+
+        if [ "$EXEC_STATUS" == "failed" ] && [ "$TEST_FILES_EXIST" -eq 1 ] && [ "$FAILED_COUNT" -eq 0 ]; then
+          FINAL_STATUS="failed"
+          echo "  - Final Status: failed (Maven exited non-zero, but no test failures in reports — possible build/infra issue)"
+        elif [ "$EXEC_STATUS" == "failed" ] && [ "$TEST_FILES_EXIST" -eq 0 ]; then
+          FINAL_STATUS="failed"
+          echo "  - Final Status: failed (Maven exited non-zero, no Surefire reports found)"
         else
           FINAL_STATUS="$EXEC_STATUS"
-          echo "  - Final Status: $EXEC_STATUS (test failures detected)"
+          echo "  - Final Status: $EXEC_STATUS"
         fi
 
         # Update the status output

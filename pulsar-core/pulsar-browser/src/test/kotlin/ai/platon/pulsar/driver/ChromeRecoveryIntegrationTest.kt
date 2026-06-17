@@ -6,6 +6,7 @@ import ai.platon.pulsar.chrome.BrowserFileSystem
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.chrome.util.ChromeOptions
 import ai.platon.pulsar.chrome.util.LauncherOptions
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -15,6 +16,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
+@Tag("Heavy")
 class ChromeRecoveryIntegrationTest {
     @Test
     fun testConcurrentLaunchersCompeteForSameUserDataDirButReuseSingleBrowser() {
