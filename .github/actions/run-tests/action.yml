@@ -152,7 +152,7 @@ runs:
         echo ""
 
         # Execute tests with timeout
-        timeout_seconds=$(( inputs.timeout_minutes * 60 ))
+        timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
 
         if timeout $timeout_seconds $test_cmd; then
           end_time=$(date +%s)

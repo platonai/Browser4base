@@ -119,7 +119,7 @@ runs:
         echo ""
 
         # Execute with timeout
-        timeout_seconds=$(( inputs.timeout_minutes * 60 ))
+        timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
 
         if timeout $timeout_seconds $build_cmd; then
           end_time=$(date +%s)
