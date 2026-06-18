@@ -308,6 +308,22 @@
                 </plugins>
             </build>
         </profile>
+
+        <!--
+        Aggregate coverage report profile.
+        Adds the pulsar-coverage-report module which depends on all production
+        and test modules, then uses jacoco:report-aggregate to generate a single
+        cross-module HTML/CSV/XML report.
+
+        Usage: mvn clean verify -Pcoverage-report
+        Report output: pulsar-coverage-report/target/site/jacoco-aggregate/index.html
+        -->
+        <profile>
+            <id>coverage-report</id>
+            <modules>
+                <module>pulsar-coverage-report</module>
+            </modules>
+        </profile>
     </profiles>
 
     <build>
@@ -385,6 +401,32 @@
             </plugin>
 
             <!--
+            JaCoCo code coverage plugin. Instruments classes during the test phase
+            and generates per-module HTML/CSV/XML reports.
+            For an aggregate cross-module report, use: mvn verify -Pcoverage-report
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
             The Surefire Plugin is used during the test phase of the build lifecycle to execute the unit tests of
             an application.
             -->
@@ -401,8 +443,8 @@
                     <!-- All tests are in the same JVM process -->
                     <forkCount>1</forkCount>
                     <reuseForks>true</reuseForks>
-                    <!-- Enable byte-buddy-agent -->
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <!-- Enable byte-buddy-agent and JaCoCo coverage agent -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
                     <useModulePath>false</useModulePath>
                 </configuration>
             </plugin>
@@ -560,7 +602,7 @@
 
         <surefire.version>3.5.4</surefire.version>
 
-        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
         <central-publishing-maven-plugin.version>0.10.0</central-publishing-maven-plugin.version>
 
         <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
