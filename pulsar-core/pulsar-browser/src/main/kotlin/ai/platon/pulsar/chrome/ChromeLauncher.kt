@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.channels.FileLockInterruptionException
 import java.nio.channels.OverlappingFileLockException
@@ -376,7 +378,9 @@ class ChromeLauncher constructor(
             val port = browserFileSystem.readPositivePort() ?: return 0
 
             // Verify that the port is actually in use and the process is alive
-            if (isPortInUse(port) && isProcessAlive()) {
+            val portInUse = isPortInUse(port)
+            val processAlive = isProcessAlive()
+            if (portInUse && processAlive) {
                 logger.info("Found valid existing Chrome process on port: {}", port)
                 // Read and log CDP URL if available
                 val cdpUrl = readCdpUrl()
@@ -388,7 +392,8 @@ class ChromeLauncher constructor(
 
                 port
             } else {
-                logger.warn("Found port file but process is not alive, cleaning up invalid state")
+                logger.warn("Found port file but process is not alive, cleaning up invalid state | " +
+                        "port={} portInUse={} processAlive={}", port, portInUse, processAlive)
                 cleanupInvalidPortFile()
             }
         } catch (e: Exception) {
@@ -414,7 +419,12 @@ class ChromeLauncher constructor(
      */
     fun isPortInUse(port: Int): Boolean {
         return try {
-            Socket("localhost", port).use {
+            // Use explicit IPv4 address to avoid IPv4/IPv6 mismatch.
+            // Chrome's DevTools server binds to 127.0.0.1, but "localhost"
+            // can resolve to ::1 (IPv6) on some systems, causing connection failure.
+            val address = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress(address, port), 5000)
                 true // Successfully connected, port is in use
             }
         } catch (_: Exception) {
