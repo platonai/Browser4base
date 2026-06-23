@@ -117,7 +117,7 @@
     </dependencies>
 
     <properties>
-        <platon-gora.version>1.0.0</platon-gora.version>
+        <platon-gora.version>1.0.1-slim</platon-gora.version>
     </properties>
 
 </project>
