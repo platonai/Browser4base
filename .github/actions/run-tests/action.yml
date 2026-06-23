@@ -265,6 +265,17 @@ runs:
 
         echo "::endgroup::"
 
+    - name: Upload Test Reports
+      if: always() && inputs.test_reports == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.report_name }}-${{ github.run_id }}
+        path: |
+          **/target/surefire-reports/**
+          **/target/site/jacoco/**
+        retention-days: 7
+        if-no-files-found: warn
+
     - name: Reconcile Test Status
       id: reconcile-status
       if: always()
@@ -306,15 +317,12 @@ runs:
         # Update the status output
         echo "status=$FINAL_STATUS" >> $GITHUB_OUTPUT
 
-        echo "::endgroup::"
+        # Fail the step if the final status is "failed" — this is the ONLY place
+        # where we signal failure back to the workflow. Test reports are already
+        # uploaded by the previous step (which runs with if: always()).
+        if [ "$FINAL_STATUS" == "failed" ]; then
+          echo "❌ Tests FAILED — failing this step to signal the pipeline"
+          exit 1
+        fi
 
-    - name: Upload Test Reports
-      if: always() && inputs.test_reports == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ inputs.report_name }}-${{ github.run_id }}
-        path: |
-          **/target/surefire-reports/**
-          **/target/site/jacoco/**
-        retention-days: 7
-        if-no-files-found: warn
+        echo "::endgroup::"
