@@ -374,12 +374,26 @@ class ChromeLauncher constructor(
      * @return The port number if an existing Chrome process is found, 0 otherwise.
      */
     private fun checkExistingChromeProcess(): Int {
-        return try {
-            val port = browserFileSystem.readPositivePort() ?: return 0
+        val port = try {
+            browserFileSystem.readPositivePort()
+        } catch (e: Exception) {
+            logger.warn("Failed to read existing port file: {}", e.message)
+            null
+        } ?: return 0
 
-            // Verify that the port is actually in use and the process is alive
+        // Retry validation several times to tolerate transient failures in CI environments
+        // (e.g., Docker containers where ProcessHandle or TCP connect may briefly fail)
+        val maxRetries = 3
+        val retryDelayMs = 200L
+        var lastPortInUse = false
+        var lastProcessAlive = false
+
+        for (attempt in 1..maxRetries) {
             val portInUse = isPortInUse(port)
             val processAlive = isProcessAlive()
+            lastPortInUse = portInUse
+            lastProcessAlive = processAlive
+
             if (portInUse && processAlive) {
                 logger.info("Found valid existing Chrome process on port: {}", port)
                 // Read and log CDP URL if available
@@ -389,17 +403,27 @@ class ChromeLauncher constructor(
                 } else {
                     logger.info("Reusing existing Chrome process, CDP URL file not found (port: {})", port)
                 }
-
-                port
-            } else {
-                logger.warn("Found port file but process is not alive, cleaning up invalid state | " +
-                        "port={} portInUse={} processAlive={}", port, portInUse, processAlive)
-                cleanupInvalidPortFile()
+                return port
             }
-        } catch (e: Exception) {
-            logger.warn("Failed to read existing port file: {}, cleaning up", e.message)
-            cleanupInvalidPortFile()
+
+            if (attempt < maxRetries) {
+                logger.warn("Existing Chrome check failed (attempt {}/{}), retrying in {}ms | " +
+                        "port={} portInUse={} processAlive={}",
+                        attempt, maxRetries, retryDelayMs, port, portInUse, processAlive)
+                try {
+                    Thread.sleep(retryDelayMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
         }
+
+        // All retries exhausted, clean up and return 0
+        logger.warn("Found port file but process is not alive after {} attempts, cleaning up invalid state | " +
+                "port={} portInUse={} processAlive={}", maxRetries, port, lastPortInUse, lastProcessAlive)
+        cleanupInvalidPortFile()
+        return 0
     }
 
     /**
