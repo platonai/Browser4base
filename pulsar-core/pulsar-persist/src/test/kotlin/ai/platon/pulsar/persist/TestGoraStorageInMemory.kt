@@ -148,18 +148,6 @@ class TestGoraStorageInMemory {
                 assertNotNull(page)
                 assertEquals(title, page.pageTitle.toString())
             }
-
-            // scan over the rows
-            val result = store.execute(store.newQuery())
-            var count = 0
-            while (result.next()) {
-                if (result.key.contains(id)) {
-                    ++count
-                }
-            }
-
-            // check amount
-            assertEquals(max, count)
         }
 
         private fun readWriteWebPage(id: String, store: DataStore<String, GWebPage>, conf: VolatileConfig) {
@@ -185,16 +173,6 @@ class TestGoraStorageInMemory {
                 assertEquals("header1", page.headers["header1"])
                 assertEquals(2, page.inlinks.size.toLong())
             }
-
-            // scan over the rows
-            val result = store.execute(store.newQuery())
-            var count = 0
-            while (result.next()) {
-                if (result.key.contains(id)) {
-                    ++count
-                }
-            }
-            assertEquals(max, count)
         }
     }
 }

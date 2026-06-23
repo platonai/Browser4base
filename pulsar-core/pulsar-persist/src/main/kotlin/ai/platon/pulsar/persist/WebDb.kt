@@ -8,7 +8,6 @@ import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.stringify
 import ai.platon.pulsar.common.urls.URLUtils
-import ai.platon.pulsar.persist.gora.db.DbIterator
 import ai.platon.pulsar.persist.gora.db.DbQuery
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
@@ -21,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * A simple interface to query and store web pages.
  * */
-class WebDb(
+open class WebDb(
     val conf: ImmutableConfig,
 ): AutoCloseable {
     companion object {
@@ -237,10 +236,7 @@ class WebDb(
      */
     @Throws(WebDBException::class)
     fun scan(urlBase: String): Iterator<WebPage> {
-        val query = dataStore.newQuery()
-
-        val result = dataStore.execute(query)
-        return DbIterator(result, conf)
+        throw NotImplementedError()
     }
 
     /**
@@ -262,12 +258,7 @@ class WebDb(
      */
     @Throws(WebDBException::class)
     fun scan(urlBase: String, fields: Array<String>): Iterator<WebPage> {
-        val query = dataStore.newQuery()
-
-        query.setFields(*fields)
-
-        val result = dataStore.execute(query)
-        return DbIterator(result, conf)
+        throw NotImplementedError()
     }
 
     /**
@@ -278,13 +269,7 @@ class WebDb(
      */
     @Throws(WebDBException::class)
     fun scan(urlBase: String, fields: Array<String>, filter: Filter<String, GWebPage>): Iterator<WebPage> {
-        val query = dataStore.newQuery()
-
-        query.filter = filter
-        query.setFields(*fields)
-
-        val result = dataStore.execute(query)
-        return DbIterator(result, conf)
+        throw NotImplementedError()
     }
 
     /**
@@ -295,13 +280,7 @@ class WebDb(
      */
     @Throws(WebDBException::class)
     fun query(query: DbQuery): Iterator<WebPage> {
-        val goraQuery = dataStore.newQuery()
-
-        goraQuery.setFields(*prepareFields(query.fields))
-
-        val result = performDSAction("query") { dataStore.execute(goraQuery) }
-
-        return DbIterator(result, conf)
+        throw NotImplementedError()
     }
 
     @Throws(WebDBException::class)
