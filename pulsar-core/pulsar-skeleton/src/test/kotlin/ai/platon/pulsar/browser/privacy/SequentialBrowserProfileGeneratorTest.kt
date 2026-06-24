@@ -26,9 +26,9 @@ class SequentialBrowserProfileGeneratorTest {
     @BeforeEach
     fun setUp() {
         conf = MutableConfig()
-        generator = SequentialBrowserProfileGenerator("test")
+        generator = SequentialBrowserProfileGenerator("test-browser-privacy")
         mockFingerprint = Fingerprint.EXAMPLE
-        contextBaseDir = AppPaths.CONTEXT_GROUP_BASE_DIR.resolve("test/PULSAR_CHROME")
+        contextBaseDir = AppPaths.getContextBaseDir("test-browser-privacy", mockFingerprint.browserType)
         IntRange(1, 10).forEach { i ->
             val contextDir = contextBaseDir.resolve(String.format("cx.%03d", i))
             contextDirs.add(contextDir)

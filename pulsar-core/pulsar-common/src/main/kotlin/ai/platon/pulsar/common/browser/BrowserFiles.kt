@@ -2,7 +2,6 @@ package ai.platon.pulsar.common.browser
 
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.browser.fingerprint.Fingerprint
-import com.google.common.collect.Iterators
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils
 import java.io.IOException
@@ -16,35 +15,10 @@ import java.time.Duration
 import java.time.MonthDay
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListSet
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Stream
 import kotlin.io.path.exists
 import kotlin.io.path.notExists
-
-internal class ContextGroup(val group: String) {
-
-    class PathIterator(private val paths: Iterable<Path>) : Iterator<Path> {
-        private val iterator = Iterators.cycle(paths)
-
-        override fun hasNext(): Boolean {
-            return paths.iterator().hasNext()
-        }
-
-        override fun next(): Path {
-            return iterator.next()
-        }
-    }
-
-    private val paths = ConcurrentSkipListSet<Path>()
-
-    val size: Int
-        get() = paths.size
-
-    val iterator = PathIterator(paths)
-
-    fun add(path: Path) {
-        paths.add(path)
-    }
-}
 
 object BrowserFiles {
 
@@ -66,7 +40,7 @@ object BrowserFiles {
 
     val TEMPORARY_UDD_EXPIRY = Duration.ofHours(12)
 
-    private val contextGroups = ConcurrentHashMap<String, ContextGroup>()
+    private val contextCounters = ConcurrentHashMap<String, AtomicInteger>()
 
     private val cleanedUserDataDirs = ConcurrentSkipListSet<Path>()
 
@@ -384,16 +358,32 @@ object BrowserFiles {
             Files.createDirectories(it)
         }
 
-        val contextGroup = contextGroups.computeIfAbsent(group) { ContextGroup(group) }
         // can throw too many open files in ubuntu when using Files.list()
         // see too-many-open-files.md to resolve the problem
-        Files.list(contextBaseDir)
+        val paths = Files.list(contextBaseDir)
             .filter { Files.isDirectory(it) }
             .filter { it.fileName.toString().startsWith(prefix) }
             .filter { it in expectedContextPaths }
-            .forEach { contextGroup.add(it) }
+            .sorted()
+            .toList()
 
-        return contextGroup.iterator.next()
+        require(paths.isNotEmpty()) { "No context directories found in $contextBaseDir" }
+
+        // Use an atomic counter to cycle through paths round-robin.
+        // The counter wraps around via modulo, so it is robust against
+        // directories being deleted and recreated (e.g. across test runs).
+        val counter = contextCounters.computeIfAbsent(group) { AtomicInteger(0) }
+        val index = counter.getAndUpdate { i -> (i + 1) % paths.size }
+
+        // Guard against path list shrinking (e.g. directories deleted externally)
+        val safeIndex = if (index >= paths.size) {
+            counter.set(1)
+            0
+        } else {
+            index
+        }
+
+        return paths[safeIndex]
     }
 
     /**
