@@ -252,6 +252,7 @@ jobs:
 
           echo "=== Deploying to Maven Central ==="
           ./mvnw --batch-mode --no-transfer-progress deploy -P deploy,release -DskipTests \
+            -Dgpg.passphrase="$GPG_PASSPHRASE" \
             -Dgpg.batch=true \
             -Dgpg.pinentry-mode=loopback \
             --show-version --errors
