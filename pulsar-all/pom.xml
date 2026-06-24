@@ -15,7 +15,7 @@
     <parent>
         <groupId>ai.platon.pulsar</groupId>
         <artifactId>pulsar</artifactId>
-        <version>4.9.3-SNAPSHOT</version>
+        <version>4.9.3</version>
     </parent>
 
     <artifactId>pulsar-all</artifactId>
@@ -110,5 +110,36 @@
             <artifactId>pulsar-ql</artifactId>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>deploy</id>
+            <build>
+                <plugins>
+                    <!--
+                      Central requires a -javadoc.jar for each published artifact.
+                      pulsar-all is an aggregator module with no source code;
+                      we attach an empty javadoc jar to satisfy Central validation.
+                    -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <skip>false</skip>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
