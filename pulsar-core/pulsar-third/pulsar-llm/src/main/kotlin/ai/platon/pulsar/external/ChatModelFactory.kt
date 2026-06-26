@@ -67,7 +67,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
      */
     fun isModelConfigured(conf: ImmutableConfig, verbose: Boolean = true): Boolean {
         if (!isModelConfigured0(conf)) {
-            if (verbose && !hasModel(conf)) {
+            if (verbose) {
                 if (llmGuideReported.get()) {
                     val message = "The LLM is not configured, the LLM feature is disabled. " +
                             "See docs/config/llm/llm-config.md for more details."

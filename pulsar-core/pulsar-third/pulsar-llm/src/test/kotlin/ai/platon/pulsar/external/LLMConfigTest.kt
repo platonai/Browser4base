@@ -1,11 +1,18 @@
 package ai.platon.pulsar.external
 
 import ai.platon.pulsar.common.config.ImmutableConfig
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class LLMConfigTest {
+
+    @AfterEach
+    fun cleanUp() {
+        System.clearProperty("OPENROUTER_API_KEY")
+        System.clearProperty("openrouter.api.key")
+    }
 
     @Test
     fun testEnvStyleConfig() {

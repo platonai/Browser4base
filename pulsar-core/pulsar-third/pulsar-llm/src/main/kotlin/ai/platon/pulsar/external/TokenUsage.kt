@@ -1,17 +1,21 @@
 package ai.platon.pulsar.external
 
-import ai.platon.pulsar.common.measure.ByteUnit
-
 data class TokenUsage(
     val inputTokenCount: Int = 0,
     val outputTokenCount: Int = 0,
     val totalTokenCount: Int = 0,
 ) {
     override fun toString(): String {
-        val i = ByteUnit.BYTE.toKB(inputTokenCount.toDouble())
-        val o = ByteUnit.BYTE.toKB(outputTokenCount.toDouble())
-        val t = ByteUnit.BYTE.toKB(totalTokenCount.toDouble())
+        return "in: ${formatTokenCount(inputTokenCount)} out: ${formatTokenCount(outputTokenCount)} total: ${formatTokenCount(totalTokenCount)}"
+    }
 
-        return String.format("in: %.0f out: %.0f total: %.0f", i, o, t)
+    companion object {
+        private fun formatTokenCount(count: Int): String {
+            return when {
+                count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
+                count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
+                else -> count.toString()
+            }
+        }
     }
 }

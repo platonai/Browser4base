@@ -147,7 +147,11 @@ open class CachedBrowserChatModel(
 
         val overflow = responseCache.size - maxCacheEntries
         if (overflow > 0) {
-            responseCache.keys.take(overflow).forEach { responseCache.remove(it) }
+            // Evict entries with the soonest expiration first (deterministic order)
+            responseCache.entries
+                .sortedBy { it.value.expiresAtMillis }
+                .take(overflow)
+                .forEach { responseCache.remove(it.key, it.value) }
         }
     }
 
@@ -235,8 +239,7 @@ open class CachedBrowserChatModel(
             }
         }
 
-        val u = response.tokenUsage()
-        val tokenUsage = TokenUsage(u.inputTokenCount(), u.outputTokenCount(), u.totalTokenCount())
+        val tokenUsage = toTokenUsage(response)
         val r = response.finishReason()
         val state = when (r) {
             FinishReason.STOP -> ResponseState.STOP
@@ -316,7 +319,7 @@ open class CachedBrowserChatModel(
             }
             else -> {
                 logger.warn("Failed to send chat message for $i times: {}", lastException.stringify())
-                throw ChatModelException("Timeout and cancelled for $i times | ${lastException.message}", lastException)
+                throw ChatModelException("Failed to send chat message for $i times | ${lastException.message}", lastException)
             }
         }
     }
@@ -385,9 +388,13 @@ open class CachedBrowserChatModel(
         return Pair(userText, systemText)
     }
 
-    private fun toModelResponse(response: ChatResponse): ModelResponse {
+    private fun toTokenUsage(response: ChatResponse): TokenUsage {
         val u = response.tokenUsage()
-        val tokenUsage = if (u != null) TokenUsage(u.inputTokenCount(), u.outputTokenCount(), u.totalTokenCount()) else TokenUsage(0, 0, 0)
+        return if (u != null) TokenUsage(u.inputTokenCount(), u.outputTokenCount(), u.totalTokenCount()) else TokenUsage(0, 0, 0)
+    }
+
+    private fun toModelResponse(response: ChatResponse): ModelResponse {
+        val tokenUsage = toTokenUsage(response)
         val state = when (response.finishReason()) {
             FinishReason.STOP -> ResponseState.STOP
             FinishReason.LENGTH -> ResponseState.LENGTH

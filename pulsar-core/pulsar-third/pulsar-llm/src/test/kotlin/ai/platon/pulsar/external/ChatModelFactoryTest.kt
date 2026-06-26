@@ -12,11 +12,13 @@ import org.junit.jupiter.api.DisplayName
 
 class ChatModelFactoryTest {
     /**
+     * Verify the Volcengine/Doubao API is compatible with OpenAI chat completions format.
      *
+     * Example curl invocation (with placeholder credentials):
      * ```shell
-     * curl https://ark.cn-beijing.volces.com/api/v3 \
+     * curl https://ark.cn-beijing.volces.com/api/v3/chat/completions \
      *   -H "Content-Type: application/json" \
-     *   -H "Authorization: Bearer 9cc8e998-4655-4e90-a54c-66659a524a971" \
+     *   -H "Authorization: Bearer $VOLCENGINE_API_KEY" \
      *   -d '{
      *     "model": "doubao-1-5-pro-32k-250115",
      *     "messages": [
@@ -33,7 +35,7 @@ class ChatModelFactoryTest {
         val provider = "volcengine"
         val baseURL = "https://ark.cn-beijing.volces.com/api/v3"
         val modelName = "doubao-1-5-pro-32k-250115"
-        val apiKey = "9cc8e99889-4655-4e90-a54c1-12345abcdefg"
+        val apiKey = "test-fake-api-key-not-a-real-credential"
 
         val conf = ImmutableConfig()
         val model = ChatModelFactory.getOrCreate(provider, modelName, apiKey, conf)
@@ -47,8 +49,11 @@ class ChatModelFactoryTest {
                 response.content.contains("101")
             }
         } catch (e: Exception) {
-            assertTrue(e.message) { listOf("error", "invalid", "missing", "Unauthorized", "fail", "not found", "not exist", "not support", "not available", "not configured", "not supported", "not found", "not exist", "not support", "not available", "not configured", "not supported")
-                .any { e.toString().contains(it, ignoreCase = true) } }
+            assertTrue(e.message) {
+                listOf("error", "invalid", "missing", "unauthorized", "fail", "not found",
+                    "not exist", "not support", "not available", "not configured")
+                    .any { e.toString().contains(it, ignoreCase = true) }
+            }
         }
     }
 }
