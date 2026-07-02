@@ -1,15 +1,16 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Checks if the current project version has been fully published.
+    Checks if the current project version is the next version to publish.
 
 .DESCRIPTION
-    Verifies two publish preconditions for the current version:
-      1. The version (tagged as vX.Y.Z) is the latest release on GitHub.
-      2. The pulsar-bom artifact for this version is available on Maven Central.
+    A pre-release gate that verifies the given version is the correct next version
+    to publish.  Three conditions must be satisfied:
+      1. The version is NOT already the latest GitHub release.
+      2. The pulsar-bom artifact is NOT already on Maven Central.
+      3. The latest published version is EARLIER than this version (no leapfrog).
 
-    Only when both conditions are satisfied is the version considered "published"
-    and safe to bump. Exits with code 0 if published, non-zero otherwise.
+    Exits with code 0 if the version is ready to publish, non-zero otherwise.
 
 .PARAMETER Version
     The version to check (without the -SNAPSHOT suffix).
@@ -20,8 +21,12 @@
     Checks the version from the VERSION file.
 
 .EXAMPLE
-    .\check-publish-status.ps1 -Version 4.8.4
-    Checks version 4.8.4 explicitly.
+    .\check-publish-status.ps1 -Version 4.9.5
+    Checks whether v4.9.5 is the next version to publish.
+
+.EXAMPLE
+    .\check-publish-status.ps1 -Version 4.9.5 -Verbose
+    Checks v4.9.5 with detailed diagnostic output.
 #>
 [CmdletBinding()]
 param (
@@ -31,10 +36,37 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-# Force UTF-8 output encoding for correct display of special characters
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# ---------------------------------------------------------------
+# Utility: retry a network call on transient failures
+# ---------------------------------------------------------------
+function Invoke-WithRetry {
+    param(
+        [ScriptBlock]$ScriptBlock,
+        [string]$Description = "request",
+        [int]$MaxAttempts = 3
+    )
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            $result = & $ScriptBlock
+            return @{ Ok = $true; Result = $result }
+        } catch {
+            # If the server sent back an HTTP response (even 4xx/5xx) the error is
+            # definitive — don't retry.  Retry only when no response was received
+            # (DNS failure, connection refused, timeout, etc.).
+            $hadResponse = $null -ne $_.Exception.Response
+            if (-not $hadResponse -and $attempt -lt $MaxAttempts) {
+                Write-Verbose "  $Description (attempt $attempt/$MaxAttempts) — transient failure, retrying..."
+                Start-Sleep -Seconds 2
+                continue
+            }
+            return @{ Ok = $false; Error = $_ }
+        }
+    }
+}
 
+# ---------------------------------------------------------------
 # Determine repo root
+# ---------------------------------------------------------------
 $repoRoot = (git rev-parse --show-toplevel 2>$null)
 if ($null -eq $repoRoot) {
     Write-Error "Could not determine project root. Are you in a git repository?"
@@ -42,7 +74,16 @@ if ($null -eq $repoRoot) {
 }
 Set-Location $repoRoot
 
+# Import common utility (consistent with other release scripts)
+$utilScript = Join-Path $repoRoot "bin\common\Util.ps1"
+if (Test-Path $utilScript) {
+    . $utilScript
+    Fix-Encoding-UTF8 | Out-Null
+}
+
+# ---------------------------------------------------------------
 # Resolve the version
+# ---------------------------------------------------------------
 if (-not $Version) {
     if (-not (Test-Path "$repoRoot\VERSION")) {
         Write-Error "VERSION file not found at $repoRoot\VERSION and no -Version argument was provided."
@@ -58,10 +99,12 @@ if ($Version -notmatch "^\d+\.\d+\.\d+") {
     exit 2
 }
 
-Write-Host "Checking publish status for version: v$Version"
+Write-Host "Checking pre-release status for version: v$Version"
 Write-Host ""
 
+# ---------------------------------------------------------------
 # Derive GitHub repository from the git remote
+# ---------------------------------------------------------------
 $remoteUrl = git config --get remote.origin.url
 if ($remoteUrl -notmatch 'github\.com[:/](.+?)(?:\.git)?$') {
     Write-Error "Could not determine GitHub repository from remote URL: $remoteUrl"
@@ -79,128 +122,226 @@ $mavenUrl = "https://repo1.maven.org/maven2/$mavenPath/$mavenArtifactId/$Version
 Write-Host "Maven Central URL : $mavenUrl"
 Write-Host ""
 
+# Parse the target version for precedence comparison
+# Strip leading 'v' and optional -rc.N suffix for [version] parsing
+$cleanVersion = $Version -replace '^v', ''
+if ($cleanVersion -match '^(\d+\.\d+\.\d+)(?:-rc\.\d+)?$') {
+    $targetVersionObj = [version]$matches[1]
+} else {
+    $targetVersionObj = $null
+}
+
 # ---------------------------------------------------------------
-# Check 1: Is this version the latest GitHub release?
+# Check 1: Is this version NOT already the latest GitHub release?
+#          (it should still be unreleased)
 # ---------------------------------------------------------------
 Write-Host "-------------------------------------------------"
-Write-Host " Check 1: Latest GitHub release"
+Write-Host " Check 1: Not already the latest release"
 Write-Host "-------------------------------------------------"
 
-$isLatestRelease = $false
+$alreadyReleased = $false
 $latestReleaseTag = $null
+$latestVersionObj = $null
+$leapfrogged = $false
 
 # Prefer gh CLI if available (handles auth and rate limiting)
 $ghAvailable = $null -ne (Get-Command gh -ErrorAction SilentlyContinue)
 if ($ghAvailable) {
-    Write-Host "Using gh CLI to fetch latest release..."
+    Write-Verbose "Using gh CLI to fetch latest release..."
 
     try {
-        # gh release list returns releases ordered by creation date (newest first)
-        $latestRelease = & gh release list --repo $githubRepo --limit 1 --json tagName 2>&1
+        $ghResult = & gh release list --repo $githubRepo --limit 1 --json tagName 2>&1
         if ($LASTEXITCODE -eq 0) {
-            $latestReleaseObj = $latestRelease | ConvertFrom-Json
+            $latestReleaseObj = $ghResult | ConvertFrom-Json -Depth 10
             if ($latestReleaseObj -and $latestReleaseObj.Count -gt 0) {
                 $latestReleaseTag = $latestReleaseObj[0].tagName
-                Write-Host "  Latest release : $latestReleaseTag"
-                Write-Host "  Current tag    : v$Version"
+                Write-Verbose "  Latest release : $latestReleaseTag"
+                Write-Verbose "  Current tag    : v$Version"
 
                 if ($latestReleaseTag -eq "v$Version") {
-                    $isLatestRelease = $true
-                    Write-Host "  [OK] The current version IS the latest GitHub release."
+                    $alreadyReleased = $true
+                    Write-Host "  [XX] v$Version is already the latest GitHub release."
                 } else {
-                    Write-Host "  [XX] The current version is NOT the latest release."
+                    Write-Host "  [OK] v$Version is NOT the latest release (latest is $latestReleaseTag)."
                 }
             } else {
-                Write-Host "  No releases found via gh CLI. Falling back to GitHub API."
+                Write-Verbose "  No releases exist in the GitHub repository yet."
+                Write-Host "  [OK] No existing releases — v$Version will be the first."
             }
         } else {
-            Write-Host "  gh command returned an error. Falling back to GitHub API."
+            Write-Verbose "  gh CLI returned an error: $ghResult"
+            Write-Verbose "  Falling back to GitHub API."
         }
     } catch {
-        Write-Host "  gh error: $_"
-        Write-Host "  Falling back to GitHub API."
+        Write-Verbose "  gh CLI error: $_"
+        Write-Verbose "  Falling back to GitHub API."
     }
 }
 
-# Fallback: use GitHub API
+# Fallback: use GitHub API (when gh is unavailable or failed)
 if (-not $ghAvailable -or $null -eq $latestReleaseTag) {
-    Write-Host "Using GitHub API to fetch latest release..."
+    Write-Verbose "Using GitHub API to fetch latest release..."
 
-    try {
-        $apiUrl = "https://api.github.com/repos/$githubRepo/releases/latest"
-        $response = Invoke-RestMethod -Uri $apiUrl -Method Get -Headers @{
-            Accept = "application/vnd.github+json"
-        } -ErrorAction SilentlyContinue
+    $apiUrl = "https://api.github.com/repos/$githubRepo/releases/latest"
+    $apiResult = Invoke-WithRetry -ScriptBlock {
+        Invoke-RestMethod -Uri $apiUrl -Method Get -Headers @{
+            Accept    = "application/vnd.github+json"
+            UserAgent = "check-publish-status/1.0"
+        } -TimeoutSec 30
+    } -Description "GitHub API latest release"
 
+    if ($apiResult.Ok) {
+        $response = $apiResult.Result
         if ($response) {
             $latestReleaseTag = $response.tag_name
-            Write-Host "  Latest release : $latestReleaseTag"
-            Write-Host "  Current tag    : v$Version"
+            Write-Verbose "  Latest release : $latestReleaseTag"
+            Write-Verbose "  Current tag    : v$Version"
 
             if ($latestReleaseTag -eq "v$Version") {
-                $isLatestRelease = $true
-                Write-Host "  [OK] The current version IS the latest GitHub release."
+                $alreadyReleased = $true
+                Write-Host "  [XX] v$Version is already the latest GitHub release."
             } else {
-                Write-Host "  [XX] The current version is NOT the latest release."
+                Write-Host "  [OK] v$Version is NOT the latest release (latest is $latestReleaseTag)."
             }
         } else {
-            Write-Host "  GitHub API returned no data (no releases yet?)."
+            # No releases exist — this is fine, we'll be the first
+            Write-Host "  [OK] No existing releases — v$Version will be the first."
         }
-    } catch {
-        Write-Host "  GitHub API error: $_"
+    } else {
+        $apiError = $apiResult.Error
+        $statusCode = if ($apiError.Exception.Response) { [int]$apiError.Exception.Response.StatusCode } else { $null }
+
+        if ($statusCode -eq 403) {
+            $rateLimitRemaining = $apiError.Exception.Response.Headers["X-RateLimit-Remaining"]
+            if ($rateLimitRemaining -eq "0") {
+                Write-Host "  [!!] GitHub API rate limit exceeded."
+                Write-Host "       Install and authenticate the gh CLI to avoid rate limits,"
+                Write-Host "       or wait for the rate-limit window to reset."
+            } else {
+                Write-Host "  [!!] GitHub API returned 403 Forbidden."
+                Write-Host "       The repository may be private or access may be restricted."
+            }
+        } elseif ($null -eq $statusCode) {
+            Write-Host "  [!!] Could not reach GitHub API (network error)."
+        } else {
+            Write-Host "  [!!] GitHub API returned HTTP $statusCode."
+        }
     }
 }
 
 # Second fallback: compare against latest git tag
 if ($null -eq $latestReleaseTag) {
-    Write-Host "Falling back to git tag comparison..."
+    Write-Host "  Falling back to git tag comparison..."
 
-    # Get the latest tag matching vX.Y.Z pattern
     $latestTag = git ls-remote --tags --sort=-version:refname origin 2>$null `
-        | Select-Object -First 1 `
-        | ForEach-Object { $_ -match 'refs/tags/(v\d+\.\d+\.\d+)$' | Out-Null; $matches[1] }
+        | ForEach-Object {
+            $normalised = $_ -replace '\^\{\}$', ''
+            if ($normalised -match 'refs/tags/(v\d+\.\d+\.\d+)$') {
+                $matches[1]
+            }
+        } `
+        | Select-Object -First 1
 
     if ($latestTag) {
+        $latestReleaseTag = $latestTag
         Write-Host "  Latest remote tag: $latestTag"
         Write-Host "  Current tag      : v$Version"
 
         if ($latestTag -eq "v$Version") {
-            $isLatestRelease = $true
-            Write-Host "  [OK] The current version matches the latest tag."
+            $alreadyReleased = $true
+            Write-Host "  [XX] v$Version is already the latest release tag."
         } else {
-            Write-Host "  [XX] The current version does NOT match the latest tag."
+            Write-Host "  [OK] v$Version is NOT the latest release tag (latest is $latestTag)."
         }
     } else {
-        Write-Host "  [XX] No version tags found. Cannot verify release status."
+        Write-Host "  [OK] No version tags found — v$Version will be the first."
     }
 }
 
 # ---------------------------------------------------------------
-# Check 2: Is pulsar-bom available on Maven Central?
+# Check 2: Is pulsar-bom NOT already on Maven Central?
+#          (it should not be deployed yet)
 # ---------------------------------------------------------------
 Write-Host ""
 Write-Host "-------------------------------------------------"
-Write-Host " Check 2: pulsar-bom on Maven Central"
+Write-Host " Check 2: pulsar-bom NOT on Maven Central"
 Write-Host "-------------------------------------------------"
 
-$mavenAvailable = $false
+$alreadyDeployed = $false
 
-try {
-    $response = Invoke-WebRequest -Uri $mavenUrl -Method Head -TimeoutSec 30 -UseBasicParsing -ErrorAction SilentlyContinue
+$mavenResult = Invoke-WithRetry -ScriptBlock {
+    Invoke-WebRequest -Uri $mavenUrl -Method Head -TimeoutSec 30 -UseBasicParsing
+} -Description "Maven Central HEAD request"
+
+if ($mavenResult.Ok) {
+    $response = $mavenResult.Result
     if ($response.StatusCode -eq 200) {
-        $mavenAvailable = $true
-        Write-Host "  [OK] pulsar-bom $Version is available on Maven Central."
+        $alreadyDeployed = $true
+        Write-Host "  [XX] pulsar-bom $Version is ALREADY on Maven Central."
     } else {
-        Write-Host "  [XX] pulsar-bom $Version returned HTTP $($response.StatusCode)."
+        Write-Host "  [OK] pulsar-bom $Version is NOT on Maven Central (HTTP $($response.StatusCode))."
     }
-} catch {
-    $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { "N/A" }
-    if ($statusCode -eq 200) {
-        $mavenAvailable = $true
-        Write-Host "  [OK] pulsar-bom $Version is available on Maven Central."
+} else {
+    $statusCode = if ($mavenResult.Error.Exception.Response) {
+        [int]$mavenResult.Error.Exception.Response.StatusCode
     } else {
-        Write-Host "  [XX] pulsar-bom $Version is NOT available on Maven Central (HTTP $statusCode)."
+        $null
     }
+
+    if ($statusCode -eq 404) {
+        # 404 is the expected result — the artifact hasn't been published yet
+        Write-Host "  [OK] pulsar-bom $Version is NOT on Maven Central (HTTP 404)."
+    } elseif ($null -eq $statusCode) {
+        Write-Host "  [!!] Could not reach Maven Central (network error)."
+        Write-Host "       Verify your internet connection and try again."
+    } else {
+        Write-Host "  [!!] pulsar-bom $Version returned HTTP $statusCode."
+    }
+}
+
+# ---------------------------------------------------------------
+# Check 3: Is the latest release EARLIER than this version?
+#          (no one has leapfrogged us with a newer release)
+# ---------------------------------------------------------------
+Write-Host ""
+Write-Host "-------------------------------------------------"
+Write-Host " Check 3: Version precedence (not leapfrogged)"
+Write-Host "-------------------------------------------------"
+
+if ($latestReleaseTag) {
+    # Normalise the tag: strip leading 'v' and optional -rc.N suffix
+    $normalisedTag = $latestReleaseTag -replace '^v', ''
+    if ($normalisedTag -match '^(\d+\.\d+\.\d+)(?:-rc\.\d+)?$') {
+        $latestVersionObj = [version]$matches[1]
+    } else {
+        $latestVersionObj = $null
+    }
+
+    if ($targetVersionObj -and $latestVersionObj) {
+        if ($latestVersionObj -gt $targetVersionObj) {
+            $leapfrogged = $true
+            Write-Host "  [XX] Latest release ($latestReleaseTag) is NEWER than v$Version — leapfrogged!"
+        } elseif ($latestVersionObj -eq $targetVersionObj) {
+            # Same base version but latest might be a -rc.N while target is the final release
+            if ($latestReleaseTag -match '-rc\.\d+$' -and $Version -notmatch '-rc\.\d+$') {
+                Write-Host "  [OK] Latest ($latestReleaseTag) is an RC of the same version — final release is next."
+            } else {
+                Write-Host "  [OK] Latest release ($latestReleaseTag) is the same base version as v$Version."
+            }
+        } else {
+            Write-Host "  [OK] Latest release ($latestReleaseTag) is earlier than v$Version — correct order."
+        }
+    } else {
+        Write-Verbose "  Could not parse versions for numeric comparison."
+        if ($latestReleaseTag -eq "v$Version") {
+            # Already flagged in check 1
+            $leapfrogged = $false
+        } else {
+            Write-Host "  [OK] Latest release ($latestReleaseTag) differs from v$Version."
+        }
+    }
+} else {
+    Write-Host "  [OK] No prior releases — v$Version is the first."
 }
 
 # ---------------------------------------------------------------
@@ -212,19 +353,24 @@ Write-Host " Summary"
 Write-Host "-------------------------------------------------"
 
 Write-Host ""
-Write-Host "  Version          : v$Version"
-Write-Host "  GitHub latest    : $($(if ($isLatestRelease) { '[OK] YES' } else { '[XX] NO' }))"
-Write-Host "  Maven Central    : $($(if ($mavenAvailable) { '[OK] YES' } else { '[XX] NO' }))"
-Write-Host "  Fully published  : $($(if ($isLatestRelease -and $mavenAvailable) { '[OK] YES' } else { '[XX] NO' }))"
+Write-Host "  Version            : v$Version"
+Write-Host "  Already released   : $(if ($alreadyReleased) { '[XX] YES' } else { '[OK] NO' })"
+Write-Host "  Already on Maven   : $(if ($alreadyDeployed)  { '[XX] YES' } else { '[OK] NO' })"
+Write-Host "  Leapfrogged        : $(if ($leapfrogged)      { '[XX] YES' } else { '[OK] NO' })"
+Write-Host "  Ready to publish   : $(if (-not $alreadyReleased -and -not $alreadyDeployed -and -not $leapfrogged) { '[OK] YES' } else { '[XX] NO' })"
 Write-Host ""
 
-if ($isLatestRelease -and $mavenAvailable) {
-    Write-Host "All preconditions satisfied -- safe to bump the version."
+# Determine exit code
+$blockers = @()
+if ($alreadyReleased) { $blockers += "already the latest GitHub release" }
+if ($alreadyDeployed)  { $blockers += "already on Maven Central" }
+if ($leapfrogged)      { $blockers += "leapfrogged by a newer release ($latestReleaseTag)" }
+
+if ($blockers.Count -eq 0) {
+    Write-Host "Ready to publish v$Version."
     exit 0
 } else {
-    $missing = @()
-    if (-not $isLatestRelease) { $missing += "latest GitHub release" }
-    if (-not $mavenAvailable) { $missing += "Maven Central availability" }
-    Write-Host "Preconditions NOT met -- missing: $($missing -join ', ')"
+    Write-Host "NOT ready to publish — blockers:"
+    $blockers | ForEach-Object { Write-Host "  - $_" }
     exit 1
 }
