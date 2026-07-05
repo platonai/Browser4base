@@ -163,7 +163,7 @@ class FileBackendPageStore(
     @Synchronized
     fun writeHtml(page: WebPage) {
         val content = page.content ?: return
-        val path = getPersistPath(page.url, ".htm")
+        val path = getPersistPath(page.url, ".html")
 
         logger.takeIf { it.isTraceEnabled }?.trace("Putting {} | {}", page.content?.array()?.size, path)
         Files.write(path, content.array())
