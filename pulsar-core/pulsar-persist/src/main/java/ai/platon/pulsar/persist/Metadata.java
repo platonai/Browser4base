@@ -3,16 +3,12 @@ package ai.platon.pulsar.persist;
 import ai.platon.pulsar.common.DateTimes;
 import ai.platon.pulsar.persist.metadata.Name;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.gora.util.ByteUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.util.Enumeration;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -76,7 +72,7 @@ public class Metadata {
     @Nullable
     public String get(String name) {
         ByteBuffer bvalue = getByteBuffer(name);
-        return bvalue == null ? null : ByteUtils.toString(bvalue.array());
+        return bvalue == null ? null : new String(bvalue.array());
     }
 
     public int getInt(Name name, int defaultValue) {
@@ -134,7 +130,7 @@ public class Metadata {
     public Map<String, String> asStringMap() {
         return data.entrySet().stream()
                 .filter(e -> e.getValue() != null && e.getValue().hasArray())
-                .collect(Collectors.toMap(e -> e.getKey().toString(), e -> ByteUtils.toString(e.getValue().array())));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> new String(e.getValue().array())));
     }
 
     @Override

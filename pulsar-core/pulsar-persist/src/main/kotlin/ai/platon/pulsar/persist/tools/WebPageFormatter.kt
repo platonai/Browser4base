@@ -19,7 +19,6 @@ package ai.platon.pulsar.persist.tools
 import ai.platon.pulsar.common.serialize.json.prettyPulsarObjectMapper
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.persist.WebPageExt
-import org.apache.gora.util.ByteUtils
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.time.Instant
@@ -204,7 +203,7 @@ class WebPageFormatter(val page: WebPage) {
                 sb.append("\n")
                 sb.append("contentType:\t" + page.contentType + "\n")
                         .append("content:START>>>\n")
-                        .append(ByteUtils.toString(content.array()))
+                        .append(String(page.content?.array() ?: ByteArray(0)))
                         .append("\n<<<END:content\n")
             }
         }

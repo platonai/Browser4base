@@ -7,7 +7,6 @@ import ai.platon.pulsar.common.urls.URLUtils.reverseUrlOrEmpty
 import ai.platon.pulsar.common.urls.URLUtils.unreverseUrl
 import ai.platon.pulsar.persist.metadata.Name
 import ai.platon.pulsar.persist.tools.WebPageFormatter
-import org.apache.gora.util.ByteUtils
 import org.xml.sax.InputSource
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
@@ -292,8 +291,15 @@ abstract class AbstractWebPage(
     }
 
     private fun getContentAsBytes0(): ByteArray {
-        val content = content ?: return ByteUtils.toBytes('\u0000')
-        return ByteUtils.toBytes(content)
+        val content = content ?: return "\u0000".toByteArray()
+        return toBytes(content)
+    }
+
+    private fun toBytes(bb: ByteBuffer): ByteArray {
+        val length = bb.limit()
+        val result = ByteArray(length)
+        System.arraycopy(bb.array(), bb.arrayOffset(), result, 0, length)
+        return result
     }
 
     private fun getContentAsString0(): String {
@@ -306,7 +312,7 @@ abstract class AbstractWebPage(
     }
 
     private fun getContentAsInputStream0(): ByteArrayInputStream {
-        val contentInOctets = content ?: return ByteArrayInputStream(ByteUtils.toBytes('\u0000'))
+        val contentInOctets = content ?: return ByteArrayInputStream(toBytes(ByteBuffer.wrap("\u0000".toByteArray())))
 
         return ByteArrayInputStream(
             content!!.array(),
