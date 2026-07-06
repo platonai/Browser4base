@@ -8,10 +8,10 @@ import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
 import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.IsolatedWorldManager
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
-import ai.platon.pulsar.chrome.dom.model.ViewportSpec
 import ai.platon.pulsar.chrome.protocol.util.CheckableElementJs
 import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
 import ai.platon.pulsar.chrome.util.ChromeDriverException
