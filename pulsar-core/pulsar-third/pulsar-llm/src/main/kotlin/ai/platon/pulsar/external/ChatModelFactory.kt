@@ -43,7 +43,7 @@ java -D"OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" -jar Browser4.jar
 Or run Browser4 with Docker:
 
 ```shell
-docker run -d -p 8182:8182 -e OPENROUTER_API_KEY=${OPENROUTER_API_KEY} galaxyeye88/browser4:latest
+docker run -d -p 8182:8182 -e OPENROUTER_API_KEY=${OPENROUTER_API_KEY} galaxyeye88/pulsar:latest
 ```
 
 For more details, please refer to the [LLM configuration documentation]($$DOCUMENT_PATH)

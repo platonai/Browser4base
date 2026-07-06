@@ -4,6 +4,13 @@ let __pulsar_utils__ = function () {
     this.fineHeight = 4000;
     this.fineNumAnchor = 100;
     this.fineNumImage = 20;
+
+    // WeakMap to store computed visual information without polluting the live DOM.
+    // Keys are live DOM Elements; values are plain objects:
+    //   { vi?: string, hidden?: {attrName: string}, overflowHidden?: boolean,
+    //     textNodeRects?: (string|false)[], charWidth?: string }
+    this._viDataMap = new WeakMap();
+    this._viDataComputed = false;
 };
 
 __pulsar_utils__.getConfig = function() {
@@ -383,12 +390,12 @@ __pulsar_utils__.scrollToScreen = function(screenNumber = 1.0) {
 }
 
 /**
- * Scroll the page to the start of the n-th viewport (1-based index).
- * n = 1  → scroll to top (0)
- * n = 2  → scroll to one viewport height
- * @param {number} n The viewport index to scroll to (1-based)
+ * Scroll the page to the start of the n-th viewport (0-based index).
+ * n = 0  → scroll to top (0)
+ * n = 1  → scroll to one viewport height
+ * @param {number} n The viewport index to scroll to (0-based)
  */
-__pulsar_utils__.scrollToViewport = function (n = 1) {
+__pulsar_utils__.scrollToViewport = function (n = 0) {
     if (!document?.documentElement || !document?.body) return;
 
     const config = this.getConfig?.() || {};
@@ -402,13 +409,13 @@ __pulsar_utils__.scrollToViewport = function (n = 1) {
         15000
     );
 
-    // 1-based: first viewport = 0px
-    const y = Math.min(totalHeight, (n - 1) * viewportHeight);
+    // 0-based: first viewport = 0px
+    const y = Math.min(totalHeight, n * viewportHeight);
     window.scrollTo(0, y);
 };
 
 /**
- * @deprecated using CDP instead
+ * @deprecated using BrowserProtocol instead
  * */
 __pulsar_utils__.scrollToBottom = function() {
     if (!document || !document.documentElement || !document.body) {
@@ -427,7 +434,7 @@ __pulsar_utils__.scrollToBottom = function() {
 };
 
 /**
- * @deprecated using CDP instead
+ * @deprecated using BrowserProtocol instead
  * */
 __pulsar_utils__.scrollUp = function() {
     if (!__pulsar_utils__.data) {
@@ -439,14 +446,14 @@ __pulsar_utils__.scrollUp = function() {
 };
 
 /**
- * @deprecated using CDP instead
+ * @deprecated using BrowserProtocol instead
  * */
 __pulsar_utils__.scrollToTop = function() {
     window.scrollTo(0, 0)
 };
 
 /**
- * @deprecated using CDP instead
+ * @deprecated using BrowserProtocol instead
  * */
 __pulsar_utils__.scrollDown = function() {
     window.scrollBy(0, 500);
@@ -471,7 +478,7 @@ __pulsar_utils__.scrollDownN = function(scrollCount = 5) {
  *
  * @param  {String} selector
  * @return boolean
- * @deprecated use CDP instead
+ * @deprecated use BrowserProtocol instead
  */
 __pulsar_utils__.isVisible = function(selector) {
     let ele = document.querySelector(selector)
@@ -608,7 +615,7 @@ __pulsar_utils__.isElementChecked = function(element, strict = true) {
  *
  * @param {String} selector The element to scroll to
  * @param {Object} [options] Optional scroll options to override defaults
- * @deprecated use CDP instead
+ * @deprecated use BrowserProtocol instead
  * */
 __pulsar_utils__.scrollIntoView = function(selector, options) {
     try {
@@ -649,7 +656,7 @@ __pulsar_utils__.scrollIntoView = function(selector, options) {
  *
  * @param  {String} selector
  * @return
- * @deprecated use CDP instead
+ * @deprecated use BrowserProtocol instead
  */
 __pulsar_utils__.click = function(selector) {
     let ele = document.querySelector(selector)
@@ -701,24 +708,17 @@ __pulsar_utils__.clickNthAnchor = function(n, rootSelector) {
 
     let c = 0
     let href = null
-    let visitor = function () {}
 
-    visitor.head = function (node) {
-        if (node instanceof HTMLElement
-            && NodeOps.isAnchor(node)
-            && NodeOps.maybeClickable(node)
-        ) {
+    __pulsar_TreeWalker.forEachElement(rootNode, function (node) {
+        if (NodeOps.isAnchor(node) && NodeOps.maybeClickable(node)) {
             ++c;
             if (c === n) {
-                visitor.stopped = true
                 node.scrollIntoView()
                 href = node.getAttribute("href")
                 node.click()
             }
         }
-    };
-
-    new __pulsar_NodeTraversor(visitor).traverse(rootNode)
+    });
 
     return href
 }
@@ -758,7 +758,7 @@ __pulsar_utils__.uncheck = function(selector) {
  *
  * @param  {String} selector
  * @return {String}
- * @deprecated use CDP instead
+ * @deprecated use BrowserProtocol instead
  */
 __pulsar_utils__.outerHTML = function(selector) {
     let element = document.querySelector(selector)
@@ -1187,302 +1187,134 @@ __pulsar_utils__.getReadableNodeName = function(node) {
 };
 
 /**
- * Clean node's textContent
- * @param textContent {String} the string to clean
- * @return {String} The clean string
- * */
-__pulsar_utils__.getCleanTextContent = function(textContent) {
-    // all control characters
-    // @see http://www.asciima.com/
-    textContent = textContent.replace(/[\x00-\x1f]/g, " ");
-
-    // combine all blanks into one " " character
-    textContent = textContent.replace(/\s+/g, " ");
-
-    return textContent.trim();
-};
-
-/**
- * Get clean, merged textContent from node list
- * @param nodeOrList {NodeList|Array|Node} the node from which we extract the content
- * @return {String} The clean string, "" if no text content available.
- * */
-__pulsar_utils__.getMergedTextContent = function(nodeOrList) {
-    if (!nodeOrList) {
-        return "";
-    }
-
-    if (nodeOrList instanceof  Node) {
-        return this.getTextContent(nodeOrList);
-    }
-
-    let content = "";
-    for (let i = 0; i < nodeOrList.length; ++i) {
-        if (i > 0) {
-            content += " ";
-        }
-        content += this.getTextContent(nodeOrList[i]);
-    }
-
-    return content;
-};
-
-/**
- * Get clean node's textContent
- * @param node {Node} the node from which we extract the content
- * @return {String} The clean string, "" if no text content available.
- * */
-__pulsar_utils__.getTextContent = function(node) {
-    if (!node || !node.textContent || node.textContent.length === 0) {
-        return "";
-    }
-
-    return this.getCleanTextContent(node.textContent);
-};
-
-/**
- * Uses canvas.measureText to compute and return the width of the given text of given font in pixels.
+ * Serialize the document (or a subtree) into an HTML string, injecting
+ * visual-information attributes (vi, _h, _oh, tv0, tv1, ...) from the
+ * _viDataMap WeakMap without mutating the live DOM.
  *
- * @param {String} text The text to be rendered.
- * @param {String} font The css font descriptor that text is to be rendered with (e.g. "bold 14px verdana").
- *
- * @see https://stackoverflow.com/questions/118241/calculate-text-width-with-javascript/21015393#21015393
+ * @param root {Node} defaults to document.documentElement
+ * @return {string} The annotated HTML string
  */
-__pulsar_utils__.getTextWidth = function(text, font) {
-    // re-use canvas object for better performance
-    let canvas = this.getTextWidth.canvas || (__pulsar_utils__.getTextWidth.canvas = document.createElement("canvas"));
-    let context = canvas.getContext("2d");
-    context.font = font;
-    let metrics = context.measureText(text);
+__pulsar_utils__.serializeAnnotatedHTML = function(root) {
+    const viMap = this._viDataMap;
+    const config = this.getConfig();
+    const VOID = new Set([
+        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+        'link', 'meta', 'param', 'source', 'track', 'wbr'
+    ]);
 
-    return Math.round(metrics.width * 10) / 10
-};
-
-/**
- * Uses canvas.measureText to compute and return the width of the given text of given font in pixels.
- *
- * @param {String} text The text to be rendered.
- * @param {HTMLElement} ele The container element.
- * */
-__pulsar_utils__.getElementTextWidth = function(text, ele) {
-    let style = window.getComputedStyle(ele);
-    let font = style.getPropertyValue('font-weight') + ' '
-        + style.getPropertyValue('font-size') + ' '
-        + style.getPropertyValue('font-family');
-
-    return this.getTextWidth(text, font);
-};
-
-/**
- * Format rectangle
- * @param top {Number}
- * @param left {Number}
- * @param width {Number}
- * @param height {Number}
- * @return {String|Boolean}
- * */
-__pulsar_utils__.formatRect = function(top, left, width, height) {
-    if (width === 0 && height === 0) {
-        return false;
+    function escAttr(s) {
+        return String(s).replace(/[&"<>]/g, function(c) {
+            return ({'&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;'})[c];
+        });
+    }
+    function escText(s) {
+        return String(s).replace(/[&<>]/g, function(c) {
+            return ({'&': '&amp;', '<': '&lt;', '>': '&gt;'})[c];
+        });
     }
 
-    return ''
-        + Math.round(top * 10) / 10 + ' '
-        + Math.round(left * 10) / 10 + ' '
-        + Math.round(width * 10) / 10 + ' '
-        + Math.round(height * 10) / 10;
-};
+    var html = '';
 
-/**
- * Format a DOMRect object
- * @param rect {DOMRect}
- * @return {String|Boolean}
- * */
-__pulsar_utils__.formatDOMRect = function(rect) {
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
-        return false;
-    }
-
-    return ''
-        + Math.round(rect.left * 10) / 10 + ' '
-        + Math.round(rect.top * 10) / 10 + ' '
-        + Math.round(rect.width * 10) / 10 + ' '
-        + Math.round(rect.height * 10) / 10;
-};
-
-/**
- * Format a DOMRectList object
- * @param rectList {DOMRectList}
- * @return {String}
- * */
-__pulsar_utils__.formatDOMRectList = function(rectList) {
-    if (!rectList) {
-        return '[]';
-    }
-
-    let r = "["
-    for (let i = 0; i < rectList.length; ++i) {
-        r += "{"
-        r += this.formatDOMRect(rectList.item(i))
-        r += "}, "
-    }
-    r += "]"
-
-    return r
-};
-
-/**
- * The result is the smallest rectangle which contains the entire element, including the padding, border and margin.
- *
- * @param selector {string} The selector to get the element from.
- * @return {String}
- * */
-__pulsar_utils__.queryClientRects = function(selector) {
-    let ele = document.querySelector(selector);
-    if (!ele) {
-        return null;
-    }
-
-    return this.formatDOMRectList(ele.getClientRects())
-};
-
-/**
- * The result is the smallest rectangle which contains the entire element, including the padding, border and margin.
- *
- * @param selector {string} The selector to get the element from.
- * @return {DOMRect|String|Boolean}
- * */
-__pulsar_utils__.queryClientRect = function(selector) {
-    let ele = document.querySelector(selector);
-    if (!ele) {
-        return null;
-    }
-
-    let rect = NodeOps.getRect(ele)
-    return this.formatDOMRect(rect)
-};
-
-/**
- * The result is the smallest rectangle which contains the entire element, including the padding, border and margin.
- *
- * @param node {Node|Element}
- * @return {DOMRect|Boolean|null}
- * */
-__pulsar_utils__.getClientRect = function(node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-        return this.getTextNodeClientRect(node)
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-        return this.getElementClientRect(node)
-    } else {
-        return null
-    }
-};
-
-/**
- * The computed style.
- *
- * @param selector {string} The selector to get the element from.
- * @param propertyNames {String|Array}
- * @return {DOMRect|String|Boolean}
- * * */
-__pulsar_utils__.queryComputedStyle = function(selector, propertyNames) {
-    let ele = document.querySelector(selector);
-    if (!ele) {
-        return null;
-    }
-
-    return this.getComputedStyle(ele, propertyNames)
-};
-
-/**
- * Get the computed style of a node.
- *
- * Example result:
- * {color=f, background-color=007bff, font-size=16px, ...}
- *
- * @param node {Node|Element|Text}
- * @param propertyNames {String|Array}
- * @return {Object|Boolean|null}
- * */
-__pulsar_utils__.getComputedStyle = function(node, propertyNames) {
-    if (typeof propertyNames === 'string') {
-        propertyNames = [propertyNames]
-    }
-
-    if (node.nodeType === Node.ELEMENT_NODE) {
-        let styles = {};
-        let computedStyle = window.getComputedStyle(node, null);
-        propertyNames.forEach(propertyName =>
-            styles[propertyName] = this.getPropertyValue(computedStyle, propertyName)
-        );
-        return styles
-    } else {
-        return null
-    }
-};
-
-/**
- * Get a simplified property value of computed style.
- *
- * @param style {CSSStyleDeclaration}
- * @param propertyName {String}
- * @return {String}
- * */
-__pulsar_utils__.getPropertyValue = function(style, propertyName) {
-    let value = style.getPropertyValue(propertyName);
-
-    if (!value || value === '') {
-        return ''
-    }
-
-    if (propertyName === 'font-size') {
-        value = value.substring(0, value.lastIndexOf('px'))
-    } else if (propertyName === 'color' || propertyName === 'background-color') {
-        value = this.shortenHex(__pulsar_utils__.rgb2hex(value));
-        // skip prefix '#'
-        value = value.substring(1)
-    }
-
-    return value
-};
-
-/**
- * Color rgb(a) format to hex
- *
- * rgb(255, 255, 0) -> #
- *
- * @param rgb {String}
- * @return {String}
- * */
-__pulsar_utils__.rgb2hex = function(rgb) {
-    let parts = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i);
-    return (parts && parts.length === 4) ? "#" +
-        ("0" + parseInt(parts[1],10).toString(16)).slice(-2) +
-        ("0" + parseInt(parts[2],10).toString(16)).slice(-2) +
-        ("0" + parseInt(parts[3],10).toString(16)).slice(-2) : '';
-};
-
-/**
- * CSS Hex to Shorthand Hex conversion
- * @param hex {String}
- * @return {String}
- * */
-__pulsar_utils__.shortenHex = function(hex) {
-    if ((hex.charAt(1) === hex.charAt(2))
-        && (hex.charAt(3) === hex.charAt(4))
-        && (hex.charAt(5) === hex.charAt(6))) {
-        hex = "#" + hex.charAt(1) + hex.charAt(3) + hex.charAt(5);
-    }
-
-    // the most simple case: all chars are the same
-    if (hex.length === 4) {
-        let c = hex.charAt(1);
-        if (hex.charAt(2) === c && hex.charAt(3) === c) {
-            return '#' + c
+    function serializeNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            html += escText(node.textContent);
+            return;
         }
+        if (node.nodeType === Node.COMMENT_NODE) {
+            html += '<!--' + node.textContent + '-->';
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        // For non-HTML namespaced elements (SVG, MathML, etc.), fall back to
+        // native outerHTML which handles namespaces and case-sensitive tag names
+        // correctly.  vi data is never computed for these elements.
+        if (node.namespaceURI && node.namespaceURI !== 'http://www.w3.org/1999/xhtml') {
+            html += node.outerHTML;
+            return;
+        }
+
+        var tag = node.tagName.toLowerCase();
+        html += '<' + tag;
+
+        // Emit existing attributes
+        var attrs = node.attributes;
+        for (var i = 0; i < attrs.length; i++) {
+            var attr = attrs[i];
+            html += ' ' + attr.name + '="' + escAttr(attr.value) + '"';
+        }
+
+        // Inject vi attributes from WeakMap (no DOM mutation)
+        var data = viMap ? viMap.get(node) : null;
+        if (data) {
+            if (data.vi) {
+                html += ' ' + config.ATTR_ELEMENT_NODE_VI + '="' + data.vi + '"';
+            }
+            if (data.elementData) {
+                html += ' ' + config.ATTR_ELEMENT_NODE_DATA + '="' + data.elementData + '"';
+            }
+            if (data.hidden) {
+                html += ' ' + data.hidden.attrName + '="1"';
+            }
+            if (data.overflowHidden) {
+                html += ' ' + config.ATTR_OVERFLOW_HIDDEN + '="1"';
+            }
+            if (data.textNodeRects) {
+                for (var j = 0; j < data.textNodeRects.length; j++) {
+                    var tv = data.textNodeRects[j];
+                    if (tv) {
+                        html += ' ' + config.ATTR_TEXT_NODE_VI + j + '="' + tv + '"';
+                    }
+                }
+            }
+        }
+
+        // Void elements have no children and no closing tag
+        if (VOID.has(tag)) {
+            html += '>';
+            return;
+        }
+
+        html += '>';
+        for (var child = node.firstChild; child; child = child.nextSibling) {
+            serializeNode(child);
+        }
+        html += '</' + tag + '>';
     }
 
-    return hex
+    serializeNode(root || document.documentElement);
+    return html;
+};
+
+/**
+ * Get the annotated HTML with vi attributes injected during serialization.
+ * Falls back to native outerHTML when no vi data has been computed
+ * (e.g., content-length estimation before compute() is called).
+ *
+ * @return {string} The annotated HTML string
+ */
+__pulsar_utils__.getAnnotatedHTML = function() {
+    if (!this._viDataComputed || !this._viDataMap) {
+        return document.documentElement.outerHTML;
+    }
+    return this.serializeAnnotatedHTML(document.documentElement);
+};
+
+/**
+ * Get the annotated HTML for a specific element matched by selector,
+ * with vi attributes injected during serialization.
+ * Falls back to native outerHTML when no vi data has been computed.
+ *
+ * @param selector {string} CSS selector for the target element
+ * @return {string|null} The annotated HTML string, or null if no element matches
+ */
+__pulsar_utils__.getAnnotatedOuterHTML = function(selector) {
+    var el = document.querySelector(selector);
+    if (!el) return null;
+    if (!this._viDataComputed || !this._viDataMap) {
+        return el.outerHTML;
+    }
+    return this.serializeAnnotatedHTML(el);
 };
 
 /**
@@ -1500,59 +1332,6 @@ __pulsar_utils__.addTuple = function(node, attributeName, key, value) {
     }
     attributeValue += key + ":" + value.toString();
     node.setAttribute(attributeName, attributeValue);
-};
-
-/**
- * The result is the smallest rectangle which contains the entire element, including the padding, border and margin.
- *
- * Properties other than width and height are relative to the top-left of the viewport.
- *
- * @see https://idiallo.com/javascript/element-postion
- * @see https://stackoverflow.com/questions/442404/retrieve-the-position-x-y-of-an-html-element
- *
- * @param ele {Node|Element}
- * @return {DOMRect|Boolean}
- * */
-__pulsar_utils__.getElementClientRect = function(ele) {
-    let bodyRect = this.bodyRect || (__pulsar_utils__.bodyRect = document.body.getBoundingClientRect());
-    let r = ele.getBoundingClientRect();
-
-    if (r.width <= 0 || r.height <= 0) {
-        return false
-    }
-
-    let top = r.top - bodyRect.top;
-    let left = r.left - bodyRect.left;
-
-    return new DOMRect(left, top, r.width, r.height);
-};
-
-/**
- * Get the client rect of a text node
- *
- * @param node {Node|Text}
- * @return {DOMRect|null}
- * */
-__pulsar_utils__.getTextNodeClientRect = function(node) {
-    let bodyRect = this.bodyRect || (__pulsar_utils__.bodyRect = document.body.getBoundingClientRect());
-
-    let rect = null;
-    let text = this.getTextContent(node);
-    if (text.length > 0) {
-        let range = document.createRange();
-        range.selectNodeContents(node);
-        let rects = range.getClientRects();
-        if (rects.length > 0) {
-            let r = rects[0];
-            if (r.width > 0 && r.height > 0) {
-                let top = r.top - bodyRect.top;
-                let left = r.left - bodyRect.left;
-                rect = new DOMRect(left, top, r.width, r.height);
-            }
-        }
-    }
-
-    return rect;
 };
 
 /**
@@ -1713,8 +1492,24 @@ __pulsar_utils__.compute = function() {
         ele.removeAttribute("tp")
     });
 
+    // Initialize the WeakMap that stores computed visual information (vi, _h, _oh, tvN)
+    // without polluting the live DOM.  NodeFeatureCalculator writes to this map instead
+    // of calling setAttribute.  The data is later injected into the captured HTML by
+    // serializeAnnotatedHTML().
+    this._viDataMap = new WeakMap();
+    this._viDataComputed = false;
+
     // traverse the DOM and compute necessary data, we must compute data before we perform humanization
-    new __pulsar_NodeTraversor(new __pulsar_NodeFeatureCalculator()).traverse(document.body);
+    let calculator = new __pulsar_NodeFeatureCalculator();
+    __pulsar_TreeWalker.traverseWithHeadTail(
+        document.body,
+        function(node, depth) { calculator.head(node, depth); },
+        function(node, depth) { calculator.tail(node, depth); },
+        calculator
+    );
+
+    // Flag that vi data is available for getAnnotatedHTML()
+    this._viDataComputed = true;
 
     this.generateMetadata();
 
@@ -1795,3 +1590,6 @@ __pulsar_utils__.typeInfo = function() {
 // The page's own scripts (Page World) access the window of the Page World and cannot see the global variables of the Isolated World.
 window.__pulsar_utils__ = __pulsar_utils__
 window.__pulsar_CONFIGS = __pulsar_CONFIGS
+window.__pulsar_NodeExt = __pulsar_NodeExt
+window.__pulsar_NodeTraversor = __pulsar_NodeTraversor
+window.__pulsar_NodeFeatureCalculator = __pulsar_NodeFeatureCalculator

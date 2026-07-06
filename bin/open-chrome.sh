@@ -13,25 +13,25 @@ if [ "$use_native" = false ]; then
     # Determine project root relative to this script
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-    
-    # Check if we need to build first, or just run. 
+
+    # Check if we need to build first, or just run.
     # To avoid running exec:java on parent project, we run in two steps or use -f
-    
+
     # Method 1: Use -f to point to the specific pom, but that might lose parent context if not careful.
     # Method 2: Use -pl and ensuring we only run exec:java on the leaf.
-    
-    # We'll try running exec:java only on the project. 
+
+    # We'll try running exec:java only on the project.
     # If it fails due to missing dependencies, we might need to compile first.
     # But for now, let's assume dependencies are there or we use -am with a phase that includes compilation but not exec for parents?
     # No, -am includes dependencies in the reactor.
-    
+
     # Correct approach:
     # 1. Compile everything needed
-    "$PROJECT_ROOT/mvnw" -pl examples/browser4-examples -am compile -DskipTests
-    
+    "$PROJECT_ROOT/mvnw" -pl examples/pulsar-examples -am compile -DskipTests
+
     # 2. Run the specific project
-    "$PROJECT_ROOT/mvnw" -pl examples/browser4-examples exec:java -Dexec.mainClass="ai.platon.pulsar.tools.OpenChromeKt" -Dexec.classpathScope="test"
-    
+    "$PROJECT_ROOT/mvnw" -pl examples/pulsar-examples exec:java -Dexec.mainClass="ai.platon.pulsar.tools.OpenChromeKt" -Dexec.classpathScope="test"
+
     if [ $? -eq 0 ]; then
         exit 0
     fi

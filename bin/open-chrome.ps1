@@ -46,7 +46,7 @@ if ($null -eq $chromePath) {
     exit 1
 }
 
-$userDataDir = Join-Path -Path $env:USERPROFILE -ChildPath ".browser4\browser\chrome\default\pulsar_chrome"
+$userDataDir = Join-Path -Path $env:USERPROFILE -ChildPath ".pulsar\browser\chrome\default\pulsar_chrome"
 
 if (-not (Test-Path -Path $userDataDir)) {
     New-Item -ItemType Directory -Force -Path $userDataDir | Out-Null

@@ -39,7 +39,7 @@ inputs:
     required: false
     default: 'true'
   run_pulsar_tests:
-    description: 'Run browser4-tests module tests (default: true for CI)'
+    description: 'Run pulsar-tests module tests (default: true for CI)'
     required: false
     default: 'true'
   report_name:

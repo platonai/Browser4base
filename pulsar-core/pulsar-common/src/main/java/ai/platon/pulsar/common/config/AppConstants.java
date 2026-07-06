@@ -163,7 +163,7 @@ public interface AppConstants {
      * Metrics
      *
      */
-    String DEFAULT_METRICS_NAME = "browser4";
+    String DEFAULT_METRICS_NAME = "pulsar";
 
     /**
      * SQL engine

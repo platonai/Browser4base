@@ -126,3 +126,4 @@ settings.local.json
 */**/human-private/
 */**/.browser4-cli/
 /**/dist/**
+/pulsar-core/pulsar-browser-old/

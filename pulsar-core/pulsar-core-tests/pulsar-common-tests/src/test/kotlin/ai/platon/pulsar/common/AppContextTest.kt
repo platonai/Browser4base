@@ -20,7 +20,7 @@ class AppContextTest {
     fun setUp() {
         // Set up necessary environment variables and system properties
         System.setProperty("app.version", "test-version")
-        // Trigger ~/.browser4 creation
+        // Trigger ~/.pulsar creation
         assertTrue { AppPaths.DATA_DIR.exists() }
     }
 

@@ -58,7 +58,7 @@ class TestAppPaths() {
 
     @Test
     fun testAppContextDirs() {
-        assertEquals("browser4", appName)
+        assertEquals("pulsar", appName)
 
         if (SystemUtils.IS_OS_WINDOWS) {
             assertEquals(AppContext.APP_TMP_DIR.toString(), "$tmp$appName")
@@ -75,7 +75,7 @@ class TestAppPaths() {
         assertEquals("$tmpBaseDir$sep$appName", AppContext.APP_TMP_DIR_RT.toString())
         assertEquals("$tmpBaseDir$sep$appName-$ident", AppContext.APP_PROC_TMP_DIR_RT.toString())
 
-        val expectedDataDir = Paths.get(home, "prometheus", ".browser4").toString()
+        val expectedDataDir = Paths.get(home, "prometheus", ".pulsar").toString()
         System.setProperty(CapabilityTypes.APP_DATA_DIR_KEY, expectedDataDir)
         assertEquals(expectedDataDir, AppContext.APP_DATA_DIR_RT.toString())
     }

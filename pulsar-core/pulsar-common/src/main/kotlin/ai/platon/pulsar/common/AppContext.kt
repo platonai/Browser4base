@@ -75,7 +75,7 @@ object AppContext {
      * The real time application name, can be specified by system environment variable or system property.
      * The real time version is used for test only.
      * */
-    val APP_NAME_RT get() = System.getenv(APP_NAME_KEY) ?: System.getProperty(APP_NAME_KEY, "browser4")
+    val APP_NAME_RT get() = System.getenv(APP_NAME_KEY) ?: System.getProperty(APP_NAME_KEY, "pulsar")
     /**
      * The application name, can be specified by system environment variable or system property.
      * */
