@@ -85,7 +85,7 @@
     </dependencies>
 
     <properties>
-        <platon-gora.version>1.0.2-slim</platon-gora.version>
+        <platon-gora.version>1.0.8-slim</platon-gora.version>
     </properties>
 
 </project>

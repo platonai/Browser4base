@@ -103,49 +103,6 @@
             <artifactId>jackson-module-kotlin</artifactId>
         </dependency>
 
-<!--        &lt;!&ndash; gora-core:1.0.1-slim has a wildcard exclusion on hadoop-common that strips ALL-->
-<!--             transitive dependencies (Woodstox, shaded-guava, etc.). Declare hadoop-common-->
-<!--             directly here with targeted exclusions to keep essential runtime deps while-->
-<!--             avoiding the heavy Jetty/Jersey/servlet bloat. &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.apache.hadoop</groupId>-->
-<!--            <artifactId>hadoop-common</artifactId>-->
-<!--            <version>3.4.2</version>-->
-<!--            <exclusions>-->
-<!--                &lt;!&ndash; Exclude web/servlet stack (not needed for Configuration) &ndash;&gt;-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.eclipse.jetty</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.eclipse.jetty.ee10</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>jakarta.servlet</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>jakarta.servlet.jsp</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--                &lt;!&ndash; Exclude Jersey REST stack &ndash;&gt;-->
-<!--                <exclusion>-->
-<!--                    <groupId>com.sun.jersey</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.glassfish.jersey</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--                &lt;!&ndash; Exclude old HTTP client (we use httpclient5) &ndash;&gt;-->
-<!--                <exclusion>-->
-<!--                    <groupId>commons-httpclient</groupId>-->
-<!--                    <artifactId>*</artifactId>-->
-<!--                </exclusion>-->
-<!--            </exclusions>-->
-<!--        </dependency>-->
-
         <!-- Test -->
         <dependency>
             <groupId>org.springframework</groupId>
@@ -160,7 +117,7 @@
     </dependencies>
 
     <properties>
-        <platon-gora.version>1.0.2-slim</platon-gora.version>
+        <platon-gora.version>1.0.8-slim</platon-gora.version>
     </properties>
 
 </project>
