@@ -20,11 +20,12 @@ import ai.platon.pulsar.common.FlowState
 import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.persist.HyperlinkPersistable
 import ai.platon.pulsar.persist.ParseStatus
+import ai.platon.pulsar.persist.metadata.ParseStatusCodes
 import kotlin.reflect.KClass
 
 class ParseResult constructor(
-    majorCode: Short = NOTPARSED,
-    minorCode: Int = SC_OK,
+    majorCode: Short = ParseStatusCodes.NOTPARSED,
+    minorCode: Int = ParseStatusCodes.SC_OK,
     message: String? = null
 ) : ParseStatus(majorCode, minorCode, message) {
     val hypeLinks = mutableSetOf<HyperlinkPersistable>()
@@ -38,15 +39,15 @@ class ParseResult constructor(
     companion object {
 
         fun success(document: FeaturedDocument): ParseResult {
-            return ParseResult(SUCCESS, SC_OK).also { it.document = document }
+            return ParseResult(ParseStatusCodes.SUCCESS, ParseStatusCodes.SC_OK).also { it.document = document }
         }
 
         fun failed(minorCode: Int, message: String?): ParseResult {
-            return ParseResult(FAILED, minorCode, message)
+            return ParseResult(ParseStatusCodes.FAILED, minorCode, message)
         }
 
         fun failed(e: Throwable): ParseResult {
-            return ParseResult(FAILED, FAILED_EXCEPTION, e.message)
+            return ParseResult(ParseStatusCodes.FAILED, ParseStatusCodes.FAILED_EXCEPTION, e.message)
         }
     }
 }

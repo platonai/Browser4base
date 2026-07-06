@@ -2,7 +2,7 @@ package ai.platon.pulsar.persist
 
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.urls.URLUtils
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.persist.model.WebPageRecord
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
@@ -53,7 +53,7 @@ class WebDb(
         val page = getOrNull0(originalUrl, norm, fields)
 
         if (page != null) {
-            val p = GoraWebPage.box(url, page, conf.toVolatileConfig()).also { it.isLoaded = true }
+            val p = PulsarWebPage.box(url, page, conf.toVolatileConfig()).also { it.isLoaded = true }
             tracer?.trace("Got {} {} {} {}", p.fetchCount, p.prevFetchTime, p.fetchTime, key)
             return p
         }
@@ -62,11 +62,11 @@ class WebDb(
     }
 
     @Throws(WebDBException::class)
-    fun get(originalUrl: String, field: String) = getOrNull(originalUrl, field) ?: GoraWebPage.NIL
+    fun get(originalUrl: String, field: String) = getOrNull(originalUrl, field) ?: PulsarWebPage.NIL
 
     @Throws(WebDBException::class)
     fun get(originalUrl: String, norm: Boolean = false, fields: Array<String>? = null): WebPage {
-        return getOrNull(originalUrl, norm, fields) ?: GoraWebPage.NIL
+        return getOrNull(originalUrl, norm, fields) ?: PulsarWebPage.NIL
     }
 
     @Throws(WebDBException::class)
@@ -97,7 +97,7 @@ class WebDb(
 
     @Throws(WebDBException::class)
     private fun putInternal(page: WebPage, replaceIfExists: Boolean): Boolean {
-        require(page is GoraWebPage) { "Only GoraWebPage is supported, got: ${page::class.java}" }
+        require(page is PulsarWebPage) { "Only PulsarWebPage is supported, got: ${page::class.java}" }
         val record = page.unbox()
         val (_, key) = URLUtils.normalizedUrlAndKey(page.url, false)
         return storage.write(record, key, replaceIfExists)

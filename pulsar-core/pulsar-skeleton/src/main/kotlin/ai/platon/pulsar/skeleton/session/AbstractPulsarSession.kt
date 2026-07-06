@@ -15,7 +15,7 @@ import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.dom.select.firstTextOrNull
 import ai.platon.pulsar.dom.select.selectFirstOrNull
 import ai.platon.pulsar.external.ModelResponse
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.common.urls.NormURL
 import ai.platon.pulsar.skeleton.context.support.AbstractPulsarContext
@@ -659,9 +659,9 @@ abstract class AbstractPulsarSession(
         if (cachedPage != null) {
             // the cached page can be or not be persisted, but not guaranteed
             // if a page is loaded from cache, the content remains unchanged and should not persist to database
-            require(cachedPage is GoraWebPage)
-            require(page is GoraWebPage)
-            page.unsafeSetGPage(cachedPage.unbox())
+            require(cachedPage is PulsarWebPage)
+            require(page is PulsarWebPage)
+            page.unsafeSetRecord(cachedPage.unbox())
 
             page.isCached = true
             page.tmpContent = cachedPage.tmpContent

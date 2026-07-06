@@ -250,11 +250,11 @@ class CoreMetrics(
         meterContentMBytes.inc(ByteUnitConverter.convert(bytes, "M").toLong())
 
 //        page.activeDOMStatTrace["lastStat"]?.apply {
-//            pageAnchors.update(na)
-//            pageImages.update(ni)
-//            pageNumbers.update(nnm)
-//            pageSmallTexts.update(nst)
-//            pageHeights.update(h)
+//            pageAnchors.update(numAnchors)
+//            pageImages.update(numImages)
+//            pageNumbers.update(numNumeric)
+//            pageSmallTexts.update(numShortTexts)
+//            pageHeights.update(height)
 //        }
 
         val urlStats = urlStatistics.computeIfAbsent(host) { UrlStat(it) }

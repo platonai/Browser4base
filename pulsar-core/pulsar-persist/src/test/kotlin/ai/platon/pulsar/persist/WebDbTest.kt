@@ -3,7 +3,7 @@ package ai.platon.pulsar.persist
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.common.config.VolatileConfig
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.persist.model.HyperLinkRecord
 import ai.platon.pulsar.persist.model.ParseStatusRecord
 import ai.platon.pulsar.persist.model.ProtocolStatusRecord
@@ -113,7 +113,7 @@ class WebDbTest {
 
         // Read back
         val loaded = webDb.getOrNull(url) ?: fail("Should retrieve the page")
-        val record = (loaded as GoraWebPage).unbox()
+        val record = (loaded as PulsarWebPage).unbox()
 
         // Verify all fields round-tripped correctly
         assertEquals(url, record.baseUrl)
@@ -191,7 +191,7 @@ class WebDbTest {
 
         // Read back metadata
         val loaded = webDb.getOrNull(url) ?: fail("Should retrieve the page")
-        val record = (loaded as GoraWebPage).unbox()
+        val record = (loaded as PulsarWebPage).unbox()
 
         // Content should be null in metadata (stored separately)
         assertNull(record.content, "Content should be null in metadata")
@@ -411,8 +411,8 @@ class WebDbTest {
 
     // --- Helpers ---
 
-    private fun createTestPage(url: String): GoraWebPage {
+    private fun createTestPage(url: String): PulsarWebPage {
         val volConf = VolatileConfig(conf)
-        return GoraWebPage.newWebPage(url, volConf)
+        return PulsarWebPage.newWebPage(url, volConf)
     }
 }

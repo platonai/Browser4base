@@ -1,7 +1,7 @@
 package ai.platon.pulsar.skeleton.workflow
 
 import ai.platon.pulsar.common.config.ImmutableConfig
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.event.DefaultServerSideEventHandlers
 import ai.platon.pulsar.skeleton.event.ServerSideEvent
 import kotlinx.coroutines.*
@@ -78,7 +78,7 @@ class ServerSideEventHandlersTest {
     fun testDefaultServerSideEventHandlersEmitsLoadEvents() = runBlocking {
         val handlers = DefaultServerSideEventHandlers()
         val events = mutableListOf<ServerSideEvent>()
-        val page = GoraWebPage.newWebPage("https://example.com", conf.toVolatileConfig())
+        val page = PulsarWebPage.newWebPage("https://example.com", conf.toVolatileConfig())
         val allEventsReceived = CompletableDeferred<Unit>()
 
         // Collect events in the background
@@ -114,7 +114,7 @@ class ServerSideEventHandlersTest {
     fun testDefaultServerSideEventHandlersEmitsBrowseEvents() = runBlocking {
         val handlers = DefaultServerSideEventHandlers()
         val events = mutableListOf<ServerSideEvent>()
-        val page = GoraWebPage.newWebPage("https://example.com", conf.toVolatileConfig())
+        val page = PulsarWebPage.newWebPage("https://example.com", conf.toVolatileConfig())
         val allEventsReceived = CompletableDeferred<Unit>()
 
         // Collect events in the background

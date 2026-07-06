@@ -22,8 +22,8 @@ import ai.platon.pulsar.persist.metadata.ParseStatusCodes
 import kotlin.reflect.KClass
 
 class FilterResult(
-    majorCode: Short = NOTPARSED,
-    minorCode: Int = SC_OK,
+    majorCode: Short = ParseStatusCodes.NOTPARSED,
+    minorCode: Int = ParseStatusCodes.SC_OK,
     message: String? = null
 ) : ParseStatus(majorCode, minorCode, message) {
     val filters = mutableListOf<KClass<out ParseFilter>>()
@@ -34,16 +34,16 @@ class FilterResult(
 
     companion object {
 
-        fun success(minorCode: Int = SC_OK): FilterResult {
-            return FilterResult(SUCCESS, minorCode)
+        fun success(minorCode: Int = ParseStatusCodes.SC_OK): FilterResult {
+            return FilterResult(ParseStatusCodes.SUCCESS, minorCode)
         }
 
         fun failed(minorCode: Int, message: String?): FilterResult {
-            return FilterResult(FAILED, minorCode, message)
+            return FilterResult(ParseStatusCodes.FAILED, minorCode, message)
         }
 
         fun failed(e: Throwable): FilterResult {
-            return FilterResult(FAILED, FAILED_EXCEPTION, e.message)
+            return FilterResult(ParseStatusCodes.FAILED, ParseStatusCodes.FAILED_EXCEPTION, e.message)
         }
     }
 }

@@ -8,17 +8,27 @@ data class HyperLinkRecord(
     var order: Int = 0,
 )
 
+/**
+ * Common interface for protocol and parse status records.
+ * Both share the same structure: a major/minor code pair with optional string arguments.
+ */
+interface StatusRecord {
+    var majorCode: Int
+    var minorCode: Int
+    var args: MutableMap<String, String>
+}
+
 data class ParseStatusRecord(
-    var majorCode: Int = -1,
-    var minorCode: Int = -1,
-    var args: MutableMap<String, String> = mutableMapOf(),
-)
+    override var majorCode: Int = -1,
+    override var minorCode: Int = -1,
+    override var args: MutableMap<String, String> = mutableMapOf(),
+) : StatusRecord
 
 data class ProtocolStatusRecord(
-    var majorCode: Int = -1,
-    var minorCode: Int = -1,
-    var args: MutableMap<String, String> = mutableMapOf(),
-)
+    override var majorCode: Int = -1,
+    override var minorCode: Int = -1,
+    override var args: MutableMap<String, String> = mutableMapOf(),
+) : StatusRecord
 
 data class WebPageRecord(
     var baseUrl: String,

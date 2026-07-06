@@ -34,7 +34,7 @@ import ai.platon.pulsar.core.api.WebDriver
 import ai.platon.pulsar.persist.AbstractWebPage
 import ai.platon.pulsar.persist.RetryScope
 import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolManager
 import ai.platon.pulsar.skeleton.CoreMetrics
 import ai.platon.pulsar.skeleton.common.AppSystemInfo
@@ -302,7 +302,7 @@ open class MultiPrivacyContextManager(
     }
 
     override fun tryGetNextReadyPrivacyContext(fingerprint: Fingerprint): PrivacyContext {
-        return tryGetNextReadyPrivacyContext(GoraWebPage.NIL, fingerprint, FetchTask.NIL)
+        return tryGetNextReadyPrivacyContext(PulsarWebPage.NIL, fingerprint, FetchTask.NIL)
     }
 
     /**

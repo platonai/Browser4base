@@ -26,7 +26,7 @@ import java.util.*
 /**
  * The core web page structure
  */
-class GoraWebPage(
+class PulsarWebPage(
     /**
      * The url is the permanent internal address, while the location is the last working address.
      */
@@ -45,38 +45,38 @@ class GoraWebPage(
         val NIL = newInternalPage(AppConstants.NIL_PAGE_URL, 0, "", "")
 
         /**
-         * Creates a new GoraWebPage with the given URL and configuration.
+         * Creates a new PulsarWebPage with the given URL and configuration.
          *
          * @param url The URL of the web page.
          * @param conf The volatile configuration for the web page.
-         * @return A new GoraWebPage instance.
+         * @return A new PulsarWebPage instance.
          */
-        fun newWebPage(url: String, conf: VolatileConfig): GoraWebPage {
+        fun newWebPage(url: String, conf: VolatileConfig): PulsarWebPage {
             return newWebPage(url, conf, null)
         }
 
         /**
-         * Creates a new GoraWebPage with the given URL, configuration, and optional href.
+         * Creates a new PulsarWebPage with the given URL, configuration, and optional href.
          *
          * @param url The URL of the web page.
          * @param conf The volatile configuration for the web page.
          * @param href The optional href associated with the web page.
-         * @return A new GoraWebPage instance.
+         * @return A new PulsarWebPage instance.
          */
-        fun newWebPage(url: String, conf: VolatileConfig, href: String?): GoraWebPage {
+        fun newWebPage(url: String, conf: VolatileConfig, href: String?): PulsarWebPage {
             return newWebPageInternal(url, conf, href)
         }
 
         /**
-         * Creates a new internal GoraWebPage with the given URL, ID, title, and content.
+         * Creates a new internal PulsarWebPage with the given URL, ID, title, and content.
          *
          * @param url The URL of the internal page.
          * @param id The ID of the internal page. If negative, the ID will not be set.
          * @param title The title of the internal page.
          * @param content The content of the internal page.
-         * @return A new GoraWebPage instance representing an internal page.
+         * @return A new PulsarWebPage instance representing an internal page.
          */
-        fun newInternalPage(url: String, id: Long, title: String, content: String): GoraWebPage {
+        fun newInternalPage(url: String, id: Long, title: String, content: String): PulsarWebPage {
             val unsafe = VolatileConfig.UNSAFE
             val page = newWebPage(url, unsafe)
             if (id >= 0) {
@@ -99,27 +99,27 @@ class GoraWebPage(
         }
 
         /**
-         * Wraps a WebPageRecord instance into a GoraWebPage with the given URL and configuration.
+         * Wraps a WebPageRecord instance into a PulsarWebPage with the given URL and configuration.
          *
          * @param url The URL of the web page.
          * @param page The underlying WebPageRecord instance.
          * @param conf The volatile configuration for the web page.
-         * @return A new GoraWebPage instance wrapping the provided WebPageRecord.
+         * @return A new PulsarWebPage instance wrapping the provided WebPageRecord.
          */
-        fun box(url: String, page: WebPageRecord, conf: VolatileConfig): GoraWebPage {
-            return GoraWebPage(url, conf, page)
+        fun box(url: String, page: WebPageRecord, conf: VolatileConfig): PulsarWebPage {
+            return PulsarWebPage(url, conf, page)
         }
 
         /**
-         * Internal method to create a new GoraWebPage with the given URL, configuration, and optional href.
+         * Internal method to create a new PulsarWebPage with the given URL, configuration, and optional href.
          *
          * @param url The URL of the web page.
          * @param conf The volatile configuration for the web page.
          * @param href The optional href associated with the web page.
-         * @return A new GoraWebPage instance.
+         * @return A new PulsarWebPage instance.
          */
-        private fun newWebPageInternal(url: String, conf: VolatileConfig, href: String?): GoraWebPage {
-            val page = GoraWebPage(url, WebPageRecord(url), false, conf)
+        private fun newWebPageInternal(url: String, conf: VolatileConfig, href: String?): PulsarWebPage {
+            val page = PulsarWebPage(url, WebPageRecord(url), false, conf)
 
             // Initialize page properties with default values.
             page.location = url
@@ -188,12 +188,12 @@ class GoraWebPage(
         return page
     }
 
-    fun unsafeSetGPage(page: WebPageRecord) {
+    fun unsafeSetRecord(page: WebPageRecord) {
         this.page = page
     }
 
-    fun unsafeCloneGPage(page: WebPage) {
-        require(page is GoraWebPage)
+    fun unsafeCloneRecord(page: WebPage) {
+        require(page is PulsarWebPage)
         this.page = page.page.copy(baseUrl = baseURI)
     }
 

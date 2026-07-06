@@ -128,17 +128,17 @@ open class BrowserResponseHandlerImpl(
      * */
     override fun createBrowserErrorResponse(message: String): BrowserErrorResponse {
         val activeDomMessage = pulsarObjectMapper().readValue<ActiveDOMMessage>(message)
-        val ec = activeDomMessage.trace?.status?.ec
-        if (ec == null) {
+        val errorCount = activeDomMessage.trace?.status?.errorCount
+        if (errorCount == null) {
             val status = ProtocolStatus.retry(RetryScope.PRIVACY, "Unknown error, no message")
             return BrowserErrorResponse(status, activeDomMessage)
         }
 
-        val error = BrowserErrorCode.valueOfOrUnknown(ec)
+        val error = BrowserErrorCode.valueOfOrUnknown(errorCount)
         val exception = BrowserErrorPageException(error)
         val status = ProtocolStatus.retry(RetryScope.PRIVACY, exception)
         if (error.isUnknown()) {
-            logger.info("Undocumented browser error $ec")
+            logger.info("Undocumented browser error $errorCount")
         }
 
         return BrowserErrorResponse(status, activeDomMessage)

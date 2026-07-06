@@ -1,7 +1,7 @@
 package ai.platon.pulsar.skeleton.workflow.protocol.http
 
 import ai.platon.pulsar.common.config.ImmutableConfig
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.workflow.protocol.Protocol
 import ai.platon.pulsar.skeleton.workflow.protocol.Response
 import ai.platon.pulsar.skeleton.workflow.protocol.RobotRulesParser
@@ -45,7 +45,7 @@ open class HttpRobotRulesParser(
 
             try {
                 val http = (protocol as? AbstractHttpProtocol) ?: return EMPTY_RULES
-                val page = GoraWebPage.newWebPage(url.toURI().resolve("/robots.txt").toString(), volatileConfig)
+                val page = PulsarWebPage.newWebPage(url.toURI().resolve("/robots.txt").toString(), volatileConfig)
                 var response: Response? = http.getResponseDeferred(page, true) ?: return EMPTY_RULES
 
                 // try one level of redirection ?
@@ -56,7 +56,7 @@ open class HttpRobotRulesParser(
                     }
                     if (redirection != null) {
                         redir = URI.create(redirection).toURL()
-                        response = http.getResponseDeferred(GoraWebPage.newWebPage(redir.toString(), volatileConfig), true)
+                        response = http.getResponseDeferred(PulsarWebPage.newWebPage(redir.toString(), volatileConfig), true)
                     }
                 }
 

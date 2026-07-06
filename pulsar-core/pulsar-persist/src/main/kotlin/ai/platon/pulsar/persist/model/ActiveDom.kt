@@ -1,29 +1,30 @@
 package ai.platon.pulsar.persist.model
 
 import ai.platon.pulsar.common.config.AppConstants.DEFAULT_VIEWPORT
+import com.fasterxml.jackson.annotation.JsonProperty
 
 /**
  * Records the status of a DOM in a real browser.
  * */
 data class ActiveDOMStatus(
-    val n: Int = 0,
+    @JsonProperty("n") val nodeCount: Int = 0,
     val scroll: Int = 0,
-    val st: String = "",
-    val r: String = "",
-    val idl: String = "",
-    val ec: String = ""
+    @JsonProperty("st") val stateText: String = "",
+    @JsonProperty("r") val readyState: String = "",
+    @JsonProperty("idl") val idleCount: String = "",
+    @JsonProperty("ec") val errorCount: String = ""
 )
 
 /**
  * The statistics of a DOM in a real browser.
  * */
 data class ActiveDOMStat(
-    val ni: Int = 0,
-    val na: Int = 0,
-    val nnm: Int = 0,
-    val nst: Int = 0,
-    val w: Int = 0,
-    val h: Int = 0
+    @JsonProperty("ni") val numImages: Int = 0,
+    @JsonProperty("na") val numAnchors: Int = 0,
+    @JsonProperty("nnm") val numNumeric: Int = 0,
+    @JsonProperty("nst") val numShortTexts: Int = 0,
+    @JsonProperty("w") val width: Int = 0,
+    @JsonProperty("h") val height: Int = 0
 )
 
 /**
@@ -140,31 +141,26 @@ data class ActiveDOMStatTrace(
     val status: ActiveDOMStatus? = ActiveDOMStatus(),
     val initStat: ActiveDOMStat? = ActiveDOMStat(),
     val lastStat: ActiveDOMStat? = ActiveDOMStat(),
-    val initD: ActiveDOMStat? = ActiveDOMStat(),
-    val lastD: ActiveDOMStat? = ActiveDOMStat()
+    @JsonProperty("initD") val initDelta: ActiveDOMStat? = ActiveDOMStat(),
+    @JsonProperty("lastD") val lastDelta: ActiveDOMStat? = ActiveDOMStat()
 ) {
     override fun toString(): String {
-        val s1 = initStat ?: ActiveDOMStat()
-        val s2 = lastStat ?: ActiveDOMStat()
-        val s3 = initD ?: ActiveDOMStat()
-        val s4 = lastD ?: ActiveDOMStat()
+        val is_ = initStat ?: ActiveDOMStat()
+        val ls = lastStat ?: ActiveDOMStat()
+        val id = initDelta ?: ActiveDOMStat()
+        val ld = lastDelta ?: ActiveDOMStat()
 
-        val s = String.format(
-            "img: %s/%s/%s/%s, a: %s/%s/%s/%s, num: %s/%s/%s/%s, st: %s/%s/%s/%s, " +
-                    "w: %s/%s/%s/%s, h: %s/%s/%s/%s",
-            s1.ni, s2.ni, s3.ni, s4.ni,
-            s1.na, s2.na, s3.na, s4.na,
-            s1.nnm, s2.nnm, s3.nnm, s4.nnm,
-            s1.nst, s2.nst, s3.nst, s4.nst,
-            s1.w, s2.w, s3.w, s4.w,
-            s1.h, s2.h, s3.h, s4.h
-        )
+        val statDetail = buildString {
+            append("img: ${is_.numImages}/${ls.numImages}/${id.numImages}/${ld.numImages}")
+            append(", a: ${is_.numAnchors}/${ls.numAnchors}/${id.numAnchors}/${ld.numAnchors}")
+            append(", num: ${is_.numNumeric}/${ls.numNumeric}/${id.numNumeric}/${ld.numNumeric}")
+            append(", st: ${is_.numShortTexts}/${ls.numShortTexts}/${id.numShortTexts}/${ld.numShortTexts}")
+            append(", w: ${is_.width}/${ls.width}/${id.width}/${ld.width}")
+            append(", h: ${is_.height}/${ls.height}/${id.height}/${ld.height}")
+        }
 
         val st = status ?: ActiveDOMStatus()
-        return String.format(
-            "n:%s scroll:%s st:%s r:%s idl:%s\t%s\t(is,ls,id,ld)",
-            st.n, st.scroll, st.st, st.r, st.idl, s
-        )
+        return "n:${st.nodeCount} scroll:${st.scroll} st:${st.stateText} r:${st.readyState} idl:${st.idleCount}\t$statDetail\t(is,ls,id,ld)"
     }
 
     companion object {

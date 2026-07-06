@@ -14,7 +14,7 @@ import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.core.api.WebDriver
 import ai.platon.pulsar.persist.*
 import ai.platon.pulsar.persist.model.ActiveDOMStat
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.common.AppStatusTracker
 import ai.platon.pulsar.skeleton.common.message.PageLoadStatusFormatter
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
@@ -86,7 +86,7 @@ class LoadComponent(
 
     @Volatile
     private var numWrite = 0
-    private val abnormalPage get() = GoraWebPage.NIL.takeIf { !isActive }
+    private val abnormalPage get() = PulsarWebPage.NIL.takeIf { !isActive }
 
     private var reportCount = AtomicInteger()
     private val batchTaskCount = AtomicInteger()
@@ -287,7 +287,7 @@ class LoadComponent(
     private fun createPageShellOrNilWithEventHandlers(normURL: NormURL): WebPage {
         if (normURL.isNil) {
             doHandleLoadEventWithoutFetch(normURL)
-            return GoraWebPage.NIL
+            return PulsarWebPage.NIL
         }
 
         tracer?.trace("Loading normURL, creating page shell ... | {}", normURL.configuredUrl)
@@ -300,7 +300,7 @@ class LoadComponent(
 
         if (deactivateFetchComponent && shouldFetch(page)) {
             doHandleLoadEventWithoutFetch(normURL)
-            return GoraWebPage.NIL
+            return PulsarWebPage.NIL
         }
 
         return page
@@ -333,7 +333,7 @@ class LoadComponent(
 
         val cachedPage = getCachedPageOrNull(normURL)
         var page = FetchEntry.createPageShell(normURL)
-        require(page is GoraWebPage)
+        require(page is PulsarWebPage)
 
         if (cachedPage != null) {
             pageCacheHits.incrementAndGet()
@@ -341,7 +341,7 @@ class LoadComponent(
             // the cached page can be or not be persisted, but not guaranteed
             // if a page is loaded from cache, the content remains unchanged and should not persist to database
             // TODO: clone the underlying data or not?
-            page.unsafeCloneGPage(cachedPage)
+            page.unsafeCloneRecord(cachedPage)
             // if the underlying data is not copied, the persist content will be null
             page.clearPersistContent()
 
@@ -467,7 +467,7 @@ class LoadComponent(
     private fun doHandleOnLoadedEvent(normURL: NormURL, page: WebPage? = null) {
         val url = normURL.urlString
         val detail = normURL.detail
-        val page0 = page ?: GoraWebPage.NIL
+        val page0 = page ?: PulsarWebPage.NIL
 
         try {
             // we might use the cached page's content in after load handler
@@ -650,11 +650,11 @@ class LoadComponent(
         }
 
         val domStats = page.activeDOMStatTrace
-        val (ni, na) = domStats?.lastStat ?: ActiveDOMStat()
-        if (ni < options.requireImages) {
+        val (numImages, numAnchors) = domStats?.lastStat ?: ActiveDOMStat()
+        if (numImages < options.requireImages) {
             return CheckState(FetchState.MISS_FIELD, "miss image")
         }
-        if (na < options.requireAnchors) {
+        if (numAnchors < options.requireAnchors) {
             return CheckState(FetchState.MISS_FIELD, "miss anchor")
         }
 
@@ -687,7 +687,7 @@ class LoadComponent(
         // The content is loaded from cache, the content remains unchanged, do not persist it
         // TODO: check the logic again
         if (page.isCached) {
-            require(page is GoraWebPage)
+            require(page is PulsarWebPage)
 //            page.unbox().clearDirty(GWebPage.Field.CONTENT.index)
 //            assert(!page.unbox().isContentDirty)
         }

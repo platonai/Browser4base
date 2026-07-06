@@ -2,7 +2,7 @@ package ai.platon.pulsar.skeleton.workflow.component
 
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.core.api.WebPage
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.workflow.common.GlobalCacheFactory
 import ai.platon.pulsar.skeleton.workflow.parse.PageParser
 import ai.platon.pulsar.skeleton.workflow.parse.ParseResult
@@ -37,7 +37,7 @@ class ParseComponent(
     }
 
     private fun afterParse(page: WebPage, result: ParseResult) {
-        require(page is GoraWebPage)
+        require(page is PulsarWebPage)
 
         val document = result.document
         if (document != null) {

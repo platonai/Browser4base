@@ -292,47 +292,47 @@ object WebPageAvroSerDe {
 
     private fun activeDOMStatusToAvro(s: ActiveDOMStatus): GenericRecord {
         val rec = GenericData.Record(activeDOMStatusSchema)
-        rec.put("n", s.n)
+        rec.put("n", s.nodeCount)
         rec.put("scroll", s.scroll)
-        rec.put("st", s.st)
-        rec.put("r", s.r)
-        rec.put("idl", s.idl)
-        rec.put("ec", s.ec)
+        rec.put("st", s.stateText)
+        rec.put("r", s.readyState)
+        rec.put("idl", s.idleCount)
+        rec.put("ec", s.errorCount)
         return rec
     }
 
     private fun activeDOMStatusFromAvro(obj: Any?): ActiveDOMStatus? {
         if (obj !is GenericRecord) return null
         return ActiveDOMStatus(
-            n = obj.get("n") as? Int ?: 0,
+            nodeCount = obj.get("n") as? Int ?: 0,
             scroll = obj.get("scroll") as? Int ?: 0,
-            st = obj.get("st")?.toString() ?: "",
-            r = obj.get("r")?.toString() ?: "",
-            idl = obj.get("idl")?.toString() ?: "",
-            ec = obj.get("ec")?.toString() ?: ""
+            stateText = obj.get("st")?.toString() ?: "",
+            readyState = obj.get("r")?.toString() ?: "",
+            idleCount = obj.get("idl")?.toString() ?: "",
+            errorCount = obj.get("ec")?.toString() ?: ""
         )
     }
 
     private fun activeDOMStatToAvro(s: ActiveDOMStat): GenericRecord {
         val rec = GenericData.Record(activeDOMStatSchema)
-        rec.put("ni", s.ni)
-        rec.put("na", s.na)
-        rec.put("nnm", s.nnm)
-        rec.put("nst", s.nst)
-        rec.put("w", s.w)
-        rec.put("h", s.h)
+        rec.put("ni", s.numImages)
+        rec.put("na", s.numAnchors)
+        rec.put("nnm", s.numNumeric)
+        rec.put("nst", s.numShortTexts)
+        rec.put("w", s.width)
+        rec.put("h", s.height)
         return rec
     }
 
     private fun activeDOMStatFromAvro(obj: Any?): ActiveDOMStat? {
         if (obj !is GenericRecord) return null
         return ActiveDOMStat(
-            ni = obj.get("ni") as? Int ?: 0,
-            na = obj.get("na") as? Int ?: 0,
-            nnm = obj.get("nnm") as? Int ?: 0,
-            nst = obj.get("nst") as? Int ?: 0,
-            w = obj.get("w") as? Int ?: 0,
-            h = obj.get("h") as? Int ?: 0
+            numImages = obj.get("ni") as? Int ?: 0,
+            numAnchors = obj.get("na") as? Int ?: 0,
+            numNumeric = obj.get("nnm") as? Int ?: 0,
+            numShortTexts = obj.get("nst") as? Int ?: 0,
+            width = obj.get("w") as? Int ?: 0,
+            height = obj.get("h") as? Int ?: 0
         )
     }
 
@@ -344,12 +344,12 @@ object WebPageAvroSerDe {
         val map = linkedMapOf<String, GenericRecord>()
         trace.initStat?.let { map["initStat"] = activeDOMStatToAvro(it) }
         trace.lastStat?.let { map["lastStat"] = activeDOMStatToAvro(it) }
-        trace.initD?.let { map["initD"] = activeDOMStatToAvro(it) }
-        trace.lastD?.let { map["lastD"] = activeDOMStatToAvro(it) }
+        trace.initDelta?.let { map["initD"] = activeDOMStatToAvro(it) }
+        trace.lastDelta?.let { map["lastD"] = activeDOMStatToAvro(it) }
         if (trace.status != null) {
             // Store status fields as a synthetic stat record
             val statusRec = GenericData.Record(activeDOMStatSchema)
-            statusRec.put("ni", trace.status.n)
+            statusRec.put("ni", trace.status.nodeCount)
             statusRec.put("na", trace.status.scroll)
             statusRec.put("nnm", 0)
             statusRec.put("nst", 0)
@@ -367,8 +367,8 @@ object WebPageAvroSerDe {
             status = null, // Status cannot be reconstructed from Avro stat map alone; use activeDOMStatus field
             initStat = activeDOMStatFromAvro(map["initStat"]),
             lastStat = activeDOMStatFromAvro(map["lastStat"]),
-            initD = activeDOMStatFromAvro(map["initD"]),
-            lastD = activeDOMStatFromAvro(map["lastD"])
+            initDelta = activeDOMStatFromAvro(map["initD"]),
+            lastDelta = activeDOMStatFromAvro(map["lastD"])
         )
     }
 

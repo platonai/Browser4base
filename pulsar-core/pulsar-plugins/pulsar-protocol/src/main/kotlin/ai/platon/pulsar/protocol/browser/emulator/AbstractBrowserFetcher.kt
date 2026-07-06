@@ -17,7 +17,7 @@ package ai.platon.pulsar.protocol.browser.emulator
 
 import ai.platon.pulsar.common.config.VolatileConfig
 import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.workflow.fetch.BrowserFetcher
 import ai.platon.pulsar.skeleton.workflow.fetch.Fetcher
 import ai.platon.pulsar.skeleton.workflow.protocol.Response
@@ -41,11 +41,11 @@ abstract class AbstractBrowserFetcher : BrowserFetcher, Fetcher {
 
     @Throws(Exception::class)
     override suspend fun fetchDeferred(url: String) =
-        fetchContentDeferred(GoraWebPage.newWebPage(url, conf.toVolatileConfig()))
+        fetchContentDeferred(PulsarWebPage.newWebPage(url, conf.toVolatileConfig()))
 
     @Throws(Exception::class)
     override suspend fun fetchDeferred(url: String, volatileConfig: VolatileConfig) =
-        fetchContentDeferred(GoraWebPage.newWebPage(url, volatileConfig))
+        fetchContentDeferred(PulsarWebPage.newWebPage(url, volatileConfig))
 
     /**
      * Fetch page content

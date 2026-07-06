@@ -101,13 +101,13 @@ class PageLoadStatusFormatter(
     }
     private val jsSate: String
         get() {
-//            val (ni, na, nnm, nst, w, h) = activeDOMStatTrace.lastStat?: ActiveDOMStat()
+//            val (numImages, numAnchors, numNumeric, numShortTexts, width, height) = activeDOMStatTrace.lastStat?: ActiveDOMStat()
 //            val divisor = if (page.id < verboseCount) 10 else verboseCount
 //            val prefix = if (page.id % divisor == 0L) {
 //                "i/a/nm/st/h:"
 //            } else ""
-//            return if (ni + na + nnm + nst + h != 0) {
-//                String.format("$prefix%d/%d/%d/%d/%d", ni, na, nnm, nst, h)
+//            return if (numImages + numAnchors + numNumeric + numShortTexts + height != 0) {
+//                String.format("$prefix%d/%d/%d/%d/%d", numImages, numAnchors, numNumeric, numShortTexts, height)
 //            } else ""
             return ""
         }

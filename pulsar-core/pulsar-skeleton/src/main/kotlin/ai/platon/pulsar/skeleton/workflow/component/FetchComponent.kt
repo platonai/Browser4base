@@ -6,7 +6,7 @@ import ai.platon.pulsar.core.api.WebPage
 import ai.platon.pulsar.persist.PageDatum
 import ai.platon.pulsar.persist.ProtocolStatus
 import ai.platon.pulsar.persist.WebPageExt
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.skeleton.CoreMetrics
 import ai.platon.pulsar.skeleton.common.persist.ext.loadEventHandlers
 import ai.platon.pulsar.skeleton.event.PulsarEventBus
@@ -28,7 +28,7 @@ open class FetchComponent(
 
     private val closed = AtomicBoolean()
     val isActive get() = !closed.get() && AppContext.isActive
-    private val abnormalPage get() = GoraWebPage.NIL.takeIf { !isActive }
+    private val abnormalPage get() = PulsarWebPage.NIL.takeIf { !isActive }
 
     /**
      * Fetch a page
@@ -128,8 +128,8 @@ open class FetchComponent(
         if (trace != null) {
             page.activeDOMStatus = trace.status
 //            page.activeDOMStatTrace = mapOf(
-//                "initStat" to trace.initStat, "initD" to trace.initD,
-//                "lastStat" to trace.lastStat, "lastD" to trace.lastD
+//                "initStat" to trace.initStat, "initD" to trace.initDelta,
+//                "lastStat" to trace.lastStat, "lastD" to trace.lastDelta
 //            )
         }
 

@@ -3,7 +3,7 @@ package ai.platon.pulsar.basic
 import ai.platon.pulsar.common.PulsarParams
 import ai.platon.pulsar.common.sleepSeconds
 import ai.platon.pulsar.persist.AbstractWebPage
-import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.persist.model.PulsarWebPage
 import ai.platon.pulsar.persist.metadata.Name
 import ai.platon.pulsar.skeleton.common.message.PageLoadStatusFormatter
 import ai.platon.pulsar.common.printlnPro
