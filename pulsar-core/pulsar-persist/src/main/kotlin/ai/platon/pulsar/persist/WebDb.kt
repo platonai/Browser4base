@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong
  * */
 class WebDb(
     val conf: ImmutableConfig,
+    private val storage: WebDbStorage = LocalWebDbStorage(conf),
 ) : AutoCloseable {
     companion object {
         val dbGetCount = AtomicLong()
@@ -24,9 +25,6 @@ class WebDb(
     private val logger = LoggerFactory.getLogger(WebDb::class.java)
     private val tracer = logger.takeIf { it.isTraceEnabled }
     private val closed = AtomicBoolean()
-
-    /** Local filesystem storage backend. */
-    private val storage = WebDbStorage(conf)
 
     /**
      * Returns the WebPage corresponding to the given url.
@@ -127,14 +125,14 @@ class WebDb(
 
     @Throws(WebDBException::class)
     fun flush() {
-        // No-op: local file storage writes are synchronous
-        tracer?.trace("Flush (no-op for local file storage)")
+        storage.flush()
+        tracer?.trace("Flush delegated to storage")
     }
 
     @Throws(WebDBException::class)
     override fun close() {
         if (closed.compareAndSet(false, true)) {
-            // No pooled resources to release for local file storage
+            storage.close()
             tracer?.trace("WebDb closed")
         }
     }

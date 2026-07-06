@@ -12,6 +12,8 @@ import ai.platon.pulsar.common.proxy.impl.LoadingProxyPool
 import ai.platon.pulsar.loop.TaskLoops
 import ai.platon.pulsar.loop.impl.StreamingTaskLoop
 import ai.platon.pulsar.persist.WebDb
+import ai.platon.pulsar.persist.WebDbStorage
+import ai.platon.pulsar.persist.WebDbStorageFactory
 import ai.platon.pulsar.protocol.browser.BrowserEmulatorProtocol
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolManager
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolMonitor
@@ -60,10 +62,16 @@ class PulsarAutoConfiguration {
         }
     }
 
+    @Bean(name = ["webDbStorage"])
+    @ConditionalOnMissingBean(name = ["webDbStorage"])
+    fun webDbStorage(conf: MutableConfig): WebDbStorage {
+        return WebDbStorageFactory.create(conf)
+    }
+
     @Bean(name = ["webDb"], destroyMethod = "close")
     @ConditionalOnMissingBean(name = ["webDb"])
-    fun webDb(conf: MutableConfig): WebDb {
-        return WebDb(conf)
+    fun webDb(conf: MutableConfig, webDbStorage: WebDbStorage): WebDb {
+        return WebDb(conf, webDbStorage)
     }
 
     @Bean(name = ["metricsSystem"], initMethod = "start", destroyMethod = "close")
