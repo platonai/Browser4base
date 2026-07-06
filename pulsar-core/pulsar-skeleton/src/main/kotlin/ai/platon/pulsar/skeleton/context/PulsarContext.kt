@@ -11,7 +11,6 @@ import ai.platon.pulsar.core.api.WebPage
 import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.external.ModelResponse
 import ai.platon.pulsar.loop.TaskLoops
-import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.skeleton.PulsarSettings
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import ai.platon.pulsar.skeleton.common.urls.NormURL
@@ -289,18 +288,6 @@ interface PulsarContext : java.lang.AutoCloseable {
      * @return The fetch state of the webpage
      */
     fun fetchState(page: WebPage, options: LoadOptions): CheckState
-
-    /**
-     * Scan webpages in the storage whose url start with [urlPrefix]
-     *
-     * @param urlPrefix The url prefix
-     * @return The iterator of the webpages whose url start with [urlPrefix]
-     */
-    fun scan(urlPrefix: String): Iterator<WebPage>
-
-    fun scan(urlPrefix: String, fields: Iterable<GWebPage.Field>): Iterator<WebPage>
-
-    fun scan(urlPrefix: String, fields: Array<String>): Iterator<WebPage>
 
     /**
      * Open a webpage with options and a web driver

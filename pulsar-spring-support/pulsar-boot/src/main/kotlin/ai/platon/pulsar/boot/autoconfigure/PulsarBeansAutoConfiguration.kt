@@ -1,36 +1,39 @@
 package ai.platon.pulsar.boot.autoconfigure
 
+import ai.platon.pulsar.browser.common.BrowserSettings
+import ai.platon.pulsar.browser.manage.BasicBrowserManager
+import ai.platon.pulsar.browser.privacy.PrivacyContextMonitor
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.common.proxy.ProxyLoader
 import ai.platon.pulsar.common.proxy.ProxyLoaderFactory
 import ai.platon.pulsar.common.proxy.ProxyPoolManager
 import ai.platon.pulsar.common.proxy.ProxyPoolManagerFactory
 import ai.platon.pulsar.common.proxy.impl.LoadingProxyPool
-import ai.platon.pulsar.driver.common.BrowserSettings
+import ai.platon.pulsar.core.api.PulsarContext
+import ai.platon.pulsar.loop.TaskLoops
+import ai.platon.pulsar.loop.impl.StreamingTaskLoop
 import ai.platon.pulsar.persist.WebDb
+import ai.platon.pulsar.protocol.browser.BrowserEmulatorProtocol
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolManager
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolMonitor
 import ai.platon.pulsar.protocol.browser.emulator.BrowserResponseHandler
 import ai.platon.pulsar.protocol.browser.emulator.BrowserResponseHandlerFactory
+import ai.platon.pulsar.protocol.browser.emulator.IncognitoBrowserFetcher
 import ai.platon.pulsar.protocol.browser.emulator.context.MultiPrivacyContextManager
 import ai.platon.pulsar.protocol.browser.emulator.impl.InteractiveBrowserEmulator
 import ai.platon.pulsar.protocol.browser.emulator.impl.PrivacyManagedBrowserFetcher
-import ai.platon.pulsar.protocol.browser.impl.BasicBrowserManager
 import ai.platon.pulsar.protocol.browser.impl.BrowserMonitor
 import ai.platon.pulsar.protocol.browser.impl.DefaultBrowserFactory
 import ai.platon.pulsar.skeleton.CoreMetrics
-import ai.platon.pulsar.skeleton.TaskLoops
 import ai.platon.pulsar.skeleton.common.AppStatusTracker
-import ai.platon.pulsar.skeleton.common.GlobalCache
-import ai.platon.pulsar.skeleton.common.GlobalCacheFactory
 import ai.platon.pulsar.skeleton.common.message.MiscMessageWriter
 import ai.platon.pulsar.skeleton.common.metrics.MetricsSystem
-import ai.platon.pulsar.skeleton.impl.StreamingTaskLoop
+import ai.platon.pulsar.skeleton.workflow.common.GlobalCache
+import ai.platon.pulsar.skeleton.workflow.common.GlobalCacheFactory
 import ai.platon.pulsar.skeleton.workflow.component.BatchFetchComponent
 import ai.platon.pulsar.skeleton.workflow.component.LoadComponent
 import ai.platon.pulsar.skeleton.workflow.component.ParseComponent
 import ai.platon.pulsar.skeleton.workflow.component.UpdateComponent
-import ai.platon.pulsar.skeleton.workflow.fetch.privacy.PrivacyContextMonitor
 import ai.platon.pulsar.skeleton.workflow.parse.PageParser
 import ai.platon.pulsar.skeleton.workflow.parse.ParseFilters
 import ai.platon.pulsar.skeleton.workflow.parse.ParserFactory
@@ -89,10 +92,20 @@ class PulsarBeansAutoConfiguration {
         return AppStatusTracker(metricsSystem, coreMetrics, messageWriter)
     }
 
+    @Bean(name = ["browserEmulatorProtocol"], destroyMethod = "close")
+    @ConditionalOnMissingBean(name = ["browserEmulatorProtocol"])
+    fun browserEmulatorProtocol(
+        browserFetcher: IncognitoBrowserFetcher,
+    ): BrowserEmulatorProtocol {
+        return BrowserEmulatorProtocol(browserFetcher)
+    }
+
     @Bean(name = ["protocolFactory"], destroyMethod = "close")
     @ConditionalOnMissingBean(name = ["protocolFactory"])
-    fun protocolFactory(conf: MutableConfig): ProtocolFactory {
-        return ProtocolFactory(conf)
+    fun protocolFactory(
+        browserEmulatorProtocol: BrowserEmulatorProtocol
+    ): ProtocolFactory {
+        return ProtocolFactory(listOf(browserEmulatorProtocol))
     }
 
     @Bean(name = ["globalCacheFactory"])
@@ -109,8 +122,8 @@ class PulsarBeansAutoConfiguration {
 
     @Bean(name = ["taskLoop"])
     @ConditionalOnMissingBean(name = ["taskLoop"])
-    fun taskLoop(conf: MutableConfig): StreamingTaskLoop {
-        return StreamingTaskLoop(conf, "SpringStreamingTaskLoop")
+    fun taskLoop(context: PulsarContext, conf: MutableConfig): StreamingTaskLoop {
+        return StreamingTaskLoop(context, conf, "SpringStreamingTaskLoop")
     }
 
     @Bean(name = ["taskLoops"], destroyMethod = "stop")
@@ -260,10 +273,9 @@ class PulsarBeansAutoConfiguration {
     @ConditionalOnMissingBean(name = ["pageParser"])
     fun pageParser(
         parserFactory: ParserFactory,
-        messageWriter: MiscMessageWriter,
         conf: MutableConfig,
     ): PageParser {
-        return PageParser(parserFactory = parserFactory, conf = conf, messageWriter = messageWriter)
+        return PageParser(parserFactory = parserFactory, conf = conf)
     }
 
     @Bean(name = ["privacyContextMonitor"], initMethod = "start", destroyMethod = "close")

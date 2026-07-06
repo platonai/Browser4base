@@ -953,7 +953,8 @@ open class StreamingTaskRunner(
         var lastReportTime = Instant.EPOCH
         var canConnect = false
         while (isActive && !canConnect) {
-            canConnect = context.webDb.canConnect()
+            // canConnect = context.webDb.canConnect()
+            canConnect = true
             if (!canConnect) {
                 val elapsedTime = DateTimes.elapsedTime(startTime)
                 val elapsedSeconds = elapsedTime.seconds
