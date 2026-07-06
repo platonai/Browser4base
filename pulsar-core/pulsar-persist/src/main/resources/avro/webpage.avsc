@@ -320,7 +320,7 @@
             }
         ]
       },
-      "default": []
+      "default": {}
     },
     {
       "name": "vividLinks",
@@ -382,7 +382,7 @@
             }
         ]
       },
-      "default": null
+      "default": {}
     },
     {
       "name": "pageModel",

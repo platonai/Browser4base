@@ -1,12 +1,12 @@
 package ai.platon.pulsar.persist
 
-import ai.platon.pulsar.common.config.AppConstants.EXAMPLE_URL
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.persist.model.GoraWebPage
 import ai.platon.pulsar.persist.model.WebPageRecord
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -24,6 +24,9 @@ class WebDb(
     private val logger = LoggerFactory.getLogger(WebDb::class.java)
     private val tracer = logger.takeIf { it.isTraceEnabled }
     private val closed = AtomicBoolean()
+
+    /** Local filesystem storage backend. */
+    private val storage = WebDbStorage(conf)
 
     /**
      * Returns the WebPage corresponding to the given url.
@@ -70,17 +73,24 @@ class WebDb(
 
     @Throws(WebDBException::class)
     fun exists(originalUrl: String, norm: Boolean = false): Boolean {
-        TODO()
+        val (_, key) = URLUtils.normalizedUrlAndKey(originalUrl, norm)
+        return storage.exists(key)
     }
 
     @Throws(WebDBException::class)
     fun getContent(originalUrl: String): ByteBuffer? {
-        TODO()
+        val (_, key) = URLUtils.normalizedUrlAndKey(originalUrl, false)
+        return storage.readContent(key)
     }
 
     @Throws(WebDBException::class)
     fun getContentAsString(originalUrl: String): String? {
-        TODO()
+        val content = getContent(originalUrl) ?: return null
+        val bytes = ByteArray(content.remaining())
+        val pos = content.position()
+        content.get(bytes)
+        content.position(pos)
+        return String(bytes, StandardCharsets.UTF_8)
     }
 
     @Throws(WebDBException::class)
@@ -89,7 +99,10 @@ class WebDb(
 
     @Throws(WebDBException::class)
     private fun putInternal(page: WebPage, replaceIfExists: Boolean): Boolean {
-        TODO()
+        require(page is GoraWebPage) { "Only GoraWebPage is supported, got: ${page::class.java}" }
+        val record = page.unbox()
+        val (_, key) = URLUtils.normalizedUrlAndKey(page.url, false)
+        return storage.write(record, key, replaceIfExists)
     }
 
     @Throws(WebDBException::class)
@@ -98,22 +111,31 @@ class WebDb(
     @JvmOverloads
     @Throws(WebDBException::class)
     fun delete(originalUrl: String, norm: Boolean = false): Boolean {
-        TODO()
+        val (_, key) = URLUtils.normalizedUrlAndKey(originalUrl, norm)
+        return storage.delete(key)
     }
 
     @JvmOverloads
     @Throws(WebDBException::class)
     fun truncate(force: Boolean = false): Boolean {
-        TODO()
+        if (!force) {
+            logger.warn("truncate() requires force=true to prevent accidental data loss")
+            return false
+        }
+        return storage.truncate()
     }
 
     @Throws(WebDBException::class)
     fun flush() {
+        // No-op: local file storage writes are synchronous
+        tracer?.trace("Flush (no-op for local file storage)")
     }
 
     @Throws(WebDBException::class)
     override fun close() {
         if (closed.compareAndSet(false, true)) {
+            // No pooled resources to release for local file storage
+            tracer?.trace("WebDb closed")
         }
     }
 
@@ -132,11 +154,7 @@ class WebDb(
 
         val startTime = System.nanoTime()
 
-//        val page = performDSAction("get", originalUrl) {
-//            fields?.let { dataStore.get(key, it) } ?: dataStore.get(key)
-//        }
-
-        val page = WebPageRecord(EXAMPLE_URL)
+        val page = storage.read(key)
 
         dbGetCount.incrementAndGet()
         accumulateGetNanos.addAndGet(System.nanoTime() - startTime)
