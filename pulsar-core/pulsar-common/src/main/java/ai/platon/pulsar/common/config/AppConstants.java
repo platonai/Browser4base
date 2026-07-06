@@ -178,4 +178,6 @@ public interface AppConstants {
     String LOCAL_FILE_BASE_URL = "http://localfile.internal";
 
     String BROWSER_INTERNAL_BASE_URL = "http://browser.internal";
+
+    String VAR_IS_SCRAPE = "IS_SCRAPE";
 }

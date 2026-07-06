@@ -13,7 +13,7 @@ $installerUrl = "https://dl.google.com/chrome/install/latest/chrome_installer.ex
 $tempInstaller = "$env:TEMP\chrome_installer.exe"
 
 Write-Host "Downloading Google Chrome installer..."
-Invoke-WebRequest -Uri $installerUrl -OutFile $tempInstaller
+Invoke-WebRequest -Uri $installerUrl -OutFile $tempInstaller -UseBasicParsing
 
 Write-Host "Installing Google Chrome silently..."
 Start-Process -FilePath $tempInstaller -ArgumentList "/silent /install" -Wait

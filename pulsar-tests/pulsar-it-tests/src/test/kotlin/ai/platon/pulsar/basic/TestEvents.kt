@@ -3,6 +3,7 @@ package ai.platon.pulsar.basic
 import ai.platon.pulsar.skeleton.common.persist.ext.options
 import ai.platon.pulsar.skeleton.workflow.common.url.StatefulListenableHyperlink
 import ai.platon.pulsar.skeleton.workflow.component.FetchComponent
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.DisplayName
 import org.springframework.beans.factory.annotation.Autowired
 import kotlin.test.*
@@ -22,9 +23,9 @@ class TestEvents : TestBase() {
         metrics.persists.reset()
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @DisplayName("When a page is fetched then events are fired and metrics are recorded")
-    suspend fun whenAPageIsFetchedThenEventsAreFiredAndMetricsAreRecorded() {
+    fun whenAPageIsFetchedThenEventsAreFiredAndMetricsAreRecorded() {
         val metrics = fetchComponent.coreMetrics
         assertNotNull(metrics)
 
@@ -62,7 +63,7 @@ class TestEvents : TestBase() {
             }
         }
 
-        session.load(hyperlink)
+        runBlocking { session.load(hyperlink) }
 
         assertTrue { "onBeforeLoad" in firedEvents }
         assertTrue { "onAfterFetch" in firedEvents }

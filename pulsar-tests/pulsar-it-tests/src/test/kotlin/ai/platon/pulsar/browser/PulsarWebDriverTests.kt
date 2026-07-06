@@ -3,7 +3,6 @@ package ai.platon.pulsar.browser
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.sleepSeconds
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -53,7 +52,6 @@ class PulsarWebDriverTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test hover")
-    @Disabled("Temporarily disabled")
     fun testHover() = runEnhancedWebDriverTest(interactiveUrl2, browser) { driver ->
         // First scroll to ensure the element is in view and page is in a stable state
         driver.scrollToTop()
@@ -72,18 +70,17 @@ class PulsarWebDriverTests : WebDriverTestBase() {
             )
 
             driver.hover(".hover-card")
-            driver.delay(200)
+            driver.delay(500)
 
             val rect2 = driver.evaluate(
                 "JSON.stringify(document.querySelector('.hover-card').getBoundingClientRect())",
                 "{}"
             )
 
-            driver.delay(2000)
-
             println("Iteration $n:")
             println("  Before hover: $rect1")
             println("  After hover:  $rect2")
+            sleepSeconds(2)
             assertNotEquals(rect1, rect2)
         }
     }
@@ -179,7 +176,7 @@ class PulsarWebDriverTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test scrollToBottom")
-    fun testScrollToBottom() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
+    fun testScrolltoBottom() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
         val bottomY = driver.scrollToBottom()
         val viewportHeight = (driver.evaluate("window.innerHeight", 0.0) as? Number)?.toDouble() ?: 0.0
         val totalHeight = (driver.evaluate(
@@ -194,7 +191,7 @@ class PulsarWebDriverTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test scrollToTop")
-    fun testScrollToTop() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
+    fun testScrolltotop() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
         // First go to bottom to ensure movement
         driver.scrollToBottom()
         val topY = driver.scrollToTop()
@@ -205,7 +202,7 @@ class PulsarWebDriverTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test scrollToMiddle")
-    fun testScrollToMiddle() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
+    fun testScrolltomiddle() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
         val ratio = 0.5
         val middleY = driver.scrollToMiddle(ratio)
         val viewportHeight = (driver.evaluate("window.innerHeight", 0.0) as? Number)?.toDouble() ?: 0.0
@@ -222,7 +219,7 @@ class PulsarWebDriverTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test scrollToViewport")
-    fun testScrollToViewport() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
+    fun testScrolltoviewport() = runEnhancedWebDriverTest(multiScreensInteractiveUrl, browser) { driver ->
         val n = 2.0 // second viewport
         val y = driver.scrollToViewport(n, smooth = false)
         val viewportHeight = (driver.evaluate("window.innerHeight", 0.0) as? Number)?.toDouble() ?: 0.0

@@ -49,11 +49,12 @@ jobs:
           skip_tests: 'true'
           timeout_minutes: '25'
 
-      - name: Run Fast Unit Tests
+      - name: Run Tests
         id: tests
         if: ${{ !inputs.skip_tests }}
         uses: ./.github/actions/run-tests
         with:
+          maven_profiles: 'tests-integration,tests-e2e'
           excluded_groups: 'SlowTest'
           timeout_minutes: '25'
           report_name: 'ci-test-reports'

@@ -20,7 +20,6 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 
 class PulsarWebDriverProxyTests : WebDriverTestBase() {
     private val proxyLoader by lazy { ProxyHubLoader(conf) }
@@ -56,7 +55,7 @@ class PulsarWebDriverProxyTests : WebDriverTestBase() {
     }
 
     @Test
-    @DisplayName("When navigate to a HTML page with proxy then success")
+        @DisplayName("When navigate to a HTML page with proxy then success")
     fun whenNavigateAHtmlPageWithProxyThenSuccess() = runWebDriverTest(browserId) { driver ->
         Assumptions.assumeTrue(proxies.isNotEmpty())
 
@@ -102,9 +101,10 @@ class PulsarWebDriverProxyTests : WebDriverTestBase() {
             driver.navigate("https://www.baidu.com/")
             driver.waitForNavigation()
             driver.waitForSelector("body")
-            delay(1000.milliseconds)
+            delay(1000)
             val source = driver.pageSource()
             assertTrue { source != null && source.length > 1000 }
         }
     }
 }
+

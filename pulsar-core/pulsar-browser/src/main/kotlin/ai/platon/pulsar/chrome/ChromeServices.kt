@@ -1,7 +1,5 @@
 package ai.platon.pulsar.chrome
 
-import ai.platon.pulsar.chrome.util.ChromeIOException
-import ai.platon.pulsar.chrome.util.ChromeServiceException
 import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.support.types.EventHandler
 import ai.platon.cdt.kt.protocol.support.types.EventListener
@@ -9,6 +7,8 @@ import ai.platon.pulsar.browser.impl.BrowserTab
 import ai.platon.pulsar.browser.impl.ChromeVersion
 import ai.platon.pulsar.browser.impl.DevToolsConfig
 import ai.platon.pulsar.browser.impl.MethodInvocation
+import ai.platon.pulsar.chrome.util.ChromeIOException
+import ai.platon.pulsar.chrome.util.ChromeServiceException
 import java.net.URI
 import java.util.function.Consumer
 import kotlin.reflect.KClass
@@ -82,6 +82,13 @@ interface ChromeDevToolsService : ChromeDevTools, AutoCloseable {
         returnClass: KClass<T>,
         returnProperty: String? = null
     ): T?
+
+    suspend fun <T : Any> execute(
+        method: String,
+        params: Map<String, Any?>?,
+        returnClass: KClass<T>,
+        returnProperty: String? = null
+    ): T? = invoke(method, params, returnClass, returnProperty)
 
     fun awaitTermination()
 
