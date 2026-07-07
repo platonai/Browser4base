@@ -17,7 +17,7 @@ import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.api.snapshot.SnapshotService
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
-import ai.platon.pulsar.chrome.dom.model.ViewportSpec
+import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.network.*
 import ai.platon.pulsar.chrome.protocol.ClickableDOM
 import ai.platon.pulsar.chrome.protocol.EmulationHandler

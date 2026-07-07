@@ -1,5 +1,8 @@
 package ai.platon.pulsar.chrome.dom.util
 
+import ai.platon.pulsar.api.model.DOMRect
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
+import ai.platon.pulsar.api.model.SnapshotNodeEx
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test

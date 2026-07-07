@@ -4,6 +4,8 @@ import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.LauncherOptions
 import ai.platon.pulsar.chrome.ChromeLauncher
+import ai.platon.pulsar.chrome.RemoteChrome
+import ai.platon.pulsar.chrome.RemoteDevTools
 import ai.platon.pulsar.common.browser.BrowserFiles
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.sleepSeconds
