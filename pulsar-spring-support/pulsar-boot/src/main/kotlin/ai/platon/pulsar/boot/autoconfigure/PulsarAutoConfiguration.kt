@@ -1,8 +1,8 @@
 package ai.platon.pulsar.boot.autoconfigure
 
 import ai.platon.pulsar.api.manage.BasicBrowserManager
-import ai.platon.pulsar.api.privacy.PrivacyContextMonitor
 import ai.platon.pulsar.browser.common.BrowserSettings
+import ai.platon.pulsar.browser.privacy.PrivacyContextMonitor
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.common.proxy.ProxyLoader
 import ai.platon.pulsar.common.proxy.ProxyLoaderFactory
@@ -21,7 +21,6 @@ import ai.platon.pulsar.protocol.browser.emulator.IncognitoBrowserFetcher
 import ai.platon.pulsar.protocol.browser.emulator.context.MultiPrivacyContextManager
 import ai.platon.pulsar.protocol.browser.emulator.impl.InteractiveBrowserEmulator
 import ai.platon.pulsar.protocol.browser.emulator.impl.PrivacyManagedBrowserFetcher
-import ai.platon.pulsar.protocol.browser.impl.BrowserMonitor
 import ai.platon.pulsar.protocol.browser.impl.DefaultBrowserFactory
 import ai.platon.pulsar.ql.context.SQLContext
 import ai.platon.pulsar.skeleton.CoreMetrics
@@ -197,7 +196,7 @@ class PulsarAutoConfiguration {
     fun browserResponseHandler(
         browserResponseHandlerFactory: BrowserResponseHandlerFactory,
     ): BrowserResponseHandler {
-        return browserResponseHandlerFactory.eventHandler
+        return browserResponseHandlerFactory.browserResponseHandler
     }
 
     @Bean(name = ["browserEmulator"], destroyMethod = "close")
@@ -279,11 +278,11 @@ class PulsarAutoConfiguration {
         return WebDriverPoolMonitor(driverPoolManager, conf, 30, 30)
     }
 
-    @Bean(name = ["browserMonitor"], initMethod = "start", destroyMethod = "close")
-    @ConditionalOnMissingBean(name = ["browserMonitor"])
-    fun browserMonitor(browserManager: BasicBrowserManager): BrowserMonitor {
-        return BrowserMonitor(browserManager, 30, 30)
-    }
+//    @Bean(name = ["browserMonitor"], initMethod = "start", destroyMethod = "close")
+//    @ConditionalOnMissingBean(name = ["browserMonitor"])
+//    fun browserMonitor(browserManager: BasicBrowserManager): BrowserMonitor {
+//        return BrowserMonitor(browserManager, 30, 30)
+//    }
 
     @Bean(name = ["browserEmulatorProtocol"], destroyMethod = "close")
     @ConditionalOnMissingBean(name = ["browserEmulatorProtocol"])
