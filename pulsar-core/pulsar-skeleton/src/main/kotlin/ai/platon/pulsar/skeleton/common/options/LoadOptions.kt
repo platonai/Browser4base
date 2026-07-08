@@ -1,6 +1,6 @@
 package ai.platon.pulsar.skeleton.common.options
 
-import ai.platon.pulsar.browser.InteractSettings
+import ai.platon.pulsar.api.InteractSettings
 import ai.platon.pulsar.common.DateTimes
 import ai.platon.pulsar.common.Priority13
 import ai.platon.pulsar.common.browser.InteractLevel
@@ -51,7 +51,6 @@ open class LoadOptions(
     var rawItemEvent: PageEventHandlers? = null,
     var referrer: String? = null,
 ) : PulsarOptions(argv) {
-
 
     /**
      * Represents the type of content being crawled, such as an article, product, or hotel.
@@ -921,10 +920,12 @@ open class LoadOptions(
      */
     override fun getParams(): Params {
         val rowFormat = "%40s: %s"
-        return optionDescriptors.associate { desc ->
-            val value = desc.get(this)
-            "-${desc.fieldName}" to value
-        }
+        return optionDescriptors
+            .mapNotNull { desc ->
+                val value = desc.get(this)
+                if (value != null) "-${desc.fieldName}" to value else null
+            }
+            .toMap()
             .let { Params.of(it).withRowFormat(rowFormat) }
     }
 

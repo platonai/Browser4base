@@ -15,9 +15,9 @@
  */
 package ai.platon.pulsar.browser.privacy
 
-import ai.platon.pulsar.browser.BrowserProfile
-import ai.platon.pulsar.browser.ProfileId
-import ai.platon.pulsar.browser.WebDriver
+import ai.platon.pulsar.api.BrowserProfile
+import ai.platon.pulsar.api.ProfileId
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.browser.BrowserFiles
 import ai.platon.pulsar.common.browser.BrowserType
@@ -269,11 +269,11 @@ interface PrivacyContext : AutoCloseable {
         val DEFAULT_CONTEXT_DIR: Path = AppPaths.CONTEXT_DEFAULT_DIR
 
         // The prototype context directory, all privacy contexts copies browser data from the prototype.
-        // A typical prototype data dir is: ~/.pulsar/browser/chrome/prototype/google-chrome/
+        // A typical prototype data dir is: ~/.browser4/browser/chrome/prototype/google-chrome/
         val PROTOTYPE_DATA_DIR: Path = AppPaths.CHROME_DATA_DIR_PROTOTYPE
 
         // A context dir is the dir which contains the browser data dir, and supports different browsers.
-        // For example: ~/.pulsar/browser/chrome/prototype/
+        // For example: ~/.browser4/browser/chrome/prototype/
         val PROTOTYPE_CONTEXT_DIR: Path = AppPaths.CHROME_DATA_DIR_PROTOTYPE.parent
 
         // A random context directory, if you need a random temporary context, use this one

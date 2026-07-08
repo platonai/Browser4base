@@ -2,8 +2,8 @@ package ai.platon.pulsar.skeleton.common.urls
 
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.VolatileConfig
-import ai.platon.pulsar.common.urls.UrlAware
 import ai.platon.pulsar.common.urls.URLUtils
+import ai.platon.pulsar.common.urls.UrlAware
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import java.net.MalformedURLException
 import java.net.URI
@@ -49,11 +49,6 @@ open class NormURL constructor(
     constructor(spec: String, options: LoadOptions, hrefSpec: String? = null, detail: UrlAware? = null):
             this(URI.create(spec).toURL(), options, hrefSpec?.let { URI.create(hrefSpec).toURL() }, detail)
 
-    /**
-     * The url specification in string format.
-     */
-    @Deprecated("Use urlString instead", ReplaceWith("urlString"))
-    val spec get() = url.toString()
     /**
      * The url specification in string format.
      */

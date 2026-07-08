@@ -1,8 +1,8 @@
 package ai.platon.pulsar.browser.privacy
 
-import ai.platon.pulsar.browser.BrowserProfile
-import ai.platon.pulsar.browser.WebDriver
-import ai.platon.pulsar.browser.common.BrowserErrorPageException
+import ai.platon.pulsar.api.BrowserProfile
+import ai.platon.pulsar.api.WebDriver
+import ai.platon.pulsar.api.model.BrowserErrorPageException
 import ai.platon.pulsar.common.HtmlIntegrity
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.CapabilityTypes
@@ -134,7 +134,7 @@ abstract class AbstractPrivacyContext(
         get() {
             val leaked = isLeaked0
             if (leaked) {
-                throttlingLogger.warn("Privacy context is leaked | {}", state)
+                throttlingLogger.warn("Privacy context is leaked | id={}, display={}", id, display)
             }
             return leaked
         }

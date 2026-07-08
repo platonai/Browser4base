@@ -1,8 +1,8 @@
 package ai.platon.pulsar.skeleton.context
 
-import ai.platon.pulsar.browser.Browser
-import ai.platon.pulsar.browser.BrowserManager
-import ai.platon.pulsar.browser.common.BrowserLaunchException
+import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.BrowserManager
+import ai.platon.pulsar.api.model.BrowserLaunchException
 import ai.platon.pulsar.common.CheckState
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.urls.UrlAware
@@ -35,11 +35,6 @@ interface PulsarContext : java.lang.AutoCloseable {
      * The context id
      * */
     val id: Int
-
-    /**
-     * The UUID
-     * */
-    val uuid: String
 
     /**
      * Flag that indicates whether this context is currently active.

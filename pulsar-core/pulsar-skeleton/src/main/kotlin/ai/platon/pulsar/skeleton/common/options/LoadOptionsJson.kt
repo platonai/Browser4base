@@ -135,10 +135,12 @@ object LoadOptionsJson {
      */
     @JvmStatic
     fun toMap(options: LoadOptions): Map<String, Any?> {
-        return LoadOptions.optionDescriptors.associate { desc ->
-            val value = desc.get(options)
-            desc.fieldName to convertValue(value)
-        }
+        return LoadOptions.optionDescriptors
+            .mapNotNull { desc ->
+                val value = desc.get(options)
+                if (value != null) desc.fieldName to convertValue(value) else null
+            }
+            .toMap()
     }
 
     /**
@@ -150,10 +152,12 @@ object LoadOptionsJson {
     @JvmStatic
     fun toModifiedMap(options: LoadOptions): Map<String, Any?> {
         return LoadOptions.optionDescriptors
-            .filter { !options.isDefault(it.fieldName) }.associate { desc ->
+            .filter { !options.isDefault(it.fieldName) }
+            .mapNotNull { desc ->
                 val value = desc.get(options)
-                desc.fieldName to convertValue(value)
+                if (value != null) desc.fieldName to convertValue(value) else null
             }
+            .toMap()
     }
 
     /**

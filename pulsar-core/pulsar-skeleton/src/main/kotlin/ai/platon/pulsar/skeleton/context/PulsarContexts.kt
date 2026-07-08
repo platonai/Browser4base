@@ -10,7 +10,6 @@ import org.springframework.context.support.AbstractApplicationContext
 import org.springframework.context.support.ClassPathXmlApplicationContext
 import org.springframework.context.support.GenericApplicationContext
 import org.springframework.context.support.StaticApplicationContext
-import java.util.concurrent.ConcurrentSkipListMap
 
 /**
  * Manages the creation and lifecycle of Pulsar contexts and sessions.
@@ -35,7 +34,7 @@ import java.util.concurrent.ConcurrentSkipListMap
 object PulsarContexts {
     private val logger = getLogger(this)
 
-    private val contexts = ConcurrentSkipListMap<String, PulsarContext>()
+    private val contexts = mutableSetOf<PulsarContext>()
 
     /**
      * The active context (the most recently created context).
@@ -70,14 +69,14 @@ object PulsarContexts {
     @Synchronized
     @JvmStatic
     fun create(context: PulsarContext): PulsarContext {
-        contexts[context.uuid] = context
+        contexts.add(context)
         activeContext = context
 
         // NOTE: The order of registered shutdown hooks is not guaranteed.
         (context as? AbstractPulsarContext)?.applicationContext?.registerShutdownHook()
         context.registerShutdownHook()
         val count = contexts.count()
-        val message = contexts.values.joinToString(" | ") { it::class.qualifiedName + " #" + it.id }
+        val message = contexts.joinToString(" | ") { it::class.qualifiedName + " #" + it.id }
         logger.info("Total {} active contexts: {}", count, message)
 
         return context
@@ -192,7 +191,7 @@ object PulsarContexts {
     @Synchronized
     @JvmStatic
     fun shutdown() {
-        contexts.values.forEach { cx -> cx.runCatching { cx.close() }.onFailure { warnForClose(this, it) } }
+        contexts.forEach { cx -> cx.runCatching { close() }.onFailure { warnForClose(this, it) } }
         contexts.clear()
         activeContext = null
     }
