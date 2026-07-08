@@ -16,7 +16,7 @@
 package ai.platon.pulsar.protocol.browser.emulator.context
 
 import ai.platon.pulsar.browser.AbstractBrowser
-import ai.platon.pulsar.browser.BrowserId
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.browser.common.BrowserUnavailableException
 import ai.platon.pulsar.browser.common.IllegalWebDriverStateException
 import ai.platon.pulsar.browser.common.WebDriverException

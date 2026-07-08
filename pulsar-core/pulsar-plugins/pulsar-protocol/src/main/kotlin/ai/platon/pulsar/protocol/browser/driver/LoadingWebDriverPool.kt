@@ -1,7 +1,7 @@
 package ai.platon.pulsar.protocol.browser.driver
 
 import ai.platon.pulsar.browser.AbstractWebDriver
-import ai.platon.pulsar.browser.BrowserId
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.browser.common.BrowserLaunchException
 import ai.platon.pulsar.browser.common.WebDriverCancellationException
 import ai.platon.pulsar.browser.common.WebDriverException

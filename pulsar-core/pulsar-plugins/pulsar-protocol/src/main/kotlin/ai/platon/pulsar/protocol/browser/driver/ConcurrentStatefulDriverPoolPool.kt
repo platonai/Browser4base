@@ -1,6 +1,6 @@
 package ai.platon.pulsar.protocol.browser.driver
 
-import ai.platon.pulsar.browser.BrowserId
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.browser.WebDriver
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.logging.ThrottlingLogger

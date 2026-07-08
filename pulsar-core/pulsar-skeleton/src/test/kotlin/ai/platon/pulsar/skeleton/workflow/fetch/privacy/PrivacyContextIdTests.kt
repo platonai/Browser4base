@@ -1,6 +1,6 @@
 package ai.platon.pulsar.skeleton.workflow.fetch.privacy
 
-import ai.platon.pulsar.browser.BrowserProfile
+import ai.platon.pulsar.api.BrowserProfile
 import ai.platon.pulsar.common.browser.BrowserType
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap

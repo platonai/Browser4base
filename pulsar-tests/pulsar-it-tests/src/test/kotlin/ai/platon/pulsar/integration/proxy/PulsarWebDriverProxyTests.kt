@@ -2,7 +2,7 @@ package ai.platon.pulsar.integration.proxy
 
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.browser.AbstractWebDriver
-import ai.platon.pulsar.browser.BrowserId
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.common.NetUtil
 import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.printlnPro

@@ -15,8 +15,8 @@
  */
 package ai.platon.pulsar.protocol.browser.emulator.impl
 
-import ai.platon.pulsar.browser.Browser
-import ai.platon.pulsar.browser.BrowserManager
+import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.BrowserManager
 import ai.platon.pulsar.browser.common.IllegalWebDriverStateException
 import ai.platon.pulsar.browser.common.WebDriverCancellationException
 import ai.platon.pulsar.browser.common.WebDriverException
