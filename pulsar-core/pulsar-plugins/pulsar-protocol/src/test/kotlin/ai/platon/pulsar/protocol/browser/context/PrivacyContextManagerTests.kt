@@ -1,9 +1,9 @@
 package ai.platon.pulsar.protocol.browser.context
 
 import ai.platon.pulsar.api.BrowserProfile
-import ai.platon.pulsar.api.common.BrowserSettings
-import ai.platon.pulsar.api.common.UserAgent
-import ai.platon.pulsar.api.privacy.PrivacyContext
+import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.model.UserAgent
+import ai.platon.pulsar.browser.privacy.PrivacyContext
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.browser.fingerprint.Fingerprint
 import ai.platon.pulsar.common.config.ImmutableConfig
@@ -175,7 +175,7 @@ class PrivacyContextManagerTests {
                 val task = FetchTask.create(page)
                 task.fingerprint.userAgent = RandomStringUtils.secure().nextAlphanumeric(10)
                 manager.run(task) { _, driver -> mockFetch(task, driver) }
-                assertTrue { manager.temporaryContexts.size <= manager.maxAllowedBadContexts }
+                assertTrue { manager.temporaryContexts.size <= manager.allowedPrivacyContextCount }
             }
         }
     }
