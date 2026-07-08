@@ -20,9 +20,9 @@ inputs:
     required: false
     default: 'app-test-container'
   service_port:
-    description: 'Service port (default: 8182)'
+    description: 'Service port (default: 8082)'
     required: false
-    default: '8182'
+    default: '8082'
   OPENROUTER_API_KEY:
     description: 'DeepSeek API key (required)'
     required: true

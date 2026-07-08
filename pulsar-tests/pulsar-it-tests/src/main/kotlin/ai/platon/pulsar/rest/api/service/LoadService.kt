@@ -18,7 +18,7 @@ class LoadService(
     }
 
     suspend fun loadDocument(url: String, args: String? = null): Pair<WebPage, FeaturedDocument> {
-        if (url.contains(":8182/")) {
+        if (url.contains(":8082/")) {
             logger.warn("Unexpected url, internal url is not allowed | {}", url)
             return GoraWebPage.NIL to FeaturedDocument.NIL
         }
