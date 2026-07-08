@@ -15,10 +15,10 @@
  */
 package ai.platon.pulsar.protocol.browser.emulator.impl
 
-import ai.platon.pulsar.browser.AbstractWebDriver
-import ai.platon.pulsar.browser.DomSettlePolicy
-import ai.platon.pulsar.browser.common.*
-import ai.platon.pulsar.chrome.PulsarWebDriver
+import ai.platon.browser4.api.AbstractWebDriver
+import ai.platon.browser4.api.DomSettlePolicy
+import ai.platon.browser4.api.model.*
+import ai.platon.browser4.chrome.PulsarWebDriver
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.AppConstants.VAR_CAPTURE
@@ -106,7 +106,7 @@ open class InteractiveBrowserEmulator(
     override fun cancelNow(task: FetchTask) {
         counterCancels.inc()
         task.cancel()
-        driverPoolManager.cancel(task.url)
+        // driverPoolManager.cancel(task.url)
     }
 
     /**
@@ -117,7 +117,7 @@ open class InteractiveBrowserEmulator(
     override suspend fun cancel(task: FetchTask) {
         counterCancels.inc()
         task.cancel()
-        driverPoolManager.cancel(task.url)
+        // driverPoolManager.cancel(task.url)
     }
 
     /**
@@ -310,7 +310,7 @@ open class InteractiveBrowserEmulator(
             exception = e
             response = ForwardingResponse.privacyRetry(task.page, "Illegal web driver")
         } catch (e: WebDriverException) {
-            if (e.cause is org.apache.http.conn.HttpHostConnectException) {
+            if (e.cause is java.net.ConnectException) {
                 logger.warn("Web driver is disconnected - {}", e.brief())
             } else {
                 logger.warn("[Unexpected] WebDriverException", e)
@@ -325,11 +325,6 @@ open class InteractiveBrowserEmulator(
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
             response = ForwardingResponse.crawlRetry(task.page, e)
-        } catch (e: Exception) {
-            // handleException(e, task, driver)
-            // Let the higher level to handle it
-            throw e
-        } finally {
         }
 
         return FetchResult(task, response ?: ForwardingResponse(exception, task.page), exception)
@@ -349,7 +344,6 @@ open class InteractiveBrowserEmulator(
         val resourceLoader = page.conf["resource.loader", "jsoup"]
         val response = when (resourceLoader) {
             "web.driver" -> driver.loadResource(navigateTask.url)
-            "jsoup" -> NetworkResourceHelper.fromJsoup(driver.loadJsoupResource(navigateTask.url))
             else -> NetworkResourceHelper.fromJsoup(driver.loadJsoupResource(navigateTask.url))
         }
 
@@ -446,6 +440,7 @@ open class InteractiveBrowserEmulator(
             activeDOMUrls = interactResult.activeDOMMessage?.urls
             activeDomMetadata = interactResult.activeDOMMessage?.metadata
         }
+        // TODO: if the page is HTML, use driver.outerHTML(), otherwise, use driver.pageSource() and modify driver.pageSource() to return the actual content for non-HTML resources
         val content = driver.pageSource()
         // Note: originalContentLength is already set before willComputeFeature event, (if not removed by someone)
         navigateTask.originalContentLength = content?.length ?: 0
@@ -477,10 +472,15 @@ open class InteractiveBrowserEmulator(
 
         checkState(fetchTask, driver)
 
-        // href has the higher priority to locate a resource
+        // FetchTask.url is a normalized url that might be different from the FetchTask.href.
+        // FetchTask.href has the higher priority to locate a resource, since it is not normalized,
+        // A human being type navigate to a url in the following methods:
+        // 1. type a url in the browser's address bar
+        // 2. click an anchor on a web page with href attribute
+        // 3. other ways
         require(task.url == page.url)
-        val finalUrl = fetchTask.href ?: fetchTask.url
-        val navigateEntry = NavigateEntry(finalUrl, page.id, task.url, pageReferrer = page.referrer)
+        val userTypedUrl = fetchTask.href ?: fetchTask.url
+        val navigateEntry = NavigateEntry(userTypedUrl, page.id, task.url, pageReferrer = page.referrer)
 
         emit1(EmulateEvents.willNavigate, page, driver)
 
@@ -529,11 +529,16 @@ open class InteractiveBrowserEmulator(
         // TODO: driver.pageSource() might be huge so there might be a performance issue
         task.originalContentLength = driver.pageSource()?.length ?: 0
 
-        // js might not injected
-//        if (result.state.isContinue) {
-//            emit1(EmulateEvents.willComputeFeature, page, driver)
-//            emit1(EmulateEvents.featureComputed, page, driver)
-//        }
+        // Compute document features so that vi (visual-information) attributes are
+        // injected into the DOM.  These attributes contain bounding-box data
+        // ("x y w h") and are required by downstream consumers such as
+        // html_snapshot_capture (computeInteractiveWeights) and html_snapshot_inspect
+        // (PowerCSS :expr() selectors).
+        if (result.state.isContinue) {
+            val interactTask = InteractTask(task, settings, driver)
+            runCatching { computeDocumentFeatures(interactTask, result) }
+                .onFailure { logger.warn("Failed to compute document features during capture: {}", it.message) }
+        }
 
         return result
     }
@@ -627,11 +632,11 @@ open class InteractiveBrowserEmulator(
         val page = interactTask.page
         val driver = interactTask.driver
 
-        var n = 10
+        var n = MAX_JAVASCRIPT_INJECTION_RETRIES
         while (n-- > 0 && !isScriptInjected(driver)) {
-            delay(1000.milliseconds)
+            delay(JAVASCRIPT_INJECTION_POLL_MS.milliseconds)
             checkState(driver)
-            if (n < 5) {
+            if (n < MAX_JAVASCRIPT_INJECTION_RETRIES / 2) {
                 // TODO: Health checks should reside in the driver layer and be managed through a unified strategy
                 driver.healthy()
             }
@@ -649,7 +654,7 @@ open class InteractiveBrowserEmulator(
      * */
     protected suspend fun isScriptInjected(driver: WebDriver): Boolean {
         // Ensure __pulsar_utils__ is defined. For some type of pages, the script can not be injected.
-        val utils = driver.evaluate("typeof(__pulsar_utils__)")
+        val utils = driver.evaluate("typeof($PULSAR_UTILS_FUNCTION)")
         return utils == "function"
     }
 
@@ -666,19 +671,24 @@ open class InteractiveBrowserEmulator(
         val fetchTask = interactTask.navigateTask.fetchTask
         val scrollCount = interactTask.interactSettings.autoScrollCount
 
-        val initialScroll = if (scrollCount > 0) 5 else 0
-        val delayMillis = 500L * 2
-//        val maxRound = scriptTimeout.toMillis() / delayMillis
-        val maxRound = 60
+        val initialScroll = if (scrollCount > 0) INITIAL_SCROLL_WHEN_SCROLL_ENABLED else 0
+        val delayMillis = DOCUMENT_SETTLE_POLL_MS
+        val maxRound = (scriptTimeout.toMillis() / delayMillis)
+            .toInt().coerceAtMost(MAX_DOCUMENT_SETTLE_ROUNDS)
 
         // TODO: wait for expected data, ni, na, nn, nst, etc; required element
-        val expression = String.format("__pulsar_utils__.waitForReady(%d)", initialScroll)
+        val expression = String.format("$PULSAR_UTILS_FUNCTION.waitForReady(%d)", initialScroll)
         var i = 0
         var message: Any? = null
         try {
             var msg: Any? = null
             while ((msg == null || msg == false) && i++ < maxRound && isActive && !fetchTask.isCanceled) {
-                msg = evaluate(interactTask, expression)
+                msg = try {
+                    evaluate(interactTask, expression)
+                } catch (e: RuntimeException) {
+                    logger.debug("Failed to evaluate '{}' at attempt {}: {}", expression, i, e.message)
+                    null
+                }
 
                 if (msg == null || msg == false) {
                     delay(delayMillis.milliseconds)
@@ -719,14 +729,20 @@ open class InteractiveBrowserEmulator(
         val driver = interactTask.driver
         require(driver is PulsarWebDriver)
 
-        val pollMillis = 200L
-        val maxRound = 60_000 / pollMillis
+        val pollMillis = NETWORK_IDLE_POLL_MS
+        val maxRound = NETWORK_IDLE_TOTAL_MS / pollMillis
         var i = 0
-        while (i++ < maxRound) {
+        while (i++ < maxRound && isActive && !interactTask.navigateTask.fetchTask.isCanceled) {
             if (driver.isNetworkIdle) {
                 break
             }
             delay(pollMillis.milliseconds)
+        }
+
+        if (!isActive || interactTask.navigateTask.fetchTask.isCanceled) {
+            result.protocolStatus = ProtocolStatus.retry(RetryScope.PRIVACY, "Task canceled during network idle wait")
+            result.state = FlowState.BREAK
+            return
         }
 
         result.protocolStatus = ProtocolStatus.STATUS_SUCCESS
@@ -747,8 +763,9 @@ open class InteractiveBrowserEmulator(
             }
             val scrollInterval = interactSettings.scrollInterval.toMillis()
             // evaluate(interactTask, positions, scrollInterval, bringToFront = bringToFront)
-            positions.forEach {
-                driver.scrollToMiddle(it)
+            for (position in positions) {
+                checkState(interactTask.navigateTask.fetchTask, driver)
+                driver.scrollToMiddle(position)
                 delay(scrollInterval.milliseconds)
             }
         }
@@ -777,7 +794,7 @@ open class InteractiveBrowserEmulator(
     protected open suspend fun waitForElementUntilNonBlank(
         interactTask: InteractTask, requiredElements: List<String>,
     ) {
-        if (requiredElements.isNotEmpty()) {
+        if (requiredElements.isEmpty()) {
             return
         }
 
@@ -795,7 +812,7 @@ open class InteractiveBrowserEmulator(
     }
 
     protected open suspend fun computeDocumentFeatures(interactTask: InteractTask, result: InteractResult) {
-        val expression = "__pulsar_utils__.compute()"
+        val expression = "$PULSAR_UTILS_FUNCTION.compute()"
         val message = evaluate(interactTask, expression)
 
         if (message is String) {
@@ -805,5 +822,16 @@ open class InteractiveBrowserEmulator(
                 taskLogger.debug("{}. {} | {}", page.id, result.activeDOMMessage?.trace, interactTask.url)
             }
         }
+    }
+
+    companion object {
+        private const val MAX_JAVASCRIPT_INJECTION_RETRIES = 10
+        private const val JAVASCRIPT_INJECTION_POLL_MS = 1000L
+        private const val MAX_DOCUMENT_SETTLE_ROUNDS = 60
+        private const val DOCUMENT_SETTLE_POLL_MS = 1000L
+        private const val NETWORK_IDLE_POLL_MS = 200L
+        private const val NETWORK_IDLE_TOTAL_MS = 60_000L
+        private const val PULSAR_UTILS_FUNCTION = "__pulsar_utils__"
+        private const val INITIAL_SCROLL_WHEN_SCROLL_ENABLED = 5
     }
 }

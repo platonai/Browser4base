@@ -1,11 +1,11 @@
 package ai.platon.pulsar.protocol.browser.driver
 
-import ai.platon.pulsar.browser.AbstractWebDriver
-import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.browser.common.BrowserLaunchException
-import ai.platon.pulsar.browser.common.BrowserUnavailableException
-import ai.platon.pulsar.browser.common.WebDriverException
-import ai.platon.pulsar.browser.manage.BasicBrowserManager
+import ai.platon.browser4.api.AbstractWebDriver
+import ai.platon.browser4.api.BrowserId
+import ai.platon.browser4.api.manage.BasicBrowserManager
+import ai.platon.browser4.api.model.BrowserLaunchException
+import ai.platon.browser4.api.model.BrowserUnavailableException
+import ai.platon.browser4.api.model.WebDriverException
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.concurrent.PreemptChannelSupport
 import ai.platon.pulsar.common.config.AppConstants.DEFAULT_BROWSER_MAX_OPEN_TABS
@@ -63,7 +63,13 @@ open class WebDriverPoolManager constructor(
             return c.coerceAtMost(50)
         }
 
-    val idleTimeout = Duration.ofMinutes(18)
+    // Reduced from 18 minutes to 5 minutes — idle pools hold memory and
+    // browser processes; aggressive cleanup prevents resource leaks.
+    val idleTimeout = Duration.ofMinutes(5)
+
+    /** Max idle driver pools to retain before closing the oldest. */
+    @Volatile
+    var maxIdleDrivers: Int = 3
 
     val workingDriverPools get() = driverPoolPool.workingDriverPools
 
@@ -248,6 +254,29 @@ open class WebDriverPoolManager constructor(
     fun cancelAll(browserId: BrowserId) {
         val driverPool = workingDriverPools[browserId] ?: return
         driverPool.cancelAll()
+    }
+
+    /**
+     * Close all idle driver pools immediately.  Suitable for calling after a
+     * crawl batch completes to release browser processes and memory.
+     *
+     * @return the number of pools closed.
+     */
+    fun closeIdlePools(): Int {
+        var closed = 0
+        val idlePools = workingDriverPools.values.filter { it.isIdle }
+        for (pool in idlePools) {
+            try {
+                closeBrowserAccompaniedDriverPoolGracefully(pool.browserId, idleTimeout)
+                closed++
+            } catch (e: Exception) {
+                logger.warn("Failed to close idle pool {}: {}", pool.browserId, e.message)
+            }
+        }
+        if (closed > 0) {
+            logger.info("Closed {} idle driver pools", closed)
+        }
+        return closed
     }
 
     /**

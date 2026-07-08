@@ -1,7 +1,7 @@
 package ai.platon.pulsar.chrome.dom
 
 import ai.platon.pulsar.WebDriverTestBase
-import ai.platon.pulsar.browser.impl.BrowserProtocol
+import ai.platon.pulsar.api.impl.BrowserProtocol
 import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.chrome.dom.model.ElementRefCriteria
 import ai.platon.pulsar.chrome.dom.model.SnapshotOptions

@@ -15,11 +15,11 @@
  */
 package ai.platon.pulsar.protocol.browser.emulator.impl
 
-import ai.platon.pulsar.api.Browser
-import ai.platon.pulsar.api.BrowserManager
-import ai.platon.pulsar.browser.common.IllegalWebDriverStateException
-import ai.platon.pulsar.browser.common.WebDriverCancellationException
-import ai.platon.pulsar.browser.common.WebDriverException
+import ai.platon.browser4.api.Browser
+import ai.platon.browser4.api.BrowserManager
+import ai.platon.browser4.api.model.IllegalWebDriverStateException
+import ai.platon.browser4.api.model.WebDriverCancellationException
+import ai.platon.browser4.api.model.WebDriverException
 import ai.platon.pulsar.browser.privacy.PrivacyManager
 import ai.platon.pulsar.common.AppContext
 import ai.platon.pulsar.common.brief
@@ -28,15 +28,15 @@ import ai.platon.pulsar.common.stringify
 import ai.platon.pulsar.core.api.WebDriver
 import ai.platon.pulsar.persist.AbstractWebPage
 import ai.platon.pulsar.persist.WebPage
-import ai.platon.pulsar.protocol.browser.emulator.AbstractBrowserFetcher
-import ai.platon.pulsar.protocol.browser.emulator.BrowserEmulator
-import ai.platon.pulsar.protocol.browser.emulator.IncognitoBrowserFetcher
 import ai.platon.pulsar.skeleton.common.persist.ext.browseEventHandlers
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchResult
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
 import ai.platon.pulsar.skeleton.workflow.fetch.WebDriverFetcher
 import ai.platon.pulsar.skeleton.workflow.protocol.ForwardingResponse
 import ai.platon.pulsar.skeleton.workflow.protocol.Response
+import ai.platon.pulsar.skeleton.workflow.protocol.browser.AbstractBrowserFetcher
+import ai.platon.pulsar.skeleton.workflow.protocol.browser.BrowserEmulator
+import ai.platon.pulsar.skeleton.workflow.protocol.browser.IncognitoBrowserFetcher
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
 

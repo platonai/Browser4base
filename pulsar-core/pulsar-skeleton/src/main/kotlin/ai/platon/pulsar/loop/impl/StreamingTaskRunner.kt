@@ -479,7 +479,7 @@ open class StreamingTaskRunner(
          * If the privacy context leaks too fast, there is a good chance that there is a bug,
          * or the quality of this batch of proxy IPs is poor.
          * */
-        val contextLeaksRate = AbstractPrivacyContext.globalMetrics.contextLeaks.meter.fifteenMinuteRate
+        val contextLeaksRate = ai.platon.pulsar.browser.privacy.AbstractPrivacyContext.globalMetrics.contextLeaks.meter.fifteenMinuteRate
         if (isActive && contextLeaksRate >= 5 / 60f) {
             globalState.criticalWarning = CriticalWarning.FAST_CONTEXT_LEAK
             handleContextLeaks()

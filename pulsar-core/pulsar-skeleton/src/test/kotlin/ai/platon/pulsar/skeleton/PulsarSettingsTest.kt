@@ -1,7 +1,7 @@
 package ai.platon.pulsar.skeleton
 
-import ai.platon.pulsar.browser.InteractSettings
-import ai.platon.pulsar.browser.common.DisplayMode
+import ai.platon.pulsar.api.InteractSettings
+import ai.platon.pulsar.api.common.DisplayMode
 import ai.platon.pulsar.common.browser.InteractLevel
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

@@ -1,7 +1,7 @@
 package ai.platon.pulsar.chrome.dom
 
 import ai.platon.pulsar.WebDriverTestBase
-import ai.platon.pulsar.browser.detail.SimpleScriptConfuser
+import ai.platon.pulsar.api.detail.SimpleScriptConfuser
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.serialize.json.prettyPulsarObjectMapper
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper

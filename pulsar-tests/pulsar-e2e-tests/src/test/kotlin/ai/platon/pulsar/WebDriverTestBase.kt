@@ -2,8 +2,8 @@ package ai.platon.pulsar
 
 import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.browser.common.BrowserSettings
-import ai.platon.pulsar.browser.detail.SimpleScriptConfuser
+import ai.platon.pulsar.api.common.BrowserSettings
+import ai.platon.pulsar.api.detail.SimpleScriptConfuser
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.dom.model.MergedDOMTreeNode
 import ai.platon.pulsar.chrome.dom.model.PageTarget
