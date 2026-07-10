@@ -17,7 +17,11 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
     /**
      * A frequency entry holding an element and its count.
      */
-    data class Entry<T>(val element: T, val count: Int)
+    data class Entry<T>(val element: T, val count: Int) {
+        override fun toString(): String {
+            return if (count > 1) "$element x $count" else "$element"
+        }
+    }
 
     /**
      * The underlying term counter

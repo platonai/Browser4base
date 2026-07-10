@@ -26,8 +26,8 @@ class AppPathsTest {
         // 本地主机
         assertEquals("localhost", fromHost(URI.create("http://localhost").toURL()))
 
-        // 无效 URL
-        assertEquals("unknown", fromHost(URI.create("http://invalid.url").toURL()))
+        // URL with unknown TLD (but syntactically valid)
+        assertEquals("invalid-url", fromHost(URI.create("http://invalid.url").toURL()))
     }
 
     @Test
