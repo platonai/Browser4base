@@ -1,10 +1,12 @@
 package ai.platon.pulsar.browser
 
 import ai.platon.pulsar.WebDriverTestBase
+import ai.platon.pulsar.api.AbstractWebDriver
+import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.handler.DirectChromeProtocol
+import ai.platon.pulsar.chrome.protocol.DirectChromeProtocol
 import ai.platon.pulsar.common.printlnPro
-import ai.platon.pulsar.core.api.WebDriver
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import kotlinx.coroutines.runBlocking

@@ -1,6 +1,7 @@
 package ai.platon.pulsar.browser
 
 import ai.platon.pulsar.WebDriverTestBase
+import ai.platon.pulsar.api.BrowserProfile
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.browser.ProfileHealthMonitor
 import ai.platon.pulsar.common.browser.fingerprint.BasicFingerprintGenerator
