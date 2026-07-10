@@ -1,6 +1,5 @@
 package ai.platon.pulsar.common
 
-import com.google.common.base.Predicates
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -184,13 +183,17 @@ fun sleep(duration: Duration) {
 }
 
 /** Always false and have no static check warning */
+@Suppress("RedundantLambdaArrow")
 fun alwaysFalse(): Boolean {
-    return Predicates.alwaysFalse<Boolean>().apply(false)
+    val predicate: (Boolean) -> Boolean = { false }
+    return predicate(false)
 }
 
 /** Always true and have no static check warning */
+@Suppress("RedundantLambdaArrow")
 fun alwaysTrue(): Boolean {
-    return Predicates.alwaysTrue<Boolean>().apply(true)
+    val predicate: (Boolean) -> Boolean = { true }
+    return predicate(true)
 }
 
 /**

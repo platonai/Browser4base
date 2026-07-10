@@ -6,7 +6,6 @@ import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.urls.Hyperlink
 import ai.platon.pulsar.common.urls.PlainUrl
 import ai.platon.pulsar.common.urls.UrlAware
-import com.google.common.primitives.Ints
 import org.apache.commons.collections4.queue.SynchronizedQueue
 import java.time.Duration
 import java.time.Instant
@@ -32,7 +31,8 @@ open class DelayUrl(
     constructor(url: String, delay: Duration): this(PlainUrl(url), delay)
 
     override fun compareTo(other: Delayed): Int {
-        return Ints.saturatedCast(delayExpireAt - (other as DelayUrl).delayExpireAt)
+        val diff = delayExpireAt - (other as DelayUrl).delayExpireAt
+        return diff.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
     }
 
     override fun getDelay(unit: TimeUnit): Long {

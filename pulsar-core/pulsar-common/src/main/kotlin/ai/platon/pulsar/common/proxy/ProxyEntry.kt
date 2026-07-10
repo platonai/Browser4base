@@ -5,7 +5,7 @@ import ai.platon.pulsar.common.ResourceLoader
 import ai.platon.pulsar.common.Strings
 import ai.platon.pulsar.common.readable
 import ai.platon.pulsar.common.urls.URLUtils
-import com.google.common.collect.ConcurrentHashMultiset
+import java.util.concurrent.ConcurrentHashMap
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.math.NumberUtils
 import org.apache.hc.core5.net.URIBuilder
@@ -111,7 +111,7 @@ open class ProxyEntry(
     val numFailedPages = AtomicInteger()
     // number of success pages
     val numSuccessPages = AtomicInteger()
-    val servedDomains = ConcurrentHashMultiset.create<String>()
+    val servedDomains = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
     val status = AtomicReference(Status.FREE)
     val testSpeed get() = accumResponseMillis.get() / numTests.get().coerceAtLeast(1) / 1000.0
     val ttl get() = declaredTTL ?: (availableTime + PROXY_EXPIRED)

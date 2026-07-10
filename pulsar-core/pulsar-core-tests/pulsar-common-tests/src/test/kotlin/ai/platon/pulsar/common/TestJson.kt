@@ -2,7 +2,6 @@ package ai.platon.pulsar.common
 
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
-import com.google.common.collect.Sets
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -24,7 +23,7 @@ class TestJson {
 
     @Test
     fun testCollection() {
-        val json = Pson.toJson(Sets.newHashSet(*urls))
+        val json = Pson.toJson(mutableSetOf(*urls))
         urls.forEach { url ->
             assertTrue(url) { json.contains(url) }
         }

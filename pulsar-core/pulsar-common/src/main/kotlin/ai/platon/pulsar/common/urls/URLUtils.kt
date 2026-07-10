@@ -4,7 +4,7 @@ package ai.platon.pulsar.common.urls
 
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.AppConstants.INTERNAL_URL_PREFIX
-import com.google.common.net.InternetDomainName
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.apache.commons.lang3.StringUtils
 import org.apache.hc.core5.net.URIBuilder
@@ -833,7 +833,12 @@ object URLUtils {
      * @return `true` if this domain name appears exactly on the public suffix list
      */
     fun isPublicSuffix(domain: String): Boolean {
-        return InternetDomainName.from(domain).isPublicSuffix
+        // A domain is a public suffix if a test subdomain produces a valid top private domain
+        // that includes the test subdomain itself (meaning domain is the public suffix part)
+        val testUrl = "http://test.$domain"
+        val httpUrl = testUrl.toHttpUrlOrNull() ?: return false
+        val topPrivate = httpUrl.topPrivateDomain() ?: return true
+        return topPrivate == domain
     }
 
     /**
@@ -842,15 +847,18 @@ object URLUtils {
      * @since 6.0
      */
     fun getPublicSuffix(url: String): String? {
-        val domain = getTopPrivateDomainOrNull(url) ?: return null
-        return InternetDomainName.from(domain).publicSuffix()?.toString()
+        val httpUrl = url.toHttpUrlOrNull() ?: return null
+        val host = httpUrl.host
+        val topPrivate = getTopPrivateDomainOrNull(url) ?: return null
+        if (host == topPrivate) return null
+        return host.removePrefix("$topPrivate.").substringAfterLast(".")
     }
 
     /**
      * Get the host's public suffix. For example, co.uk, com, etc.
      */
     fun getPublicSuffix(url: URL): String? {
-        return InternetDomainName.from(url.host).publicSuffix()?.toString()
+        return getPublicSuffix(url.toString())
     }
 
     /**
@@ -864,7 +872,7 @@ object URLUtils {
      * cookie controls. See <a href="http://www.ietf.org/rfc/rfc2109.txt">RFC 2109</a> for details.
      */
     fun isTopPrivateDomain(url: URL): Boolean {
-        return InternetDomainName.from(url.host).isTopPrivateDomain
+        return url.host == getTopPrivateDomain(url)
     }
 
     /**
@@ -881,7 +889,8 @@ object URLUtils {
      */
     @Throws(IllegalStateException::class)
     fun getTopPrivateDomain(url: URL): String {
-        return InternetDomainName.from(url.host).topPrivateDomain().toString()
+        return url.toString().toHttpUrl().topPrivateDomain()
+            ?: throw IllegalStateException("Not under a public suffix: ${url.host}")
     }
 
     /**

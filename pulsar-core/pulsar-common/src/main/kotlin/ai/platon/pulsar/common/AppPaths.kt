@@ -4,7 +4,7 @@ import ai.platon.pulsar.common.DateTimes.PATH_SAFE_FORMATTER_11
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.concurrent.ConcurrentExpiringLRUCache
 import ai.platon.pulsar.common.urls.URLUtils
-import com.google.common.net.InternetDomainName
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.lang3.RandomStringUtils
 import java.net.URL
@@ -401,7 +401,7 @@ object AppPaths {
         host = if (Strings.isIpLike(host) || Strings.isIpPortLike(host) || host == "localhost") {
             host
         } else {
-            runCatching { InternetDomainName.from(host).topPrivateDomain().toString() }.getOrNull() ?: "unknown"
+            runCatching { "http://$host".toHttpUrlOrNull()?.topPrivateDomain() }.getOrNull() ?: "unknown"
         }
 
         return host.replace('.', '-')

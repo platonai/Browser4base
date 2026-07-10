@@ -22,7 +22,6 @@ import ai.platon.pulsar.skeleton.workflow.component.ParseComponent
 import ai.platon.pulsar.skeleton.workflow.fetch.UrlStat
 import ai.platon.pulsar.skeleton.workflow.parse.html.JsoupParser
 import com.codahale.metrics.Gauge
-import com.google.common.collect.ConcurrentHashMultiset
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.time.Duration
@@ -31,6 +30,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class CoreMetrics(
     private val messageWriter: MiscMessageWriter,
@@ -115,7 +115,7 @@ class CoreMetrics(
     val movedUrls = ConcurrentSkipListSet<String>()
     val failedUrls = ConcurrentSkipListSet<String>()
     val deadUrls = ConcurrentSkipListSet<String>()
-    val failedHosts = ConcurrentHashMultiset.create<String>()
+    val failedHosts = ConcurrentHashMap<String, AtomicInteger>()
 
     private val registry = MetricsSystem.reg
 
@@ -241,7 +241,7 @@ class CoreMetrics(
 
         // The host is reachable
         unreachableHosts.remove(host)
-        failedHosts.remove(host)
+        failedHosts[host]?.let { it.set(0) }
 
         successFetchTasks.mark()
         finishedFetchTasks.mark()
@@ -326,8 +326,8 @@ class CoreMetrics(
             return false
         }
 
-        failedHosts.add(host, occurrences)
-        val failures = failedHosts.count(host)
+        failedHosts.computeIfAbsent(host) { AtomicInteger() }.addAndGet(occurrences)
+        val failures = failedHosts[host]?.get() ?: 0
         // Only the exception occurs for unknownHostEventCount, it's really add to the black list
         if (failures > maxHostFailureEvents) {
             unreachableHosts.add(host)
@@ -339,7 +339,7 @@ class CoreMetrics(
     }
 
     fun countHostTasks(host: String): Int {
-        val failedTasks = failedHosts.count(host)
+        val failedTasks = failedHosts[host]?.get() ?: 0
         val (_, numUrls) = urlStatistics[host] ?: return failedTasks
         return numUrls + failedTasks
     }

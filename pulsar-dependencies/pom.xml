@@ -84,14 +84,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Source: https://mvnrepository.com/artifact/com.google.guava/guava-bom -->
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava-bom</artifactId>
-                <version>${guava.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+
 
             <dependency>
                 <groupId>org.jetbrains.kotlin</groupId>
@@ -341,7 +334,7 @@
         <EvalEx.version>2.0</EvalEx.version>
         <jcommander.version>1.82</jcommander.version>
 
-        <guava.version>33.6.0-jre</guava.version>
+
 
         <!-- AI -->
         <langchain4j.version>1.15.0</langchain4j.version>

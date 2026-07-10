@@ -6,7 +6,7 @@ import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.ql.common.annotation.UDFGroup
 import ai.platon.pulsar.ql.common.annotation.UDFunction
 import ai.platon.pulsar.ql.common.types.ValueStringJSON
-import com.google.common.annotations.Beta
+import ai.platon.pulsar.common.ExperimentalApi
 import org.apache.commons.lang3.StringUtils
 import org.h2.value.*
 import java.sql.ResultSet
@@ -91,14 +91,14 @@ object CommonFunctions {
         return Pson.toJson(map)
     }
 
-    @Beta
+    @ExperimentalApi
     @UDFunction(description = "Create an empty ValueStringJSON initialized with '{}'")
     @JvmStatic
     fun makeValueStringJSON(): ValueStringJSON {
         return ValueStringJSON.get("{}")
     }
 
-    @Beta
+    @ExperimentalApi
     @UDFunction(description = "Create a ValueStringJSON from a JSON text string and a Java class name for deserialization")
     @JvmStatic
     fun makeValueStringJSON(jsonText: String, javaClassName: String): ValueStringJSON {

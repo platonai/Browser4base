@@ -12,7 +12,6 @@ import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.urls.URLUtils.reverseUrlOrEmpty
 import ai.platon.pulsar.persist.gora.generated.GWebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
-import com.google.common.collect.Lists
 import org.apache.avro.util.Utf8
 import org.junit.jupiter.api.AfterAll
 import org.slf4j.LoggerFactory
@@ -161,7 +160,7 @@ class TestGoraStorage {
         assertTrue(wrapper.isDirty)
         assertTrue(wrapper.isEmpty())
         val links = DirtyListWrapper(
-            Lists.newArrayList<CharSequence>(
+            mutableListOf<CharSequence>(
                 AppConstants.EXAMPLE_URL + "/-1",
                 AppConstants.EXAMPLE_URL + "/-2",
                 AppConstants.EXAMPLE_URL + "/1000000"

@@ -3,9 +3,8 @@ package ai.platon.pulsar.persist;
 import ai.platon.pulsar.common.DateTimes;
 import ai.platon.pulsar.common.HttpHeaders;
 import ai.platon.pulsar.common.SParser;
-import com.google.common.collect.Multimap;
-
 import java.io.UnsupportedEncodingException;
+import java.util.Collection;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -56,9 +55,14 @@ public class ProtocolHeaders implements HttpHeaders {
         }
     }
 
-    public void putAll(Multimap<String, String> map) {
-        for (Map.Entry<String, String> entry : map.entries()) {
-            put(entry.getKey(), entry.getValue());
+    /**
+     * Puts all entries from a multi-valued map (map of key to collection of values).
+     */
+    public void putAllMulti(Map<String, ? extends Collection<String>> map) {
+        for (Map.Entry<String, ? extends Collection<String>> entry : map.entrySet()) {
+            for (String value : entry.getValue()) {
+                put(entry.getKey(), value);
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package ai.platon.pulsar.common.collect.queue
 
-import com.google.common.collect.ConcurrentHashMultiset
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.*
 import java.util.concurrent.ConcurrentSkipListSet
 
@@ -8,9 +9,9 @@ open class ConcurrentNEntrantQueue<E>(
         val n: Int
 ): AbstractQueue<E>() {
     private val set = ConcurrentSkipListSet<E>()
-    private val historyHash = ConcurrentHashMultiset.create<Int>()
+    private val historyHash = ConcurrentHashMap<Int, AtomicInteger>()
 
-    open fun count(e: E) = historyHash.count(e.hashCode())
+    open fun count(e: E) = historyHash[e.hashCode()]?.get() ?: 0
 
     override fun add(e: E) = offer(e)
 
@@ -18,8 +19,8 @@ open class ConcurrentNEntrantQueue<E>(
         val hashCode = e.hashCode()
 
         synchronized(this) {
-            if (historyHash.count(hashCode) <= n) {
-                historyHash.add(hashCode)
+            if (historyHash[hashCode]?.get() ?: 0 <= n) {
+                historyHash.computeIfAbsent(hashCode) { AtomicInteger() }.incrementAndGet()
                 return set.add(e)
             }
         }

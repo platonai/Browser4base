@@ -16,7 +16,7 @@ import ai.platon.pulsar.skeleton.event.PageEventHandlers
 import ai.platon.pulsar.skeleton.workflow.common.DocumentCatch
 import ai.platon.pulsar.skeleton.workflow.common.GlobalCache
 import ai.platon.pulsar.skeleton.workflow.common.PageCatch
-import com.google.common.annotations.Beta
+import ai.platon.pulsar.common.ExperimentalApi
 import org.jsoup.nodes.Element
 import java.nio.ByteBuffer
 import java.nio.file.Path
@@ -493,7 +493,7 @@ interface PulsarSession : AutoCloseable {
      * @param url The url of the page to retrieve
      * @return The page content in string format or null
      */
-    @Beta
+    @ExperimentalApi
     fun getContentAsString(url: String): String?
 
     /**

@@ -20,9 +20,6 @@ import ai.platon.pulsar.common.DateTimes;
 import ai.platon.pulsar.common.DublinCore;
 import ai.platon.pulsar.common.HttpHeaders;
 import ai.platon.pulsar.common.config.AppConstants;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -33,9 +30,9 @@ import java.util.*;
 public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
 
     /**
-     * A map of all data attributes.
+     * A map of all data attributes. Each key maps to a list of values.
      */
-    private final Multimap<String, String> data = ArrayListMultimap.create();
+    private final Map<String, List<String>> data = new LinkedHashMap<>();
 
     /**
      * Constructs a new, empty data.
@@ -50,17 +47,20 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      * @return Metadata names
      */
     public Set<String> names() {
-        // Defensive copy: Guava's Multimap#keySet() is a view.
         return new LinkedHashSet<>(data.keySet());
     }
 
     /**
      * <p>asMultimap.</p>
      *
-     * @return a {@link com.google.common.collect.Multimap} object.
+     * @return a map from keys to collections of values.
      */
-    public Multimap<String, String> asMultimap() {
-        return data;
+    public Map<String, Collection<String>> asMultimap() {
+        Map<String, Collection<String>> result = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : data.entrySet()) {
+            result.put(entry.getKey(), Collections.unmodifiableCollection(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     /**
@@ -71,11 +71,11 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      * @return the value associated to the specified data name.
      */
     public String get(String name) {
-        Collection<String> values = data.get(name);
-        if (values.isEmpty()) {
+        List<String> values = data.get(name);
+        if (values == null || values.isEmpty()) {
             return null;
         } else {
-            return values.iterator().next();
+            return values.get(0);
         }
     }
 
@@ -107,7 +107,7 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      * @param value the data value.
      */
     public void put(String name, String value) {
-        data.put(name, value);
+        data.computeIfAbsent(name, k -> new ArrayList<>()).add(value);
     }
 
     /**
@@ -157,8 +157,10 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      * @param value a {@link java.lang.String} object.
      */
     public void set(String name, String value) {
-        data.removeAll(name);
-        data.put(name, value);
+        data.remove(name);
+        List<String> list = new ArrayList<>();
+        list.add(value);
+        data.put(name, list);
     }
 
     /**
@@ -211,7 +213,8 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      * Returns true if the data contains at least one value for the given name.
      */
     public boolean has(String name) {
-        return !data.get(name).isEmpty();
+        List<String> values = data.get(name);
+        return values != null && !values.isEmpty();
     }
 
     /**
@@ -220,9 +223,8 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      * @return number of removed values
      */
     public int remove(String name) {
-        int size = data.get(name).size();
-        data.removeAll(name);
-        return size;
+        List<String> removed = data.remove(name);
+        return removed != null ? removed.size() : 0;
     }
 
     /**
@@ -230,7 +232,9 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
      */
     public MultiMetadata copy() {
         MultiMetadata m = new MultiMetadata();
-        m.data.putAll(this.data);
+        for (Map.Entry<String, List<String>> entry : data.entrySet()) {
+            m.data.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
         return m;
     }
 
@@ -270,10 +274,10 @@ public class MultiMetadata implements DublinCore, HttpHeaders, AppConstants {
     public String toString() {
         StringBuilder buf = new StringBuilder();
         // Sort keys for stable output.
-        List<String> keys = Lists.newArrayList(data.keySet());
+        List<String> keys = new ArrayList<>(data.keySet());
         keys.sort(String::compareTo);
         for (String name : keys) {
-            List<String> values = Lists.newArrayList(data.get(name));
+            List<String> values = new ArrayList<>(data.get(name));
             buf.append(name).append("=").append(StringUtils.join(values, ",")).append(StringUtils.SPACE);
         }
         return buf.toString();

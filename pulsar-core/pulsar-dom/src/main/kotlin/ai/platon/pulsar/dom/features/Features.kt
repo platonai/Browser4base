@@ -7,7 +7,6 @@ import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.dom.nodes.V_OWNER_BODY
 import ai.platon.pulsar.dom.nodes.node.ext.getFeature
 import ai.platon.pulsar.dom.nodes.node.ext.name
-import com.google.common.collect.Iterables
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.math3.linear.RealVector
 import org.apache.commons.math3.util.Precision
@@ -205,7 +204,7 @@ object FeatureFormatter {
      */
     fun format(features: RealVector,
                featureKeys: Iterable<Int>, sb: StringBuilder = StringBuilder(), eps: Double = 0.001): StringBuilder {
-        val size = Iterables.size(featureKeys)
+        val size = featureKeys.count()
         if (size == 0) {
             for (i in FeatureRegistry.featureNames.indices) {
                 val value = features[i]

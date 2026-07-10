@@ -10,7 +10,7 @@ import ai.platon.pulsar.ql.h2.udas.GroupFetch
 import ai.platon.pulsar.ql.h2.udfs.*
 import ai.platon.pulsar.ql.session.AbstractSQLSession
 import ai.platon.pulsar.skeleton.context.support.AbstractPulsarContext
-import com.google.common.reflect.ClassPath
+import java.io.File
 import org.h2.api.Aggregate
 import org.h2.engine.Constants
 import org.h2.engine.SessionInterface
@@ -87,10 +87,8 @@ abstract class AbstractH2SQLSession(
 
     @Synchronized
     override fun registerUdfsInPackage(session: SessionInterface, classLoader: ClassLoader, packageName: String) {
-        val udfClasses = ClassPath.from(classLoader)
-            .getTopLevelClasses(packageName)
-            .map { it.load() }
-            .filter { it.annotations.any { it is UDFGroup } }
+        val udfClasses = getTopLevelClasses(packageName, classLoader)
+            .filter { it.kotlin.annotations.any { it is UDFGroup } }
 
         registeredAllUdfClasses.addAll(udfClasses)
         registeredAllUdfClasses.forEach { registerUdfs(session, it.kotlin) }
@@ -117,9 +115,27 @@ abstract class AbstractH2SQLSession(
     }
 
     private fun <T: Any> loadTopLevelClasses(clazz: KClass<T>): List<Class<*>> {
-        return ClassPath.from(clazz.java.classLoader)
-            .getTopLevelClasses(clazz.java.`package`.name)
-            .map { it.load() }
+        return getTopLevelClasses(clazz.java.`package`.name, clazz.java.classLoader)
+    }
+
+    private fun getTopLevelClasses(packageName: String, classLoader: ClassLoader): List<Class<*>> {
+        val path = packageName.replace('.', '/')
+        return try {
+            classLoader.getResources(path).toList().flatMap { resource ->
+                if (resource.protocol == "file") {
+                    val dir = File(resource.toURI())
+                    dir.listFiles()
+                        ?.filter { it.name.endsWith(".class") }
+                        ?.map { classLoader.loadClass("$packageName.${it.nameWithoutExtension}") }
+                        ?: emptyList()
+                } else {
+                    emptyList()
+                }
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to scan package: $packageName", e)
+            emptyList()
+        }
     }
 
     /**

@@ -1,6 +1,6 @@
 package ai.platon.pulsar.common.config;
 
-import com.google.common.annotations.Beta;
+import ai.platon.pulsar.common.ExperimentalApi;
 
 /**
  * Created by Vincent on 17-1-17.
@@ -176,7 +176,7 @@ public interface CapabilityTypes {
     String BROWSER_WEB_DRIVER_PRIORITY = "browser.web.driver.priority";
     String BROWSER_DRIVER_POOL_IDLE_TIMEOUT = "browser.driver.pool.idle.timeout";
     String BROWSER_TYPE = "browser.type";
-    @Beta
+    @ExperimentalApi
     String BROWSER_INCOGNITO = "browser.incognito";
     /**
      * The browser interact settings

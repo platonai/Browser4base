@@ -1,13 +1,14 @@
 package ai.platon.pulsar.common.concurrent
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * We use a GracefulScheduledExecutor because ScheduledExecutorService prevents the process from exiting.
@@ -92,13 +93,13 @@ abstract class GracefulScheduledExecutor(
     }
 
     companion object {
+        private val threadNum = AtomicInteger(0)
+
         private fun createDefaultExecutor(): ScheduledExecutorService {
-            val factory = ThreadFactoryBuilder().setNameFormat("em-%d")
-//                .setDaemon(true)
-                .build()
+            val factory: ThreadFactory = ThreadFactory { r ->
+                Thread(r, "em-" + threadNum.incrementAndGet())
+            }
             val service = Executors.newSingleThreadScheduledExecutor(factory)
-            // google guava's Executor implementations
-//            MoreExecutors.addDelayedShutdownHook(service, Duration.ofSeconds(1))
             return service
         }
     }

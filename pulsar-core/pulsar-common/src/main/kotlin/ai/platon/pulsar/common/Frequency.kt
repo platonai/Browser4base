@@ -1,11 +1,10 @@
 package ai.platon.pulsar.common
 
-import com.google.common.collect.ConcurrentHashMultiset
-import com.google.common.collect.Multiset.Entry
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -16,25 +15,30 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableCollection<T> {
     /**
+     * A frequency entry holding an element and its count.
+     */
+    data class Entry<T>(val element: T, val count: Int)
+
+    /**
      * The underlying term counter
      * */
-    private val counter = ConcurrentHashMultiset.create<T>()
+    private val counter = ConcurrentHashMap<T, AtomicInteger>()
     /**
      * The unique elements count
      * */
-    override val size: Int get() = entrySet().size
+    override val size: Int get() = counter.size
     /**
      * Total elements being added, i.e. the sum of all frequencies
      */
-    val totalFrequency: Int get() = counter.size
+    val totalFrequency: Int get() = counter.values.sumOf { it.get() }
     /**
      * The entry with the most frequency
      * */
-    val mostEntry: Entry<T> get() = entrySet().maxByOrNull { it.count }?:throw NoSuchElementException("Collection is empty.")
+    val mostEntry: Entry<T> get() = entrySet().maxByOrNull { it.count } ?: throw NoSuchElementException("Collection is empty.")
     /**
      * The entry with the least frequency
      * */
-    val leastEntry: Entry<T> get() = entrySet().minByOrNull { it.count }?:throw NoSuchElementException("Collection is empty.")
+    val leastEntry: Entry<T> get() = entrySet().minByOrNull { it.count } ?: throw NoSuchElementException("Collection is empty.")
     /**
      * The mode value
      * The mode of a sample is the element that occurs most often in the collection.
@@ -52,31 +56,41 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
     val modePercentage: Double get() = mostEntry.count.toDouble() / totalFrequency
 
     override fun add(element: T): Boolean {
-        return counter.add(element)
+        counter.computeIfAbsent(element) { AtomicInteger() }.incrementAndGet()
+        return true
     }
 
     override fun remove(element: T): Boolean {
-        return counter.remove(element)
+        val existing = counter[element] ?: return false
+        if (existing.decrementAndGet() <= 0) {
+            counter.remove(element)
+        }
+        return true
     }
 
     override fun containsAll(elements: Collection<T>): Boolean {
-        return counter.containsAll(elements)
+        return elements.all { counter.containsKey(it) }
     }
 
     override fun addAll(elements: Collection<T>): Boolean {
-        return counter.addAll(elements)
+        elements.forEach { add(it) }
+        return elements.isNotEmpty()
     }
 
     fun addAll(elements: Array<T>) {
-        elements.forEach { counter.add(it) }
+        elements.forEach { add(it) }
     }
 
     override fun removeAll(elements: Collection<T>): Boolean {
-        return counter.removeAll(elements)
+        var changed = false
+        elements.forEach { if (remove(it)) changed = true }
+        return changed
     }
 
     override fun retainAll(elements: Collection<T>): Boolean {
-        return counter.retainAll(elements)
+        val toRemove = counter.keys.filter { it !in elements }
+        toRemove.forEach { counter.remove(it) }
+        return toRemove.isNotEmpty()
     }
 
     override fun clear() {
@@ -88,23 +102,48 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
     }
 
     override operator fun contains(element: T): Boolean {
-        return counter.contains(element)
+        return counter.containsKey(element)
     }
 
     fun count(element: T): Int {
-        return counter.count(element)
+        return counter[element]?.get() ?: 0
     }
 
     fun entrySet(): Set<Entry<T>> {
-        return counter.entrySet()
+        return counter.map { (k, v) -> Entry(k, v.get()) }.toSet()
     }
 
     fun elementSet(): Set<T> {
-        return counter.elementSet()
+        return counter.keys
     }
 
     override fun iterator(): MutableIterator<T> {
-        return counter.iterator()
+        val entries = counter.entries.toList()
+        var idx = 0
+        var remaining = 0
+        var currentKey: T? = null
+
+        return object : MutableIterator<T> {
+            override fun hasNext(): Boolean {
+                while (remaining == 0 && idx < entries.size) {
+                    val entry = entries[idx]
+                    currentKey = entry.key
+                    remaining = entry.value.get()
+                    idx++
+                }
+                return remaining > 0
+            }
+
+            override fun next(): T {
+                if (!hasNext()) throw NoSuchElementException()
+                remaining--
+                return currentKey!!
+            }
+
+            override fun remove() {
+                throw UnsupportedOperationException()
+            }
+        }
     }
 
     /**
@@ -164,7 +203,6 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
             return 0
         }
 
-        // TODO: Can we avoid the new TreeSet?
         val elements = TreeSet(elementSet())
         if (v < elements.first()) {
             return 0 // less than first value
@@ -197,13 +235,13 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
         }
 
         val removal = HashSet<T>()
-        for (entry in counter.entrySet()) {
+        for (entry in entrySet()) {
             if (entry.count > a) {
                 removal.add(entry.element)
             }
         }
 
-        counter.removeAll(removal)
+        removal.forEach { counter.remove(it) }
 
         return removal.size
     }
@@ -222,12 +260,12 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
         }
 
         val removal = HashSet<T>()
-        for (entry in counter.entrySet()) {
+        for (entry in entrySet()) {
             if (entry.count < a) {
                 removal.add(entry.element)
             }
         }
-        counter.removeAll(removal)
+        removal.forEach { counter.remove(it) }
 
         return removal.size
     }
@@ -235,7 +273,7 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
     fun exportTo(path: Path) {
         val pw = PrintWriter(FileWriter(path.toFile()))
 
-        for (entry in counter.entrySet()) {
+        for (entry in entrySet()) {
             pw.print(entry.count)
             pw.print('\t')
             pw.print(entry.element)
@@ -256,7 +294,7 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
     fun toReport(prefix: String = "", postfix: String = ""): String {
         val sb = StringBuilder(prefix)
 
-        var maxLength = entrySet().map { it.element.toString().length }.maxOrNull()?:return ""
+        var maxLength = entrySet().map { it.element.toString().length }.maxOrNull() ?: return ""
         maxLength += 2
 
         sb.append(String.format("%-10s%${maxLength}s%10s%10s%10s\n", "", "Value", "Freq", "Pct", "Cum Pct"))
@@ -285,7 +323,7 @@ class Frequency<T : Comparable<T>>(val name: String = "#F$nextId"): MutableColle
     }
 
     override fun equals(other: Any?): Boolean {
-        return other is Frequency<*> && counter == other
+        return other is Frequency<*> && counter == other.counter
     }
 
     companion object {

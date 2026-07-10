@@ -1,8 +1,6 @@
 package ai.platon.pulsar.common
 
 import ai.platon.pulsar.common.concurrent.ConcurrentPassiveExpiringSet
-import com.google.common.collect.Iterables
-import com.google.common.math.IntMath
 import java.time.Duration
 import kotlin.test.*
 
@@ -22,7 +20,7 @@ class TestConcurrentPassiveExpiringSet {
         assertFalse(1 in set)
         
         IntRange(1, 100).toCollection(set)
-        set.map { IntMath.pow(it, 2) }.toCollection(set)
+        set.map { it * it }.toCollection(set)
         assertTrue { set.isNotEmpty() }
         assertTrue(121 in set)
         assertTrue(64 in set)
@@ -38,7 +36,8 @@ class TestConcurrentPassiveExpiringSet {
         val set = mutableSetOf<Int>()
         IntRange(1, 5).toCollection(set)
 
-        val iterator = Iterables.cycle(set).iterator()
+        val list = set.toList()
+        val iterator = generateSequence { list }.flatten().iterator()
         var value = iterator.next()
         assertEquals(1, value)
         var n = set.size

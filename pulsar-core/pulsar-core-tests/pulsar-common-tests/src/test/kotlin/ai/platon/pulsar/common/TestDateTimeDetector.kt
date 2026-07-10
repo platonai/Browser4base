@@ -1,7 +1,6 @@
 package ai.platon.pulsar.common
 
 import ai.platon.pulsar.common.DateTimes.parseInstant
-import com.google.common.collect.Lists
 import org.apache.commons.lang3.time.DateUtils
 import java.text.ParseException
 import java.time.*
@@ -122,7 +121,7 @@ class TestDateTimeDetector {
     fun testDetectDateTime() {
         val detector = DateTimeDetector()
         val zoneId = ZoneId.systemDefault()
-        val texts = Lists.newArrayList(
+        val texts = mutableListOf(
                 "2016-01-28 08:40:52来源： 财新网 作者：岳跃责任编辑：李箐",
                 "2016-06-26 13:41:14来源： 财新网 作者：王力为 王玲责任编辑：蒋飞",
                 "2016-08-09 09:32:50来源： 财新网 作者：董兢责任编辑：蒋飞",
