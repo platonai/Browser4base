@@ -1,4 +1,4 @@
-package ai.platon.browser4.api.model
+package ai.platon.pulsar.api.model
 
 import ai.platon.pulsar.common.js.JsUtils
 import org.junit.jupiter.api.Assertions.*

@@ -1,6 +1,6 @@
-package ai.platon.browser4.chrome.protocol
+package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.browser4.api.BrowserProtocol
+import ai.platon.pulsar.api.BrowserProtocol
 import javafx.scene.control.DialogEvent
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach

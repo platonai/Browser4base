@@ -1,8 +1,8 @@
 package ai.platon.pulsar.chrome.dom
 
 import ai.platon.pulsar.WebDriverTestBase
+import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.dom.model.*
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.prettyPulsarObjectMapper

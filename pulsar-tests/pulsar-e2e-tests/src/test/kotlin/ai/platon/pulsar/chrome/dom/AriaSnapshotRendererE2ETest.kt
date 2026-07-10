@@ -1,10 +1,10 @@
 package ai.platon.pulsar.chrome.dom
 
 import ai.platon.pulsar.WebDriverTestBase
-import ai.platon.pulsar.api.impl.BrowserProtocol
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.dom.model.PageTarget
-import ai.platon.pulsar.chrome.dom.model.SnapshotOptions
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag

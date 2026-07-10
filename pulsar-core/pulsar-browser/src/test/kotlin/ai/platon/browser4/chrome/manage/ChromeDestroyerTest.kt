@@ -1,6 +1,6 @@
-package ai.platon.browser4.chrome.manage
+package ai.platon.pulsar.chrome.manage
 
-import ai.platon.browser4.chrome.ChromeDestroyer
+import ai.platon.pulsar.chrome.ChromeDestroyer
 import ai.platon.pulsar.common.browser.BrowserFiles.CDP_URL_FILE_NAME
 import ai.platon.pulsar.common.browser.BrowserFiles.PID_FILE_NAME
 import ai.platon.pulsar.common.browser.BrowserFiles.PORT_FILE_NAME
@@ -10,7 +10,6 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.util.concurrent.TimeUnit
-import kotlin.jvm.java
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

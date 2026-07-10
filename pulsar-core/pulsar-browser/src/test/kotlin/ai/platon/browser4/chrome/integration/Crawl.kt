@@ -1,4 +1,4 @@
-package ai.platon.browser4.chrome.integration
+package ai.platon.pulsar.chrome.integration
 
 class Crawler: BrowserExampleBase() {
 

@@ -1,7 +1,7 @@
-package ai.platon.browser4.chrome
+package ai.platon.pulsar.chrome
 
-import ai.platon.browser4.api.model.BrowserSettings
-import ai.platon.browser4.api.scripting.DualWorldScriptLoader
+import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.scripting.DualWorldScriptLoader
 import ai.platon.pulsar.common.config.ImmutableConfig
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName

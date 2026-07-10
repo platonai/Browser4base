@@ -1,17 +1,19 @@
 package ai.platon.pulsar
 
-import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
+import ai.platon.pulsar.api.Browser
 import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.browser.common.BrowserSettings
-import ai.platon.pulsar.api.detail.SimpleScriptConfuser
+import ai.platon.pulsar.api.WebDriver
+import ai.platon.pulsar.api.manage.BrowserFactory
+import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
+import ai.platon.pulsar.api.scripting.SimpleScriptConfuser
+import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
-import ai.platon.pulsar.chrome.dom.model.MergedDOMTreeNode
-import ai.platon.pulsar.chrome.dom.model.PageTarget
-import ai.platon.pulsar.chrome.dom.model.SnapshotOptions
 import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.common.printlnPro
-import ai.platon.pulsar.core.api.Browser
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.protocol.browser.impl.DefaultBrowserFactory
 import ai.platon.pulsar.util.server.EnableMockServerApplication
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
@@ -43,15 +45,16 @@ open class WebDriverTestBase : MockSiteAccess() {
     fun initBrowser() {
         synchronized(isInitialized) {
             if (isInitialized.compareAndSet(false, true)) {
-                browser = browserManager.launchRandomTempBrowser()
+                browser = browserFactory.launchRandomTempBrowser()
                 browser.newDriver()
             }
         }
     }
 
-    val browserManager get() = context.browserManager
+    val browserFactory
+        get() = context.getBeanOrNull(BrowserFactory::class) ?: DefaultBrowserFactory(session.configuration)
 
-    open val webDriverService get() = FastWebDriverService(browserManager)
+    open val webDriverService get() = FastWebDriverService(browserFactory)
 
     val settings get() = BrowserSettings(session.sessionConfig)
     val confuser get() = settings.confuser as SimpleScriptConfuser

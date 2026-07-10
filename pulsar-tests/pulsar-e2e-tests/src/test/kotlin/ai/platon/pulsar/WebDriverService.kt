@@ -1,22 +1,23 @@
 package ai.platon.pulsar
 
+import ai.platon.pulsar.api.Browser
 import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.core.api.Browser
-import ai.platon.pulsar.core.api.BrowserManager
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.api.WebDriver
+import ai.platon.pulsar.api.manage.BrowserFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.apache.commons.lang3.StringUtils
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
 
 open class WebDriverService(
-    val browserManager: BrowserManager,
+    val browserFactory: BrowserFactory,
     val requiredPageSize: Int = 100
 ) {
     fun runWebDriverTest(block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
-            browserManager.launchRandomTempBrowser().use {
+            browserFactory.launchRandomTempBrowser().use {
                 it.newDriver().use { driver ->
                     block(driver)
                 }
@@ -26,7 +27,7 @@ open class WebDriverService(
 
     fun runWebDriverTest(browserId: BrowserId, block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
-            browserManager.launch(browserId, browserManager.settings).use {
+            browserFactory.launch(browserId).use {
                 it.newDriver().use { driver ->
                     block(driver)
                 }
@@ -36,7 +37,7 @@ open class WebDriverService(
 
     fun runWebDriverTest(url: String, block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
-            browserManager.launchRandomTempBrowser().use {
+            browserFactory.launchRandomTempBrowser().use {
                 it.newDriver().use { driver ->
                     open(url, driver)
                     block(driver)
@@ -56,7 +57,7 @@ open class WebDriverService(
 
     fun runEnhancedWebDriverTest(url: String, block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
-            browserManager.launchRandomTempBrowser().use {
+            browserFactory.launchRandomTempBrowser().use {
                 it.newDriver().use { driver ->
                     openEnhanced(url, driver)
 
@@ -98,19 +99,28 @@ open class WebDriverService(
 
     open suspend fun open(url: String, driver: WebDriver, scrollCount: Int = 3) {
         driver.navigate(url)
+
+        driver.waitForNavigation()
+        driver.waitForSelector("body")
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
+
         driver.waitForNavigation()
         var n = scrollCount
         while (n-- > 0) {
             driver.scrollDown(1)
-            delay(1000)
+            delay(1000.milliseconds)
         }
         driver.scrollToTop()
     }
 
     open suspend fun openEnhanced(url: String, driver: WebDriver, scrollCount: Int = 3) {
         driver.navigate(url)
+        driver.waitForNavigation()
         driver.waitForSelector("body")
-//        driver.waitForSelector("input[id]")
+
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
 
         // make sure all metadata are available
         driver.evaluate("__pulsar_utils__.waitForReady()")
@@ -121,7 +131,7 @@ open class WebDriverService(
         var n = scrollCount
         while (n-- > 0) {
             driver.scrollDown(1)
-            delay(1000.milliseconds)
+            delay(1000)
         }
         driver.scrollToTop()
 
@@ -132,12 +142,16 @@ open class WebDriverService(
 }
 
 open class FastWebDriverService(
-    browserManager: BrowserManager,
+    browserFactory: BrowserFactory,
     requiredPageSize: Int = 1
-) : WebDriverService(browserManager, requiredPageSize) {
+) : WebDriverService(browserFactory, requiredPageSize) {
     override suspend fun openEnhanced(url: String, driver: WebDriver, scrollCount: Int) {
         driver.navigate(url)
-        driver.delay(1000)
+
+        driver.waitForNavigation()
+        driver.waitForSelector("body")
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
 
         // make sure all metadata are available
         driver.evaluateDetail("__pulsar_utils__.waitForReady()")

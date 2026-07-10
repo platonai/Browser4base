@@ -1,19 +1,8 @@
-package ai.platon.browser4.api.model
+package ai.platon.pulsar.api.model
 
-import ai.platon.browser4.api.model.DOMSerializer
-import ai.platon.browser4.api.snapshot.NanoAriaSnapshotRenderer
-import ai.platon.browser4.chrome.dom.DOMStateBuilder
-import ai.platon.browser4.chrome.dom.model.AriaSnapshotOptions
-import ai.platon.pulsar.api.model.AXNodeEx
-import ai.platon.pulsar.api.model.AXPropertyEx
-import ai.platon.pulsar.api.model.CleanedDOMTreeNode
-import ai.platon.pulsar.api.model.DOMRect
-import ai.platon.pulsar.api.model.DOMState
-import ai.platon.pulsar.api.model.MergedDOMTreeNode
-import ai.platon.pulsar.api.model.NanoDOMTreeNode
-import ai.platon.pulsar.api.model.OptimizedDOMTreeNode
-import ai.platon.pulsar.api.model.SerializableDOMTreeNode
-import ai.platon.pulsar.api.model.SnapshotNodeEx
+import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
+import ai.platon.pulsar.chrome.dom.DOMStateBuilder
+import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName

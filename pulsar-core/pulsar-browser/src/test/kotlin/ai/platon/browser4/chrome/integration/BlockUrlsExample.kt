@@ -1,4 +1,4 @@
-package ai.platon.browser4.chrome.integration
+package ai.platon.pulsar.chrome.integration
 
 import ai.platon.cdt.kt.protocol.events.page.*
 import ai.platon.cdt.kt.protocol.support.types.EventHandler

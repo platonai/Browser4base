@@ -17,11 +17,11 @@
  * limitations under the License.
  * #L%
  */
-package ai.platon.browser4.chrome.protocol
+package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.browser4.chrome.protocol.transport.EventDispatcher
-import ai.platon.browser4.common.B4ResourceLoader
 import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
+import ai.platon.pulsar.chrome.protocol.transport.EventDispatcher
+import ai.platon.pulsar.common.B4ResourceLoader
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test

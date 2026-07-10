@@ -1,4 +1,4 @@
-package ai.platon.browser4.api
+package ai.platon.pulsar.api
 
 import ai.platon.pulsar.common.browser.InteractLevel
 import org.junit.jupiter.api.DisplayName

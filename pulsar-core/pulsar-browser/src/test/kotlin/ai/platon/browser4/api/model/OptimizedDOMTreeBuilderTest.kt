@@ -1,7 +1,7 @@
-package ai.platon.browser4.api.model
+package ai.platon.pulsar.api.model
 
-import ai.platon.browser4.chrome.dom.DOMStateBuilder
-import ai.platon.browser4.chrome.dom.impl.OptimizedDOMTreeBuilder
+import ai.platon.pulsar.chrome.dom.DOMStateBuilder
+import ai.platon.pulsar.chrome.dom.impl.OptimizedDOMTreeBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test

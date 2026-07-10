@@ -1,9 +1,8 @@
-package ai.platon.browser4.chrome.dom.util
+package ai.platon.pulsar.chrome.dom.util
 
-import ai.platon.browser4.api.model.DOMRect
-import ai.platon.browser4.api.model.MergedDOMTreeNode
-import ai.platon.browser4.api.model.SnapshotNodeEx
-import ai.platon.browser4.chrome.dom.util.ScrollUtils
+import ai.platon.pulsar.api.model.DOMRect
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
+import ai.platon.pulsar.api.model.SnapshotNodeEx
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test

@@ -1,6 +1,6 @@
-package ai.platon.browser4.chrome.manage
+package ai.platon.pulsar.chrome.manage
 
-import ai.platon.browser4.chrome.ChromeLauncher
+import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.common.browser.BrowserFiles.PID_FILE_NAME
 import org.apache.commons.lang3.SystemUtils
 import java.nio.file.Files

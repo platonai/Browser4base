@@ -1,6 +1,5 @@
-package ai.platon.browser4.chrome.protocol
+package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.browser4.chrome.protocol.normalizeKeyStringForPress
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

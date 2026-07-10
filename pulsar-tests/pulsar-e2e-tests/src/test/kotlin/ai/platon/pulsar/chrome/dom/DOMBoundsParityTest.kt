@@ -1,9 +1,9 @@
 package ai.platon.pulsar.chrome.dom
 
 import ai.platon.pulsar.WebDriverTestBase
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.dom.model.MergedDOMTreeNode
-import ai.platon.pulsar.chrome.dom.model.SnapshotOptions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
