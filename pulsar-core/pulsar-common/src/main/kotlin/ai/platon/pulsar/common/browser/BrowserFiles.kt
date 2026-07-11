@@ -1,7 +1,11 @@
 package ai.platon.pulsar.common.browser
 
-import ai.platon.pulsar.common.*
+import ai.platon.pulsar.common.AppPaths
+import ai.platon.pulsar.common.DateTimes
+import ai.platon.pulsar.common.browser.BrowserFiles.PID_FILE_NAME
 import ai.platon.pulsar.common.browser.fingerprint.Fingerprint
+import ai.platon.pulsar.common.getLogger
+import ai.platon.pulsar.common.sleepMillis
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils
 import java.io.IOException
@@ -214,7 +218,7 @@ object BrowserFiles {
         var retryCount = 0
         var result: Result<T> = runCatching { runWithFileLock0(lockFile, supplier) }
         while (result.isFailure && ++retryCount <= 3) {
-            sleepSeconds(500)
+            sleepMillis(500)
             result = runCatching { runWithFileLock0(lockFile, supplier) }
         }
 
