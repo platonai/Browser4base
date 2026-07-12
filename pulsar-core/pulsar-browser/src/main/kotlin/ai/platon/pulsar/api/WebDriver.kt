@@ -119,7 +119,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * @see [Document: referrer property](https://developer.mozilla.org/en-US/docs/Web/API/Document/referrer)
  * @see [Document: location property](https://developer.mozilla.org/en-US/docs/Web/API/Document/location)
  *
- * @see ai.platon.browser4.api.model.BrowserSettings
+ * @see ai.platon.pulsar.api.model.BrowserSettings
  */
 interface WebDriver : Closeable {
     /**

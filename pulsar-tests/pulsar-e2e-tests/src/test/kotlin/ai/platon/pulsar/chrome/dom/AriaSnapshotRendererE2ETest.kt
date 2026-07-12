@@ -43,10 +43,10 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
             val normalized = normalizeRefs(collectAriaSnapshot(service)).lowercase()
 
             assertTrue(normalized.contains("- region \"collapsed generic\" [ref=#]:"), normalized)
-            assertTrue(normalized.contains("- button \"collapsed button\" [ref=#]"), normalized)
+            assertTrue(normalized.contains("- button \"collapsed button\" [ref=#] [cursor=pointer]"), normalized)
             assertTrue(normalized.contains("- region \"nested cursor pointer\" [ref=#]:"), normalized)
             assertTrue(
-                normalized.contains("- link \"link with a button button\" [ref=#]:"),
+                normalized.contains("- link \"link with a button button\" [ref=#] [cursor=pointer]:"),
                 normalized
             )
             assertTrue(normalized.contains("- /url: about:blank"), normalized)
@@ -69,7 +69,7 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
         val service = CDPSnapshotService(driver.browserProtocol)
         val normalized = normalizeRefs(collectAriaSnapshot(service)).lowercase()
 
-        assertTrue(Regex("""- iframe.*\[ref=#]""").findAll(normalized).count() >= 2, normalized)
+        assertTrue(Regex("""- iframe \[ref=#]""").findAll(normalized).count() >= 2, normalized)
         assertTrue(!normalized.contains("whitelabel error page"), normalized)
     }
 
@@ -86,10 +86,7 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
     }
 
     private fun normalizeRefs(snapshot: String): String {
-        return snapshot
-            .replace(Regex("""\[ref=[^\]]+]"""), "[ref=#]")
-            .replace(Regex(""" \[box=[^\]]+]"""), "")
-            .replace(Regex(""" \[cursor=pointer]"""), "")
+        return snapshot.replace(Regex("""\[ref=[^\]]+]"""), "[ref=#]")
     }
 
     private suspend fun installRendererFixture(browserProtocol: BrowserProtocol) {
