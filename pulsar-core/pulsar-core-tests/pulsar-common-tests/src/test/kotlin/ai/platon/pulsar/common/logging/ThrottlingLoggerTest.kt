@@ -16,7 +16,9 @@ class ThrottlingLoggerTest {
     @BeforeEach
     fun setUp() {
         mockLogger = mock<Logger>()
-        logger = ThrottlingLogger(mockLogger, Duration.ofMillis(100), enableSuppressedCount = true)
+        // Use a generous TTL to avoid flaky test failures. Only the
+        // shouldAllowLoggingAfterTtlExpires test needs a short TTL.
+        logger = ThrottlingLogger(mockLogger, Duration.ofSeconds(10), enableSuppressedCount = true)
     }
 
     @Test
@@ -34,14 +36,15 @@ class ThrottlingLoggerTest {
     @Test
         @DisplayName("should allow logging after TTL expires")
     fun shouldAllowLoggingAfterTtlExpires() {
+        val shortTtlLogger = ThrottlingLogger(mockLogger, Duration.ofMillis(100))
         val format = "System warning: %s"
         val args = arrayOf("low memory")
 
-        logger.info(format, *args)
+        shortTtlLogger.info(format, *args)
 
-        Thread.sleep(150) // Wait past TTL
+        Thread.sleep(200) // Wait past the 100ms TTL with comfortable margin
 
-        logger.info(format, *args)
+        shortTtlLogger.info(format, *args)
 
         verify(mockLogger, times(2)).info(anyString())
     }
