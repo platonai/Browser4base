@@ -1,10 +1,10 @@
 package ai.platon.pulsar.chrome.integration
 
-import ai.platon.cdt.kt.protocol.events.tracing.DataCollected
-import ai.platon.cdt.kt.protocol.support.types.EventHandler
-import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.cdt.kt.protocol.events.tracing.DataCollected
+import ai.platon.cdt.kt.protocol.support.types.EventHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.nio.file.Paths
 

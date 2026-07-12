@@ -2,8 +2,8 @@ package ai.platon.pulsar.chrome.protocol
 
 import ai.platon.cdt.kt.protocol.types.page.CaptureScreenshotFormat
 import ai.platon.cdt.kt.protocol.types.page.Viewport
-import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.NodeRef
 import ai.platon.pulsar.common.AppContext
 import ai.platon.pulsar.common.getLogger

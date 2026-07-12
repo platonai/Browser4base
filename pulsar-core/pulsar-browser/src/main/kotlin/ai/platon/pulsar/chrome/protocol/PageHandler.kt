@@ -1,21 +1,25 @@
 package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.cdt.kt.protocol.types.dom.Rect
-import ai.platon.cdt.kt.protocol.types.page.Navigate
-import ai.platon.cdt.kt.protocol.types.page.ReferrerPolicy
-import ai.platon.cdt.kt.protocol.types.page.TransitionType
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.model.*
-import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
-import ai.platon.pulsar.api.snapshot.SnapshotService
-import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.IsolatedWorldManager
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
+import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.protocol.util.CheckableElementJs
 import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
 import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.pulsar.chrome.util.ChromeRPCException
+import ai.platon.cdt.kt.protocol.types.dom.Rect
+import ai.platon.cdt.kt.protocol.types.page.Navigate
+import ai.platon.cdt.kt.protocol.types.page.ReferrerPolicy
+import ai.platon.cdt.kt.protocol.types.page.TransitionType
+import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.model.BrowserUseState
+import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.AppContext
 import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.getLogger
@@ -205,7 +209,7 @@ class PageHandler constructor(
         val currentViewport = s.processingViewport
         return buildString {
             appendLine("# ---")
-            appendLine("# This page has ${s.viewportsTotal} viewports. You are currently viewing viewport $currentViewport.")
+            appendLine("# This page has ${s.viewportsTotal} viewports (page chunks split by viewport height). You are currently viewing viewport $currentViewport.")
             appendLine("# To read the page viewport by viewport (like a human scrolling):")
             if (currentViewport > 0) {
                 appendLine("#   snapshot -v 0          # view the top of the page")

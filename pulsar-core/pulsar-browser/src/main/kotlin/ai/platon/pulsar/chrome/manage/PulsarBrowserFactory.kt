@@ -1,12 +1,12 @@
 package ai.platon.pulsar.chrome.manage
 
-import ai.platon.pulsar.api.Browser
-import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.LauncherOptions
-import ai.platon.pulsar.api.manage.AbstractBrowserFactory
+import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.model.BrowserLaunchException
 import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.manage.AbstractBrowserFactory
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.config.ImmutableConfig
 

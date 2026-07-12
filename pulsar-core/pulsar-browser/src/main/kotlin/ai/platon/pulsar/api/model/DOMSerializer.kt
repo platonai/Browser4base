@@ -1,5 +1,6 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.common.serialize.json.doubleBindModule
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper

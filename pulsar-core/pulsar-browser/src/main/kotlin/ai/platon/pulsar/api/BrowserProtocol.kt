@@ -1,5 +1,7 @@
 package ai.platon.pulsar.api
 
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.protocol.DirectChromeProtocol
 import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.events.console.MessageAdded
 import ai.platon.cdt.kt.protocol.events.fetch.AuthRequired
@@ -33,9 +35,6 @@ import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
 import ai.platon.cdt.kt.protocol.types.runtime.RemoteObject
-import ai.platon.pulsar.chrome.RemoteDevTools
-import ai.platon.pulsar.chrome.protocol.DirectChromeProtocol
-
 interface BrowserProtocol {
     val isOpen: Boolean
 

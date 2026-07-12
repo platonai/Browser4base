@@ -1,5 +1,6 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import org.apache.commons.lang3.StringUtils
 
 open class Locator(

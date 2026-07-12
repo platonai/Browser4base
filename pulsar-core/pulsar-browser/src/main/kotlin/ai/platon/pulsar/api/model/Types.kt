@@ -1,5 +1,6 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.model.NetworkResourceResponse
 import org.jsoup.Connection
 import java.util.*
 

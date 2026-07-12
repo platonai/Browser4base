@@ -1,8 +1,8 @@
 package ai.platon.pulsar.chrome.integration
 
-import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.LauncherOptions
+import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.common.browser.BrowserFiles
 import ai.platon.pulsar.common.browser.BrowserFiles.CDP_URL_FILE_NAME
@@ -44,7 +44,7 @@ class ChromeImplLauncherTest {
         val launchOptions = ChromeOptions()
         launchOptions.headless = false
 
-        val userDataDir = BrowserFiles.computeTestContextDir()
+        val userDataDir = BrowserFiles.computeRandomTmpContextDir()
 
         val launcher = ChromeLauncher(userDataDir, options = LauncherOptions())
         launcher.use {
@@ -80,7 +80,7 @@ class ChromeImplLauncherTest {
         val launchOptions = ChromeOptions()
         launchOptions.headless = true
 
-        val userDataDir = BrowserFiles.computeTestContextDir()
+        val userDataDir = BrowserFiles.computeRandomTmpContextDir()
         val cdpUrlPath = userDataDir.resolveSibling(CDP_URL_FILE_NAME)
 
         val launcher = ChromeLauncher(userDataDir, options = LauncherOptions())
@@ -111,7 +111,7 @@ class ChromeImplLauncherTest {
         val launchOptions = ChromeOptions()
         launchOptions.headless = true
 
-        val userDataDir = BrowserFiles.computeTestContextDir()
+        val userDataDir = BrowserFiles.computeRandomTmpContextDir()
         val cdpUrlPath = userDataDir.resolveSibling(CDP_URL_FILE_NAME)
 
         // First launch

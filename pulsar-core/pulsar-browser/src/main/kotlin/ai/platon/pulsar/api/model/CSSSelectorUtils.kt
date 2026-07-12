@@ -1,5 +1,7 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
+import ai.platon.pulsar.api.model.NodeType
 import java.util.*
 
 object CSSSelectorUtils {

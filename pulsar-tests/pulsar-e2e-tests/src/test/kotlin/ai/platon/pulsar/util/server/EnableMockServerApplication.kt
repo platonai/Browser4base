@@ -6,7 +6,7 @@ import org.springframework.test.context.ContextConfiguration
 
 @SpringBootApplication(
     scanBasePackages = [
-        "ai.platon.browser4.boot.autoconfigure",
+        "ai.platon.pulsar.boot.autoconfigure",
         "ai.platon.pulsar.test.server"
     ]
 )

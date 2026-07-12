@@ -1,12 +1,12 @@
 package ai.platon.pulsar.chrome.protocol.transport
 
-import ai.platon.pulsar.api.model.BrowserTab
-import ai.platon.pulsar.api.model.ChromeVersion
-import ai.platon.pulsar.api.model.DevToolsConfig
 import ai.platon.pulsar.chrome.RemoteChrome
 import ai.platon.pulsar.chrome.RemoteDevTools
 import ai.platon.pulsar.chrome.util.ChromeIOException
 import ai.platon.pulsar.chrome.util.ChromeServiceException
+import ai.platon.pulsar.api.model.BrowserTab
+import ai.platon.pulsar.api.model.ChromeVersion
+import ai.platon.pulsar.api.model.DevToolsConfig
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory

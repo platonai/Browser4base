@@ -19,12 +19,12 @@
  */
 package ai.platon.pulsar.chrome.integration
 
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.ChromeOptions
-import ai.platon.pulsar.api.model.BrowserSettings
-import ai.platon.pulsar.api.model.DevToolsConfig
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.api.ChromeOptions
+import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.DevToolsConfig
 import ai.platon.pulsar.common.browser.BrowserFiles
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -39,7 +39,7 @@ abstract class BrowserExampleBase(val headless: Boolean = false): AutoCloseable 
     val launchOptions = ChromeOptions()
             .addArgument("window-size", formatViewPort())
             .also { it.headless = headless }
-    val userDataDir = BrowserFiles.computeTestContextDir()
+    val userDataDir = BrowserFiles.computeRandomTmpContextDir()
     val launcher = ChromeLauncher(userDataDir)
 
     val chrome = launcher.launch(launchOptions)

@@ -1,9 +1,9 @@
 package ai.platon.pulsar.api.manage
 
-import ai.platon.pulsar.api.Browser
-import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.LauncherOptions
+import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.model.BrowserLaunchException
 import ai.platon.pulsar.api.model.BrowserSettings
 import ai.platon.pulsar.common.browser.BrowserProfileMode

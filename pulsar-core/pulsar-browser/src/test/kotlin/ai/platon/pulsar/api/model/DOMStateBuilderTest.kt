@@ -1,5 +1,6 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.model.DOMSerializer
 import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
 import ai.platon.pulsar.chrome.dom.DOMStateBuilder
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions

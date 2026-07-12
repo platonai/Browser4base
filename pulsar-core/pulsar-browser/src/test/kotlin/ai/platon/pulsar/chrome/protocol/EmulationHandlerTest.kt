@@ -1,9 +1,9 @@
 package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.cdt.kt.protocol.types.dom.BoxModel
-import ai.platon.cdt.kt.protocol.types.page.LayoutMetrics
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.cdt.kt.protocol.types.dom.BoxModel
+import ai.platon.cdt.kt.protocol.types.page.LayoutMetrics
 import ai.platon.pulsar.common.math.geometric.PointD
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*

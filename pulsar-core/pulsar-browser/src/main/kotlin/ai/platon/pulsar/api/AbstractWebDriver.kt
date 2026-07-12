@@ -1,6 +1,10 @@
 package ai.platon.pulsar.api
 
-import ai.platon.pulsar.api.model.*
+import ai.platon.pulsar.api.model.NavigateEntry
+import ai.platon.pulsar.api.model.NavigateHistory
+import ai.platon.pulsar.api.model.NetworkResourceHelper
+import ai.platon.pulsar.api.model.WebDriverException
+import ai.platon.pulsar.api.model.NetworkResourceResponse
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.urls.Hyperlink
 import ai.platon.pulsar.common.urls.URLUtils

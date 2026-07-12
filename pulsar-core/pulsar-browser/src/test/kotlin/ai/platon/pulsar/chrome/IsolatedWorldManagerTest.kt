@@ -1,10 +1,8 @@
 package ai.platon.pulsar.chrome
 
-import ai.platon.cdt.kt.protocol.types.page.CrossOriginIsolatedContextType
-import ai.platon.cdt.kt.protocol.types.page.Frame
-import ai.platon.cdt.kt.protocol.types.page.GatedAPIFeatures
-import ai.platon.cdt.kt.protocol.types.page.SecureContextType
+import ai.platon.pulsar.chrome.IsolatedWorldManager
 import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.cdt.kt.protocol.types.page.*
 import ai.platon.pulsar.api.model.BrowserSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals

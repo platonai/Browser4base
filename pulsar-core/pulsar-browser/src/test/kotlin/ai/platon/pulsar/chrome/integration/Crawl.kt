@@ -1,5 +1,7 @@
 package ai.platon.pulsar.chrome.integration
 
+import ai.platon.pulsar.chrome.integration.BrowserExampleBase
+
 class Crawler: BrowserExampleBase() {
 
     override val testUrl = "https://ly.simuwang.com/"

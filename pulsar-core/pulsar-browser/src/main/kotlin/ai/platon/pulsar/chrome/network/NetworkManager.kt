@@ -1,5 +1,7 @@
 package ai.platon.pulsar.chrome.network
 
+import ai.platon.pulsar.chrome.util.ChromeRPCException
+import ai.platon.pulsar.chrome.util.Credentials
 import ai.platon.cdt.kt.protocol.events.fetch.AuthRequired
 import ai.platon.cdt.kt.protocol.events.fetch.RequestPaused
 import ai.platon.cdt.kt.protocol.events.network.*
@@ -8,8 +10,6 @@ import ai.platon.cdt.kt.protocol.types.fetch.AuthChallengeResponseResponse
 import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
 import ai.platon.cdt.kt.protocol.types.network.Response
 import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.chrome.util.ChromeRPCException
-import ai.platon.pulsar.chrome.util.Credentials
 import ai.platon.pulsar.common.DateTimes
 import ai.platon.pulsar.common.event.AbstractEventEmitter
 import ai.platon.pulsar.common.getLogger

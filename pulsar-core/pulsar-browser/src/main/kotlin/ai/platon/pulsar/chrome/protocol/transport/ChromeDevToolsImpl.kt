@@ -1,15 +1,17 @@
 package ai.platon.pulsar.chrome.protocol.transport
 
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.Transport
+import ai.platon.pulsar.chrome.util.*
 import ai.platon.cdt.kt.protocol.support.types.EventHandler
 import ai.platon.cdt.kt.protocol.support.types.EventListener
 import ai.platon.pulsar.api.model.DevToolsConfig
 import ai.platon.pulsar.api.model.MethodInvocation
-import ai.platon.pulsar.chrome.RemoteDevTools
-import ai.platon.pulsar.chrome.Transport
-import ai.platon.pulsar.chrome.util.*
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.readable
 import ai.platon.pulsar.common.warnForClose
+import ai.platon.pulsar.chrome.util.ProxyClasses
+import ai.platon.pulsar.chrome.util.SuspendAwareHandler
 import com.codahale.metrics.Gauge
 import com.codahale.metrics.SharedMetricRegistries
 import com.fasterxml.jackson.databind.JsonNode
@@ -94,7 +96,12 @@ internal abstract class ChromeDevToolsImpl(
         // Non-blocking
         val message = dispatcher.serialize(invocation.id, invocation.method, invocation.params, null)
 
-        val rpcResult = sendAndReceive(invocation.id, method, returnProperty, message) ?: return null
+        val rpcResult = sendAndReceive(invocation.id, method, returnProperty, message)
+        if (rpcResult == null) {
+            throw ChromeRPCTimeoutException(
+                "No response | $method | #${numInvokes.count}, (${config.readTimeout})"
+            )
+        }
         val jsonNode = rpcResult.result ?: return null
 
         return dispatcher.deserialize(returnClass.java, jsonNode)

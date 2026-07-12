@@ -1,8 +1,8 @@
 package ai.platon.pulsar.api
 
-import ai.platon.pulsar.api.manage.BrowserFactory
 import ai.platon.pulsar.api.model.BrowserLaunchException
 import ai.platon.pulsar.api.model.BrowserSettings
+import ai.platon.pulsar.api.manage.BrowserFactory
 import ai.platon.pulsar.common.browser.BrowserProfileMode
 
 interface BrowserManager : AutoCloseable {

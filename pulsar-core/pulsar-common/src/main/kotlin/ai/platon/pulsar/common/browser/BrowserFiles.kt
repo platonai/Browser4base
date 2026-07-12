@@ -62,6 +62,8 @@ object BrowserFiles {
     fun computeTestContextDir(fingerprint: Fingerprint = Fingerprint.DEFAULT, maxAgents: Int = 10): Path {
         val group = "test"
 
+        logger.warn("Might have deadlock issue, test is required")
+
         val lockFile = getContextGroupDirLockFile(group)
         return runWithFileLockWithRetry(lockFile) { channel ->
             computeNextSequentialContextDir0(group, fingerprint, maxAgents, channel = channel)

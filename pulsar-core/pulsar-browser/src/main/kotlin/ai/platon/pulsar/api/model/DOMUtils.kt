@@ -1,5 +1,9 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.model.DefaultIncludeAttributes
+import ai.platon.pulsar.api.model.MergedDOMTreeNode
+import ai.platon.pulsar.api.model.NodeType
+
 object DOMUtils {
 
     fun textContent(node: MergedDOMTreeNode): String {

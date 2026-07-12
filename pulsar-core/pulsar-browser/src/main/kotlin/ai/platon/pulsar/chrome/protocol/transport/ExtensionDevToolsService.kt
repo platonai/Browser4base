@@ -1,17 +1,20 @@
 package ai.platon.pulsar.chrome.protocol.transport
 
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.util.ChromeIOException
+import ai.platon.pulsar.chrome.util.ChromeRPCException
+import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.commands.*
 import ai.platon.cdt.kt.protocol.support.types.EventHandler
 import ai.platon.cdt.kt.protocol.support.types.EventListener
 import ai.platon.pulsar.api.model.BrowserTab
 import ai.platon.pulsar.api.model.MethodInvocation
-import ai.platon.pulsar.chrome.RemoteDevTools
-import ai.platon.pulsar.chrome.util.ChromeIOException
-import ai.platon.pulsar.chrome.util.ChromeRPCException
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.slf4j.LoggerFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.slf4j.LoggerFactory
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean

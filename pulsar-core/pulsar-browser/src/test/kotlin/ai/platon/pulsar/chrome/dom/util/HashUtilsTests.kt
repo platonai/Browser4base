@@ -1,5 +1,6 @@
 package ai.platon.pulsar.chrome.dom.util
 
+import ai.platon.pulsar.chrome.dom.util.HashUtils
 import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach

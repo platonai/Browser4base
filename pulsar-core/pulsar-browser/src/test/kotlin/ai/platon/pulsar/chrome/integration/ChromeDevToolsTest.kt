@@ -1,8 +1,8 @@
 package ai.platon.pulsar.chrome.integration
 
-import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.LauncherOptions
+import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.chrome.RemoteChrome
 import ai.platon.pulsar.chrome.RemoteDevTools
@@ -25,7 +25,7 @@ class ChromeDevToolsTest {
 
     @BeforeTest
     fun createDevTools() {
-        val userDataDir = BrowserFiles.computeTestContextDir()
+        val userDataDir = BrowserFiles.computeRandomTmpContextDir()
 
         launcher = ChromeLauncher(userDataDir, options = LauncherOptions())
         val options = ChromeOptions().also { it.noSandbox = true }

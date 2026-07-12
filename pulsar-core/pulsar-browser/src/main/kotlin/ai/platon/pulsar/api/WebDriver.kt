@@ -1,7 +1,16 @@
 package ai.platon.pulsar.api
 
-import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
+import ai.platon.pulsar.api.model.JsEvaluation
+import ai.platon.pulsar.api.model.NavigateEntry
+import ai.platon.pulsar.api.model.NavigateHistory
+import ai.platon.pulsar.api.model.WebDriverException
+import ai.platon.pulsar.api.model.NetworkResourceResponse
+import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.pulsar.api.model.BrowserUseState
+import ai.platon.pulsar.api.model.NanoDOMTree
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.CheckState
 import ai.platon.pulsar.common.ai.llm.MCP
 import ai.platon.pulsar.common.browser.BrowserType
@@ -10,7 +19,7 @@ import ai.platon.pulsar.common.math.geometric.RectD
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
 import ai.platon.pulsar.common.urls.Hyperlink
-import ai.platon.pulsar.common.ExperimentalApi
+
 import org.jsoup.Connection
 import java.io.Closeable
 import java.time.Duration
@@ -1543,7 +1552,6 @@ interface WebDriver : Closeable {
      * used by default.
      * @return a list of NodeRefs for the matched elements, or an empty list if no elements are matched or an error occurs.
      * */
-    @ExperimentalApi
     @Throws(WebDriverException::class)
     suspend fun querySelectorAll(selector: String): List<NodeRef>
 
@@ -1866,6 +1874,17 @@ interface WebDriver : Closeable {
     @Throws(WebDriverException::class)
     @MCP
     suspend fun evaluateValueDetail(expression: String): JsEvaluation?
+
+    /**
+     * Returns detailed value evaluation metadata with optional async await support.
+     *
+     * @param expression The JavaScript expression to evaluate.
+     * @param awaitPromise Whether to wait for the evaluated expression's Promise to resolve.
+     * @return A [JsEvaluation] object containing the result value and metadata.
+     * */
+    @Throws(WebDriverException::class)
+    @MCP
+    suspend fun evaluateValueDetail(expression: String, awaitPromise: Boolean): JsEvaluation?
 
     /**
      * Executes JavaScript for the element located by [selector] and returns the result as a JSON-serializable value. @mcp

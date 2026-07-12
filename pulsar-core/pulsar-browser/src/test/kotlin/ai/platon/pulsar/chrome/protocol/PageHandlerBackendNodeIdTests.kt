@@ -1,5 +1,7 @@
 package ai.platon.pulsar.chrome.protocol
 
+import org.junit.jupiter.api.DisplayName
+
 /**
  * Tests for backend node ID support in PageHandler selectors.
  *

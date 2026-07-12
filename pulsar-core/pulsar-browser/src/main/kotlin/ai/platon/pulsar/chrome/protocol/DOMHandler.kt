@@ -1,13 +1,13 @@
 package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.model.ElementRefCriteria
-import ai.platon.pulsar.api.model.Locator
-import ai.platon.pulsar.api.model.NodeRef
-import ai.platon.pulsar.api.snapshot.SnapshotService
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.util.CDPReturnError
 import ai.platon.pulsar.chrome.util.ChromeDriverException
+import ai.platon.pulsar.api.model.Locator
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.model.ElementRefCriteria
 import ai.platon.pulsar.common.Strings
 import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.getLogger

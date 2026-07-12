@@ -1,24 +1,8 @@
 package ai.platon.pulsar.chrome
 
-import ai.platon.cdt.kt.protocol.events.network.RequestWillBeSent
-import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
-import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
-import ai.platon.cdt.kt.protocol.events.page.WindowOpen
-import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
-import ai.platon.cdt.kt.protocol.types.network.Cookie
-import ai.platon.cdt.kt.protocol.types.network.ErrorReason
-import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
-import ai.platon.cdt.kt.protocol.types.network.ResourceType
-import ai.platon.cdt.kt.protocol.types.page.PrintToPDFTransferMode
-import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
-import ai.platon.pulsar.api.AbstractWebDriver
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.WebDriver
-import ai.platon.pulsar.api.model.*
-import ai.platon.pulsar.api.snapshot.SnapshotService
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
-import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.network.*
+import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.protocol.ClickableDOM
 import ai.platon.pulsar.chrome.protocol.EmulationHandler
 import ai.platon.pulsar.chrome.protocol.PageHandler
@@ -29,6 +13,29 @@ import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
 import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.pulsar.chrome.util.ChromeIOException
 import ai.platon.pulsar.chrome.util.Credentials
+import ai.platon.cdt.kt.protocol.events.network.RequestWillBeSent
+import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
+import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
+import ai.platon.cdt.kt.protocol.events.page.WindowOpen
+import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
+import ai.platon.cdt.kt.protocol.types.page.PrintToPDFTransferMode
+import ai.platon.cdt.kt.protocol.types.network.Cookie
+import ai.platon.cdt.kt.protocol.types.network.ErrorReason
+import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
+import ai.platon.cdt.kt.protocol.types.network.ResourceType
+import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
+import ai.platon.pulsar.api.AbstractWebDriver
+import ai.platon.pulsar.api.WebDriver
+import ai.platon.pulsar.api.model.*
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.BrowserTab
+import ai.platon.pulsar.api.model.NetworkResourceResponse
+import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.model.BrowserUseState
+import ai.platon.pulsar.api.model.NanoDOMTree
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.math.geometric.OffsetD
@@ -39,7 +46,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import ai.platon.pulsar.common.ExperimentalApi
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
@@ -346,8 +353,13 @@ open class PulsarWebDriver constructor(
 
     @Throws(WebDriverException::class)
     override suspend fun evaluateValueDetail(expression: String): JsEvaluation? {
+        return evaluateValueDetail(expression, awaitPromise = false)
+    }
+
+    @Throws(WebDriverException::class)
+    override suspend fun evaluateValueDetail(expression: String, awaitPromise: Boolean): JsEvaluation? {
         return rpc.invokeOnPage("evaluateValueDetail") {
-            val evaluate = js.evaluateValueDetail(expression)
+            val evaluate = js.evaluateValueDetail(expression, awaitPromise)
             driverHelper.createJsEvaluate(evaluate)
         }
     }
@@ -1009,7 +1021,6 @@ open class PulsarWebDriver constructor(
         return rpc.invokeDeferredSilently("ariaSnapshot") { page.ariaSnapshot(options) } ?: ""
     }
 
-    @ExperimentalApi
     @Throws(WebDriverException::class)
     override suspend fun querySelectorAll(selector: String): List<NodeRef> {
         return rpc.invokeOnPage("select") { page.dom.queryLocatorAll(selector) } ?: listOf()

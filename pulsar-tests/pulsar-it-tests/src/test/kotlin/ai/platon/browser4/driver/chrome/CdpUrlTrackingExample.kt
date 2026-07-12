@@ -1,8 +1,8 @@
-package ai.platon.pulsar.driver.chrome
+package ai.platon.browser4.driver.chrome
 
-import ai.platon.pulsar.chrome.ChromeLauncher
-import ai.platon.pulsar.api.ChromeOptions
-import ai.platon.pulsar.api.LauncherOptions
+import ai.platon.pulsar.browser.driver.chrome.ChromeLauncher
+import ai.platon.pulsar.browser.driver.chrome.common.ChromeOptions
+import ai.platon.pulsar.browser.driver.chrome.common.LauncherOptions
 import ai.platon.pulsar.common.browser.BrowserFiles
 import ai.platon.pulsar.common.browser.BrowserFiles.CDP_URL_FILE_NAME
 import java.nio.file.Files
@@ -17,7 +17,7 @@ import java.nio.file.Path
  * 3. How browser reuse works with the same userDataDir
  */
 fun main() {
-    val userDataDir = BrowserFiles.computeTestContextDir()
+    val userDataDir = BrowserFiles.computeRandomTmpContextDir()
     val cdpUrlPath = userDataDir.resolveSibling(CDP_URL_FILE_NAME)
 
     println("=".repeat(60))

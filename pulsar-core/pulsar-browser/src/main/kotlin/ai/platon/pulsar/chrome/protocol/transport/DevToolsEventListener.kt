@@ -1,10 +1,5 @@
 package ai.platon.pulsar.chrome.protocol.transport
 
-import ai.platon.cdt.kt.protocol.support.types.EventHandler
-import ai.platon.cdt.kt.protocol.support.types.EventListener
-import ai.platon.pulsar.api.model.BrowserTab
-import ai.platon.pulsar.api.model.ChromeVersion
-import ai.platon.pulsar.api.model.DevToolsConfig
 import ai.platon.pulsar.chrome.RemoteChrome
 import ai.platon.pulsar.chrome.RemoteDevTools
 import ai.platon.pulsar.chrome.Transport
@@ -12,6 +7,11 @@ import ai.platon.pulsar.chrome.util.ChromeIOException
 import ai.platon.pulsar.chrome.util.ChromeServiceException
 import ai.platon.pulsar.chrome.util.ProxyClasses
 import ai.platon.pulsar.chrome.util.SuspendAwareHandler
+import ai.platon.cdt.kt.protocol.support.types.EventHandler
+import ai.platon.cdt.kt.protocol.support.types.EventListener
+import ai.platon.pulsar.api.model.BrowserTab
+import ai.platon.pulsar.api.model.ChromeVersion
+import ai.platon.pulsar.api.model.DevToolsConfig
 import ai.platon.pulsar.common.NetUtil
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.warnForClose

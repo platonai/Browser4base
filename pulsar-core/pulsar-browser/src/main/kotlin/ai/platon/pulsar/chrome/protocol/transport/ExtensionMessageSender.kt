@@ -3,9 +3,9 @@ package ai.platon.pulsar.chrome.protocol.transport
 /**
  * Abstraction over a WebSocket connection to the Browser4 Chrome Extension.
  *
- * This interface lives in pulsar-core so that [ExtensionChromeService] and
+ * This interface lives in browser4-core so that [ExtensionChromeService] and
  * [ExtensionDevToolsService] do not depend on Spring WebSocket types.  The
- * concrete implementation in pulsar-rest wraps a
+ * concrete implementation in browser4-rest wraps a
  * `org.springframework.web.socket.WebSocketSession`.
  *
  * Incoming message routing is handled externally via

@@ -1,6 +1,12 @@
 package ai.platon.pulsar.chrome.integration
 
-import ai.platon.cdt.kt.protocol.events.page.*
+import ai.platon.cdt.kt.protocol.events.page.DomContentEventFired
+import ai.platon.cdt.kt.protocol.events.page.FrameAttached
+import ai.platon.cdt.kt.protocol.events.page.FrameDetached
+import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
+import ai.platon.cdt.kt.protocol.events.page.FrameStartedLoading
+import ai.platon.cdt.kt.protocol.events.page.FrameStoppedLoading
+import ai.platon.cdt.kt.protocol.events.page.LoadEventFired
 import ai.platon.cdt.kt.protocol.support.types.EventHandler
 import ai.platon.pulsar.common.AppFiles
 import ai.platon.pulsar.common.AppPaths

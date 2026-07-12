@@ -1,11 +1,15 @@
 package ai.platon.pulsar.chrome.manage
 
-import ai.platon.pulsar.api.*
-import ai.platon.pulsar.api.model.BrowserLaunchException
-import ai.platon.pulsar.api.model.BrowserSettings
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.chrome.PulsarBrowser
 import ai.platon.pulsar.chrome.util.ChromeLaunchException
+import ai.platon.pulsar.api.ChromeOptions
+import ai.platon.pulsar.api.LauncherOptions
+import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.BrowserId
+import ai.platon.pulsar.api.BrowserLauncher
+import ai.platon.pulsar.api.model.BrowserLaunchException
+import ai.platon.pulsar.api.model.BrowserSettings
 
 /**
  * A factory implementation to create browser instances.

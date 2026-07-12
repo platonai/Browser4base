@@ -1,12 +1,17 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
+import ai.platon.pulsar.api.model.BrowserSettings.Companion.VIEWPORT
+import ai.platon.pulsar.api.model.FBNLocator
+import ai.platon.pulsar.api.model.LocatorMap
+import ai.platon.pulsar.api.model.DOMSerializer
+import ai.platon.pulsar.api.model.CSSSelectorUtils
+import ai.platon.pulsar.api.model.DOMUtils
+import ai.platon.pulsar.api.snapshot.AriaSnapshotRenderer
+import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
 import ai.platon.pulsar.api.dom.InteractiveNodeListBuilder
 import ai.platon.pulsar.api.dom.InteractiveNodeListBuilder.Companion.estimatedSize
 import ai.platon.pulsar.api.dom.NanoDOMTreeBuilder
-import ai.platon.pulsar.api.model.BrowserSettings.Companion.VIEWPORT
-import ai.platon.pulsar.api.snapshot.AriaSnapshotRenderer
-import ai.platon.pulsar.api.snapshot.NanoAriaSnapshotRenderer
-import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
 import ai.platon.pulsar.common.math.geometric.DimI
 import ai.platon.pulsar.common.math.roundTo
 import ai.platon.pulsar.common.serialize.json.Pson

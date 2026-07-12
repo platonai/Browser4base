@@ -1,16 +1,16 @@
 package ai.platon.pulsar.chrome.network
 
+import ai.platon.pulsar.chrome.protocol.PageHandler
 import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
 import ai.platon.cdt.kt.protocol.types.network.Cookie
 import ai.platon.cdt.kt.protocol.types.network.ResourceType
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
-import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.api.model.JsEvaluation
 import ai.platon.pulsar.api.model.JsException
 import ai.platon.pulsar.api.model.NavigateEntry
-import ai.platon.pulsar.chrome.protocol.PageHandler
+import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.MultiSinkMessageWriter
 import ai.platon.pulsar.common.alwaysFalse
