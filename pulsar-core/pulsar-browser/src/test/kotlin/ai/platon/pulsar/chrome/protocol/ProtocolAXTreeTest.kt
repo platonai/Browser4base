@@ -19,9 +19,9 @@
  */
 package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.pulsar.chrome.protocol.transport.EventDispatcher
-import ai.platon.pulsar.common.B4ResourceLoader
 import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
+import ai.platon.pulsar.chrome.protocol.transport.EventDispatcher
+import ai.platon.pulsar.common.ResourceLoader
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -32,7 +32,7 @@ class ProtocolAXTreeTest {
     @DisplayName("Given AXTree json then deserialize correctly by OBJECT_MAPPER")
     fun givenAxtreeJsonThenDeserializeCorrectlyByObjectMapper() {
         val mapper = EventDispatcher.OBJECT_MAPPER
-        val json = B4ResourceLoader.readString("dom/AXTree.json")
+        val json = ResourceLoader.readString("dom/AXTree.json")
         val jsonNode = mapper.readTree(json)
         val jsonNodes = jsonNode.get("result").get("nodes")
         val nodes: List<AXNode> = mapper.readerFor(List::class.java).readValue(jsonNodes)
@@ -45,7 +45,7 @@ class ProtocolAXTreeTest {
     fun givenAxtreeJsonThenDeserializeCorrectlyByEventDispatcher() {
         val mapper = EventDispatcher.OBJECT_MAPPER
         val dispatcher = EventDispatcher()
-        val str = B4ResourceLoader.readString("dom/AXTree.json")
+        val str = ResourceLoader.readString("dom/AXTree.json")
         val json = dispatcher.patchMessageForProtocolChange(str)
         // printlnPro(this, json)
 
@@ -62,7 +62,7 @@ class ProtocolAXTreeTest {
     @DisplayName("Given AXTree json WITH BAD FIELDS then deserialize correctly by EventDispatcher")
     fun givenAxtreeJsonWithBadFieldsThenDeserializeCorrectlyByEventDispatcher() {
         val mapper = EventDispatcher.OBJECT_MAPPER
-        val json = B4ResourceLoader.readString("dom/AXTree.json")
+        val json = ResourceLoader.readString("dom/AXTree.json")
             .replace("uninteresting", "UNINTERESTINGREPLACEDFORTEST")
 
         val jsonNode = mapper.readTree(json)
