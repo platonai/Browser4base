@@ -3,9 +3,10 @@ package ai.platon.pulsar.common.proxy
 import ai.platon.pulsar.common.NetUtil
 import ai.platon.pulsar.common.ResourceLoader
 import ai.platon.pulsar.common.Strings
+import ai.platon.pulsar.common.proxy.ProxyEntry.Companion.deserialize
+import ai.platon.pulsar.common.proxy.ProxyEntry.Companion.parse
 import ai.platon.pulsar.common.readable
 import ai.platon.pulsar.common.urls.URLUtils
-import java.util.concurrent.ConcurrentHashMap
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.math.NumberUtils
 import org.apache.hc.core5.net.URIBuilder
@@ -17,6 +18,7 @@ import java.net.URL
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -111,7 +113,7 @@ open class ProxyEntry(
     val numFailedPages = AtomicInteger()
     // number of success pages
     val numSuccessPages = AtomicInteger()
-    val servedDomains = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+    val servedDomains = ConcurrentHashMap<String, AtomicInteger>()
     val status = AtomicReference(Status.FREE)
     val testSpeed get() = accumResponseMillis.get() / numTests.get().coerceAtLeast(1) / 1000.0
     val ttl get() = declaredTTL ?: (availableTime + PROXY_EXPIRED)
