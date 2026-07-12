@@ -20,7 +20,7 @@
     Depend on all production modules and test modules so that
     jacoco:report-aggregate can collect their class files and exec data.
 
-    Note: only pulsar-common, pulsar-plugins, pulsar-persist, pulsar-skeleton,
+    Note: only pulsar-common, pulsar-parse, pulsar-persist, pulsar-skeleton,
     pulsar-resources, and pulsar-protocol are managed by the parent POM's
     dependencyManagement. All others need explicit ${project.version}.
     -->

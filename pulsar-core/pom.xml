@@ -38,7 +38,8 @@
         <module>pulsar-dom</module>
         <module>pulsar-persist</module>
         <module>pulsar-persist-mongo</module>
-        <module>pulsar-plugins</module>
+        <module>pulsar-parse</module>
+        <module>pulsar-protocol</module>
         <module>pulsar-third</module>
         <module>pulsar-skeleton</module>
         <module>pulsar-browser</module>

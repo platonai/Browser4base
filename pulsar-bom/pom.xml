@@ -187,12 +187,6 @@
                 <version>${browser4.base.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>ai.platon.pulsar</groupId>
-                <artifactId>pulsar-plugins</artifactId>
-                <type>pom</type>
-                <version>${browser4.base.version}</version>
-            </dependency>
 
             <dependency>
                 <groupId>ai.platon.pulsar</groupId>
