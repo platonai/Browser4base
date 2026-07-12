@@ -42,6 +42,8 @@ import ai.platon.pulsar.skeleton.workflow.fetch.FetchResult
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
 import ai.platon.pulsar.skeleton.workflow.protocol.ForwardingResponse
 import ai.platon.pulsar.skeleton.workflow.protocol.Response
+import ai.platon.pulsar.skeleton.workflow.protocol.browser.BrowserEmulator
+import ai.platon.pulsar.skeleton.workflow.protocol.browser.EmulateEvents
 import ai.platon.pulsar.skeleton.workflow.protocol.http.ProtocolStatusTranslator
 import com.fasterxml.jackson.module.kotlin.readValue
 import kotlinx.coroutines.TimeoutCancellationException

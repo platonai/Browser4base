@@ -27,6 +27,7 @@ import ai.platon.pulsar.persist.model.ActiveDOMMessage
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
 import java.time.Duration
 import java.time.Instant
+import kotlin.jvm.java
 
 class NavigateTask constructor(
     val fetchTask: FetchTask,

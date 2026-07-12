@@ -21,7 +21,6 @@ import ai.platon.pulsar.skeleton.common.persist.ext.eventHandlers
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchResult
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
 import com.codahale.metrics.Gauge
-import ai.platon.pulsar.common.ExperimentalApi
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.time.Duration
@@ -29,6 +28,7 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.collections.isNotEmpty
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -163,13 +163,11 @@ open class WebDriverPoolManager constructor(
      * Subscribe a web driver in the pool specified by [browserId], the other subscriber
      * should not use the driver.
      * */
-    @ExperimentalApi
     fun subscribeDriver(browserId: BrowserId) = driverPoolPool.subscribeDriver(browserId)
 
     /**
      * Subscribe a web driver, the other subscriber should not use the driver.
      * */
-    @ExperimentalApi
     fun subscribeDriver() = driverPoolPool.subscribeDriver()
 
     /**

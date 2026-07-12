@@ -1,2 +1,0 @@
-# Custom protocols
-browser ai.platon.pulsar.protocol.browser.BrowserEmulatorProtocol custom=true
