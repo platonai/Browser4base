@@ -21,7 +21,7 @@ on:
 
 # Prevent concurrent releases
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -33,12 +33,10 @@ permissions:
 env:
   JAVA_VERSION: '17'
   MAVEN_OPTS: '-Xmx3g -XX:+UseG1GC'
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   ci-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -79,8 +77,7 @@ jobs:
         if: ${{ !inputs.skip_tests }}
         uses: ./.github/actions/run-tests
         with:
-          maven_profiles: 'tests-integration'
-          excluded_groups: 'Slow,SlowTest,Flaky,Manual,ManualOnly'
+          maven_profiles: 'tests-integration,tests-e2e'
           timeout_minutes: '35'
           report_name: 'release-test-reports'
 
@@ -89,7 +86,6 @@ jobs:
         uses: ./.github/actions/create-release-notes
         with:
           version: ${{ steps.version.outputs.version }}
-          tag_name: ${{ steps.version.outputs.tag }}
           java_version: ${{ env.JAVA_VERSION }}
           output_file: 'release_notes.md'
 
@@ -110,7 +106,6 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     needs: ci-build
     if: needs.ci-build.result == 'success'
     permissions:
@@ -174,20 +169,6 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Deploy Tooling
-        shell: bash
-        run: |
-          echo "::group::Installing Deploy Prerequisites"
-          if ! command -v jq &> /dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y jq
-          fi
-          if ! command -v python3 &> /dev/null; then
-            sudo apt-get install -y python3
-          fi
-          echo "✅ jq: $(jq --version)"
-          echo "✅ python3: $(python3 --version)"
-          echo "::endgroup::"
-
       - name: Set up JDK ${{ env.JAVA_VERSION }} for Deployment
         uses: actions/setup-java@v4
         with:
@@ -195,10 +176,10 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
           server-id: 'central'
-          server-username: ${{ secrets.CENTRAL_USERNAME }}
-          server-password: ${{ secrets.CENTRAL_PASSWORD }}
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          gpg-passphrase: GPG_PASSPHRASE
 
       - name: Prepare Maven Wrapper
         shell: bash
@@ -252,7 +233,6 @@ jobs:
 
           echo "=== Deploying to Maven Central ==="
           ./mvnw --batch-mode --no-transfer-progress deploy -P deploy,release -DskipTests \
-            -Dgpg.passphrase="$GPG_PASSPHRASE" \
             -Dgpg.batch=true \
             -Dgpg.pinentry-mode=loopback \
             --show-version --errors
@@ -268,30 +248,11 @@ jobs:
     steps:
       - name: Release Summary
         run: |
-          BUILD_RESULT="${{ needs.ci-build.result }}"
-          DEPLOY_RESULT="${{ needs.deploy.result }}"
-          TEST_OUTPUT="${{ needs.ci-build.outputs.test_results }}"
-
-          # When ci-build fails, GitHub Actions drops job outputs — but we can
-          # infer the test result from the job result and whether the step ran.
-          if [ "$BUILD_RESULT" == "failure" ]; then
-            if [ -n "$TEST_OUTPUT" ]; then
-              TEST_DISPLAY="$TEST_OUTPUT"
-            else
-              TEST_DISPLAY="failed (job failed, see logs)"
-            fi
-          elif [ "$BUILD_RESULT" == "success" ]; then
-            # Empty output when job succeeded → tests were skipped
-            TEST_DISPLAY="${TEST_OUTPUT:-skipped}"
-          else
-            TEST_DISPLAY="${TEST_OUTPUT:-unknown}"
-          fi
-
           echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | $BUILD_RESULT |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy | ${DEPLOY_RESULT:-skipped} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Results | $TEST_DISPLAY |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.ci-build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy | ${{ needs.deploy.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Results | ${{ needs.ci-build.outputs.test_results || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | ${{ needs.ci-build.outputs.version || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
