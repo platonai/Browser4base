@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Environment
         id: setup
@@ -77,6 +77,7 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           maven_profiles: 'tests-integration,tests-e2e'
+          excluded_groups: 'Slow,SlowTest,Flaky,Manual,ManualOnly'
           timeout_minutes: '35'
           report_name: 'release-test-reports'
 
@@ -90,7 +91,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
@@ -118,7 +119,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -169,17 +170,35 @@ jobs:
             exit 1
           fi
 
+      - name: Setup Deploy Tooling
+        shell: bash
+        run: |
+          echo "::group::Installing Deploy Prerequisites"
+          if ! command -v jq &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y jq
+          fi
+          if ! command -v python3 &> /dev/null; then
+            sudo apt-get install -y python3
+          fi
+          echo "✅ jq: $(jq --version)"
+          echo "✅ python3: $(python3 --version)"
+          echo "::endgroup::"
+
       - name: Set up JDK ${{ env.JAVA_VERSION }} for Deployment
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
           server-id: 'central'
-          server-username: CENTRAL_USERNAME
-          server-password: CENTRAL_PASSWORD
+#          server-username: CENTRAL_USERNAME
+#          server-password: CENTRAL_PASSWORD
+#          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+#          gpg-passphrase: GPG_PASSPHRASE
+          server-username: ${{ secrets.CENTRAL_USERNAME }}
+          server-password: ${{ secrets.CENTRAL_PASSWORD }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: GPG_PASSPHRASE
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Prepare Maven Wrapper
         shell: bash
