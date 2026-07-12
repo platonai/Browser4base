@@ -188,6 +188,8 @@ object NanoAriaSnapshotRenderer {
     private fun shouldIgnoreNode(node: NanoDOMTreeNode): Boolean {
         val nodeName = node.nodeName?.trim()?.lowercase(Locale.ROOT) ?: return false
         return nodeName == "script" || nodeName == "style"
+                || nodeName == "head" || nodeName == "title"
+                || nodeName == "meta" || nodeName == "link"
                 || nodeName == "#comment" || nodeName == "comment"
     }
 
