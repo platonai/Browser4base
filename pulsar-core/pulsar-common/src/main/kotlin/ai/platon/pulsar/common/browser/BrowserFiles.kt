@@ -49,28 +49,6 @@ object BrowserFiles {
     private val cleanedUserDataDirs = ConcurrentSkipListSet<Path>()
 
     /**
-     * Compute the next sequential test context directory.
-     * A typical context directory is like: /tmp/pulsar-vincent/context/group/test/cx.001
-     *
-     * @param fingerprint The fingerprint
-     * @param maxAgents The maximum number of available agents, every agent has its own context directory
-     * @return The next sequential context directory
-     * @throws IOException If some I/O error occurs.
-     * */
-    @Throws(IOException::class)
-    @Synchronized
-    fun computeTestContextDir(fingerprint: Fingerprint = Fingerprint.DEFAULT, maxAgents: Int = 10): Path {
-        val group = "test"
-
-        logger.warn("Might have deadlock issue, test is required")
-
-        val lockFile = getContextGroupDirLockFile(group)
-        return runWithFileLockWithRetry(lockFile) { channel ->
-            computeNextSequentialContextDir0(group, fingerprint, maxAgents, channel = channel)
-        }
-    }
-
-    /**
      * Compute the next sequential context directory.
      * A typical context directory is like: /tmp/pulsar-vincent/context/group/default/cx.001
      *

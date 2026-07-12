@@ -1,7 +1,5 @@
 package ai.platon.pulsar.api
 
-import ai.platon.pulsar.chrome.RemoteDevTools
-import ai.platon.pulsar.chrome.protocol.DirectChromeProtocol
 import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.events.console.MessageAdded
 import ai.platon.cdt.kt.protocol.events.fetch.AuthRequired
@@ -35,6 +33,9 @@ import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
 import ai.platon.cdt.kt.protocol.types.runtime.RemoteObject
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.protocol.DirectChromeProtocol
+
 interface BrowserProtocol {
     val isOpen: Boolean
 
@@ -284,6 +285,18 @@ interface BrowserProtocol {
     suspend fun setIgnoreCertificateErrors(ignore: Boolean)
 
     fun onConsoleMessageAdded(handler: suspend (MessageAdded) -> Unit): EventListener
+
+    /**
+     * Sends an arbitrary Chrome DevTools Protocol (CDP) command and returns the result.
+     *
+     * This method allows sending raw CDP commands (e.g. "Page.navigate", "Runtime.evaluate") that
+     * are not directly exposed through the typed BrowserProtocol interface.
+     *
+     * @param method The full CDP method name (e.g. "Page.captureScreenshot", "DOM.getDocument").
+     * @param params Optional parameters for the CDP command.
+     * @return The deserialized result (Map for objects, List for arrays, or primitive), or null.
+     */
+    suspend fun executeCdpCommand(method: String, params: Map<String, Any?>? = null): Any?
 
     fun awaitTermination(): Unit
 

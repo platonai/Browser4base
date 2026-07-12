@@ -1,16 +1,7 @@
 package ai.platon.pulsar.api
 
+import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
-import ai.platon.pulsar.api.model.JsEvaluation
-import ai.platon.pulsar.api.model.NavigateEntry
-import ai.platon.pulsar.api.model.NavigateHistory
-import ai.platon.pulsar.api.model.WebDriverException
-import ai.platon.pulsar.api.model.NetworkResourceResponse
-import ai.platon.pulsar.api.model.NodeRef
-import ai.platon.pulsar.api.model.BrowserUseState
-import ai.platon.pulsar.api.model.NanoDOMTree
-import ai.platon.pulsar.api.model.PageTarget
-import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.CheckState
 import ai.platon.pulsar.common.ai.llm.MCP
 import ai.platon.pulsar.common.browser.BrowserType
@@ -19,7 +10,6 @@ import ai.platon.pulsar.common.math.geometric.RectD
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
 import ai.platon.pulsar.common.urls.Hyperlink
-
 import org.jsoup.Connection
 import java.io.Closeable
 import java.time.Duration
@@ -129,7 +119,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * @see [Document: referrer property](https://developer.mozilla.org/en-US/docs/Web/API/Document/referrer)
  * @see [Document: location property](https://developer.mozilla.org/en-US/docs/Web/API/Document/location)
  *
- * @see ai.platon.pulsar.api.model.BrowserSettings
+ * @see ai.platon.browser4.api.model.BrowserSettings
  */
 interface WebDriver : Closeable {
     /**
@@ -1907,6 +1897,32 @@ interface WebDriver : Closeable {
     @Throws(WebDriverException::class)
     @MCP
     suspend fun evaluateValueDetail(selector: String, functionDeclaration: String): JsEvaluation?
+
+    /**
+     * Execute a Chrome DevTools Protocol (CDP) command and return the deserialized result. @mcp
+     *
+     * This is an extension point for advanced scenarios that are not yet covered by
+     * the high-level WebDriver API. Use it to issue arbitrary CDP commands directly
+     * against the current page target.
+     *
+     * The return value is the deserialized CDP response (Map, List, String, Number, Boolean, or null).
+     *
+     * Example:
+     * ```kotlin
+     * // Screenshot the page as JPEG
+     * val result = driver.executeCdpCommand("Page.captureScreenshot", mapOf("format" to "jpeg", "quality" to 80))
+     *
+     * // Get all cookies
+     * val cookies = driver.executeCdpCommand("Network.getCookies")
+     * ```
+     *
+     * @param method The full CDP method name (e.g. "Page.captureScreenshot").
+     * @param params Optional parameters for the CDP command.
+     * @return The deserialized result (Map for objects, List for arrays, or primitive), or null.
+     */
+    @Throws(WebDriverException::class)
+    @MCP
+    suspend fun executeCdpCommand(method: String, params: Map<String, Any?>? = null): Any?
 
     /**
      * Generates a unique CSS selector path for the element located by [selector]. @mcp

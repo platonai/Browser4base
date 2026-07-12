@@ -1,8 +1,24 @@
 package ai.platon.pulsar.chrome
 
+import ai.platon.cdt.kt.protocol.events.network.RequestWillBeSent
+import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
+import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
+import ai.platon.cdt.kt.protocol.events.page.WindowOpen
+import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
+import ai.platon.cdt.kt.protocol.types.network.Cookie
+import ai.platon.cdt.kt.protocol.types.network.ErrorReason
+import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
+import ai.platon.cdt.kt.protocol.types.network.ResourceType
+import ai.platon.cdt.kt.protocol.types.page.PrintToPDFTransferMode
+import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
+import ai.platon.pulsar.api.AbstractWebDriver
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.WebDriver
+import ai.platon.pulsar.api.model.*
+import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
 import ai.platon.pulsar.chrome.network.*
-import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.protocol.ClickableDOM
 import ai.platon.pulsar.chrome.protocol.EmulationHandler
 import ai.platon.pulsar.chrome.protocol.PageHandler
@@ -13,29 +29,6 @@ import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
 import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.pulsar.chrome.util.ChromeIOException
 import ai.platon.pulsar.chrome.util.Credentials
-import ai.platon.cdt.kt.protocol.events.network.RequestWillBeSent
-import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
-import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
-import ai.platon.cdt.kt.protocol.events.page.WindowOpen
-import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
-import ai.platon.cdt.kt.protocol.types.page.PrintToPDFTransferMode
-import ai.platon.cdt.kt.protocol.types.network.Cookie
-import ai.platon.cdt.kt.protocol.types.network.ErrorReason
-import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
-import ai.platon.cdt.kt.protocol.types.network.ResourceType
-import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
-import ai.platon.pulsar.api.AbstractWebDriver
-import ai.platon.pulsar.api.WebDriver
-import ai.platon.pulsar.api.model.*
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.model.BrowserTab
-import ai.platon.pulsar.api.model.NetworkResourceResponse
-import ai.platon.pulsar.api.model.NodeRef
-import ai.platon.pulsar.api.snapshot.SnapshotService
-import ai.platon.pulsar.api.model.BrowserUseState
-import ai.platon.pulsar.api.model.NanoDOMTree
-import ai.platon.pulsar.api.model.PageTarget
-import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.math.geometric.OffsetD
@@ -46,7 +39,6 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
@@ -375,6 +367,13 @@ open class PulsarWebDriver constructor(
             val normalizedFunctionDeclaration = normalizeElementFunctionDeclaration(functionDeclaration)
             val callFunctionOn = js.callFunctionOn(selector, normalizedFunctionDeclaration)
             driverHelper.createJsEvaluate(callFunctionOn)
+        }
+    }
+
+    @Throws(WebDriverException::class)
+    override suspend fun executeCdpCommand(method: String, params: Map<String, Any?>?): Any? {
+        return rpc.invokeOnPage("executeCdpCommand") {
+            browserProtocol.executeCdpCommand(method, params)
         }
     }
 
@@ -1620,7 +1619,12 @@ open class PulsarWebDriver constructor(
         val finalUrl = currentUrl()
         // redirect
         if (finalUrl.isNotBlank() && finalUrl != navigateUrl) {
-            // browser.addHistory(NavigateEntry(finalUrl))
+            // Update navigateUrl so that currentUrl() can fall back to the
+            // correct final URL after a redirect chain, even if document.URL
+            // returns blank in edge cases (tab state race, interstitial pages).
+            // Without this, htmlsnapshot and other capture-based commands fail
+            // with "Nil url is not allowed" after complex redirects.
+            navigateUrl = finalUrl
         }
     }
 
