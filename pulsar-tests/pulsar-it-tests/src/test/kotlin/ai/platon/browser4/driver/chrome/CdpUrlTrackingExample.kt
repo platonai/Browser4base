@@ -1,4 +1,4 @@
-package ai.platon.browser4.driver.chrome
+package ai.platon.pulsar.driver.chrome
 
 import ai.platon.pulsar.browser.driver.chrome.ChromeLauncher
 import ai.platon.pulsar.browser.driver.chrome.common.ChromeOptions

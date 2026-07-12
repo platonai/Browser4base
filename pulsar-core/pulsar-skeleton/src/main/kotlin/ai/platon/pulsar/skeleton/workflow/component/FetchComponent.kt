@@ -99,7 +99,7 @@ open class FetchComponent(
         }
         page.isFetched = true
 
-        page.headers.putAllMulti(output.headers.asMultimap())
+        page.headers.putAll(output.headers.asMultimap())
         updateFetchedPage(page, pageDatum, protocolStatus)
         return page
     }

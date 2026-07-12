@@ -241,7 +241,7 @@ class CoreMetrics(
 
         // The host is reachable
         unreachableHosts.remove(host)
-        failedHosts[host]?.let { it.set(0) }
+        failedHosts.remove(host)
 
         successFetchTasks.mark()
         finishedFetchTasks.mark()
@@ -326,8 +326,7 @@ class CoreMetrics(
             return false
         }
 
-        failedHosts.computeIfAbsent(host) { AtomicInteger() }.addAndGet(occurrences)
-        val failures = failedHosts[host]?.get() ?: 0
+        val failures = failedHosts.computeIfAbsent(host) { AtomicInteger() }.addAndGet(occurrences)
         // Only the exception occurs for unknownHostEventCount, it's really add to the black list
         if (failures > maxHostFailureEvents) {
             unreachableHosts.add(host)

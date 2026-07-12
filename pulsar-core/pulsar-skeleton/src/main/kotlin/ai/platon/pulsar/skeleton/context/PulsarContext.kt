@@ -18,7 +18,7 @@ import ai.platon.pulsar.skeleton.common.urls.NormURL
 import ai.platon.pulsar.skeleton.session.PulsarSession
 import ai.platon.pulsar.skeleton.workflow.common.GlobalCache
 import ai.platon.pulsar.skeleton.workflow.filter.ChainedUrlNormalizer
-import ai.platon.pulsar.common.ExperimentalApi
+
 import org.springframework.beans.BeansException
 import java.net.URL
 import java.nio.ByteBuffer
@@ -271,7 +271,6 @@ interface PulsarContext : java.lang.AutoCloseable {
      * @param url The url of the page to retrieve
      * @return The page content in string format or null
      */
-    @ExperimentalApi
     fun getContentAsString(url: String): String?
 
     /**

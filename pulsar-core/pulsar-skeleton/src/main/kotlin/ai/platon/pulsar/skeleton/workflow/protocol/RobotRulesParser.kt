@@ -11,6 +11,7 @@ import java.io.FileReader
 import java.io.LineNumberReader
 import java.net.URI
 import java.net.URL
+import java.nio.file.Files
 import java.util.*
 import kotlin.system.exitProcess
 
@@ -109,7 +110,7 @@ abstract class RobotRulesParser(
             }
 
             try {
-                val robotsBytes = java.nio.file.Files.readAllBytes(File(argv[0]).toPath())
+                val robotsBytes = Files.readAllBytes(File(argv[0]).toPath())
                 val rules = robotParser.parseContent(
                     argv[0], robotsBytes,
                     "text/plain", argv[2]
