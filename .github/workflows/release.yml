@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags:
-      # GitHub Actions uses glob patterns here, not regex.
       - 'v*.*.*'
       - '!v*.*.*-*'
       - 'v*.*.*-rc.*'
@@ -88,6 +87,7 @@ jobs:
           version: ${{ steps.version.outputs.version }}
           java_version: ${{ env.JAVA_VERSION }}
           output_file: 'release_notes.md'
+          tag_name: ${{ steps.version.outputs.tag }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
