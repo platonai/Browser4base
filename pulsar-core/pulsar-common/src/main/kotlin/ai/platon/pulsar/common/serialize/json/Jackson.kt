@@ -51,10 +51,10 @@ class DoubleSerializer(
             return
         }
 
-        // remove tailing `0`,  remove tailing `.`
-        val s = BigDecimal.valueOf(value).setScale(decimals, RoundingMode.HALF_UP).toString()
-        val s1 = s.dropLastWhile { it == '0' }.dropLastWhile { it == '.' }
-        gen.writeNumber(s1)
+        // round to the configured number of decimals, then strip trailing zeros and trailing dot
+        val bd = BigDecimal.valueOf(value).setScale(decimals, RoundingMode.HALF_UP)
+        val stripped = bd.stripTrailingZeros().toPlainString()
+        gen.writeNumber(BigDecimal(stripped))
     }
 }
 
@@ -65,7 +65,6 @@ class DoubleSerializer(
  * - Falls back to runtime-type serializer when needed (never defaultSerializeValue)
  */
 class SmartNumberSerializer(private val decimals: Int = 2) : JsonSerializer<Number>() {
-    // Keep decimals as a real property and build the delegate serializer from it (also avoids unused-param warnings).
     private val doubleSerializer = DoubleSerializer(decimals = decimals)
 
     override fun serialize(value: Number?, gen: JsonGenerator, serializers: SerializerProvider) {
@@ -75,7 +74,7 @@ class SmartNumberSerializer(private val decimals: Int = 2) : JsonSerializer<Numb
         }
         when (value) {
             is Double -> doubleSerializer.serialize(value, gen, serializers)
-            is Float -> doubleSerializer.serialize(value.toDouble(), gen, serializers)
+            is Float -> serializeFloat(value, gen)
             is Int -> gen.writeNumber(value)
             is Long -> gen.writeNumber(value)
             is Short -> gen.writeNumber(value.toInt())
@@ -88,6 +87,22 @@ class SmartNumberSerializer(private val decimals: Int = 2) : JsonSerializer<Numb
                 s.serialize(value, gen, serializers)
             }
         }
+    }
+
+    /**
+     * Serialize a Float directly without widening to Double.
+     *
+     * Avoiding [Float.toDouble] prevents artificial extra digits from appearing in
+     * the output (e.g. 3.14f stays as 3.14 rather than becoming 3.140000104904175).
+     */
+    private fun serializeFloat(value: Float, gen: JsonGenerator) {
+        if (!value.isFinite()) {
+            gen.writeNull()
+            return
+        }
+        val bd = BigDecimal(value.toString()).setScale(decimals, RoundingMode.HALF_UP)
+        val stripped = bd.stripTrailingZeros().toPlainString()
+        gen.writeNumber(BigDecimal(stripped))
     }
 }
 
@@ -138,14 +153,19 @@ fun prettyPulsarObjectMapper(): ObjectMapper = pulsarObjectMapper()
     .configure(SerializationFeature.INDENT_OUTPUT, true)
 
 object PulsarJackson {
-    private val mapper get() = pulsarObjectMapper()
-    private val prettyMapper get() = prettyPulsarObjectMapper()
-    private val yamlMapper get() = pulsarYamlMapper()
+    // ObjectMapper is expensive to construct and thread-safe — reuse via lazy singletons.
+    private val mapper by lazy { pulsarObjectMapper() }
+    private val prettyMapper by lazy { prettyPulsarObjectMapper() }
+    private val yamlMapper by lazy { pulsarYamlMapper() }
 
-    fun toJson(vararg value: Pair<String, Any>): String = mapper.writeValueAsString(mapOf(*value))!!
+    fun toJson(vararg value: Pair<String, Any>): String =
+        requireNotNull(mapper.writeValueAsString(mapOf(*value))) { "Failed to serialize pairs to JSON" }
 
-    fun toJson(value: Any): String = mapper.writeValueAsString(value)!!
-    fun toPrettyJson(value: Any): String = prettyMapper.writeValueAsString(value)!!
+    fun toJson(value: Any): String =
+        requireNotNull(mapper.writeValueAsString(value)) { "Failed to serialize $value to JSON" }
+
+    fun toPrettyJson(value: Any): String =
+        requireNotNull(prettyMapper.writeValueAsString(value)) { "Failed to serialize $value to pretty JSON" }
 
     fun toJsonOrNull(value: Any): String? = runCatching { mapper.writeValueAsString(value) }.getOrNull()
     fun toPrettyJsonOrNull(value: Any): String? = runCatching { prettyMapper.writeValueAsString(value) }.getOrNull()
@@ -153,7 +173,9 @@ object PulsarJackson {
     fun toJsonOrString(value: Any): String = toJsonOrNull(value) ?: value.toString()
     fun toPrettyJsonOrString(value: Any): String = toPrettyJsonOrNull(value) ?: value.toString()
 
-    fun toYaml(value: Any): String = yamlMapper.writeValueAsString(value)!!
+    fun toYaml(value: Any): String =
+        requireNotNull(yamlMapper.writeValueAsString(value)) { "Failed to serialize $value to YAML" }
+
     fun toYamlOrNull(value: Any): String? = runCatching { yamlMapper.writeValueAsString(value) }.getOrNull()
     fun toYamlOrString(value: Any): String = toYamlOrNull(value) ?: value.toString()
 
