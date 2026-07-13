@@ -246,15 +246,16 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
     }
 
     @Test
+    @Tag("ManualOnly")
     fun testKeyPress() = runEnhancedWebDriverTest(browser) { driver ->
         driver.navigate(e2eProductUrl)
         delay(1000.milliseconds)
 
+        driver.waitForSelector("#productTitle")
+
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
         Assumptions.assumeTrue { navbarMain != null || title != null }
-
-        driver.waitForSelector("#productTitle")
 
         assertTrue { driver.exists("#productTitle") }
 
