@@ -89,7 +89,7 @@ class BrowserFilesTests {
         val expiry = Duration.ofSeconds(0)
         val pidFile = userDataDir.resolveSibling(BrowserFiles.PID_FILE_NAME + ".bak")
         if (!Files.exists(pidFile)) {
-            Files.createFile(pidFile)
+            runCatching { Files.createFile(pidFile) }
         }
         sleepMillis(10)
         // Act
