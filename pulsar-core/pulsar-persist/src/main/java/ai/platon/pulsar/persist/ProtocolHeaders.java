@@ -3,7 +3,6 @@ package ai.platon.pulsar.persist;
 import ai.platon.pulsar.common.DateTimes;
 import ai.platon.pulsar.common.HttpHeaders;
 import ai.platon.pulsar.common.SParser;
-import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
@@ -17,7 +16,7 @@ import java.util.stream.Collectors;
 public class ProtocolHeaders implements HttpHeaders {
 
     private static final Pattern[] FILENAME_PATTERNS = {
-            Pattern.compile("\\bfilename=['\"](.+)['\"]"),
+            Pattern.compile("\\bfilename=['\"](.+?)['\"]"),
             Pattern.compile("\\bfilename=(\\S+)\\b")
     };
 
@@ -71,21 +70,21 @@ public class ProtocolHeaders implements HttpHeaders {
     }
 
     public Instant getLastModified() {
-        CharSequence lastModified = get(HttpHeaders.LAST_MODIFIED);
+        String lastModified = get(HttpHeaders.LAST_MODIFIED);
         if (lastModified != null) {
-            return DateTimes.parseHttpDateTime(lastModified.toString(), Instant.EPOCH);
+            return DateTimes.parseHttpDateTime(lastModified, Instant.EPOCH);
         }
 
         return Instant.EPOCH;
     }
 
-    public int getContentLength() {
+    public long getContentLength() {
         String length = get(HttpHeaders.CONTENT_LENGTH);
         if (length == null) {
-            return -1;
+            return -1L;
         }
 
-        return SParser.wrap(length.trim()).getInt(-1);
+        return SParser.wrap(length.trim()).getLong(-1L);
     }
 
     public String getDispositionFilename() {
@@ -106,14 +105,10 @@ public class ProtocolHeaders implements HttpHeaders {
     }
 
     public String getDecodedDispositionFilename() {
-        try {
-            return getDecodedDispositionFilename(StandardCharsets.UTF_8);
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("Unexpected unsupported encoding `UTF-8`");
-        }
+        return getDecodedDispositionFilename(StandardCharsets.UTF_8);
     }
 
-    public String getDecodedDispositionFilename(Charset charset) throws UnsupportedEncodingException {
+    public String getDecodedDispositionFilename(Charset charset) {
         String filename = getDispositionFilename();
 
         if (filename != null) {
