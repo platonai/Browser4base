@@ -2,7 +2,8 @@
 
 param(
     [string]$remote = "origin",
-    [string]$message = ""
+    [string]$message = "",
+    [switch]$Yes
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,10 +33,14 @@ Write-Host "Current branch: $branch"
 $status = git status --porcelain
 if ($status) {
     Write-Warning "Uncommitted changes detected"
-    $continue = Read-Host "Continue anyway? (y/n)"
-    if ($continue -ne 'y') {
-        Write-Host "Cancelled"
-        exit 0
+    if (-not $Yes) {
+        $continue = Read-Host "Continue anyway? (y/n)"
+        if ($continue -ne 'y') {
+            Write-Host "Cancelled"
+            exit 0
+        }
+    } else {
+        Write-Host "Auto-continuing (-Yes)"
     }
 }
 
@@ -61,10 +66,12 @@ $existingTag = git tag -l $newTag
 if ($existingTag) {
     Write-Host "Tag '$newTag' already exists"
 
-    $confirm = Read-Host "Do you want to overwrite it? (y/n)"
-    if ($confirm -ne 'y') {
-        Write-Host "Cancelled"
-        exit 0
+    if (-not $Yes) {
+        $confirm = Read-Host "Do you want to overwrite it? (y/n)"
+        if ($confirm -ne 'y') {
+            Write-Host "Cancelled"
+            exit 0
+        }
     }
     try {
         # Delete local tag
@@ -128,8 +135,8 @@ if ($prevTag) {
     git log --oneline --no-merges -5 | ForEach-Object { Write-Host "  • $_" }
 }
 
-# Prompt for tag message if not provided
-if ([string]::IsNullOrWhiteSpace($message)) {
+# Prompt for tag message if not provided (skip when -Yes)
+if ([string]::IsNullOrWhiteSpace($message) -and -not $Yes) {
     Write-Host ""
     $message = Read-Host "Enter release message (optional, press Enter to skip)"
 }
@@ -137,10 +144,12 @@ if ([string]::IsNullOrWhiteSpace($message)) {
 # Confirm creation
 Write-Host ""
 $tagType = if ([string]::IsNullOrWhiteSpace($message)) { "lightweight" } else { "annotated" }
-$confirm = Read-Host "Create and push $tagType tag '$newTag'? (y/n)"
-if ($confirm -ne 'y') {
-    Write-Host "Cancelled"
-    exit 0
+if (-not $Yes) {
+    $confirm = Read-Host "Create and push $tagType tag '$newTag'? (y/n)"
+    if ($confirm -ne 'y') {
+        Write-Host "Cancelled"
+        exit 0
+    }
 }
 
 # Create and push tag
