@@ -25,45 +25,8 @@
     <dependencies>
         <dependency>
             <groupId>ai.platon.gora</groupId>
-            <artifactId>gora-mongodb</artifactId>
+            <artifactId>gora-mongodb-shaded</artifactId>
             <version>${platon-gora.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.flink</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.sparkutils</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-common</artifactId>
-            <version>3.4.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-reload4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- For Configurable, Writable -->
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client-api</artifactId>
-            <version>3.4.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-reload4j</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -85,7 +48,7 @@
     </dependencies>
 
     <properties>
-        <platon-gora.version>1.0.8-slim</platon-gora.version>
+        <platon-gora.version>1.0.9-slim</platon-gora.version>
     </properties>
 
 </project>

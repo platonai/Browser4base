@@ -34,39 +34,8 @@
     <dependencies>
         <dependency>
             <groupId>ai.platon.gora</groupId>
-            <artifactId>gora-core</artifactId>
+            <artifactId>gora-core-shaded</artifactId>
             <version>${platon-gora.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-slf4j2-impl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.sparkutils</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.spark</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.flink</groupId>
-                    <artifactId>flink-clients</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.flink</groupId>
-                    <artifactId>flink-hadoop-compatibility</artifactId>
-                </exclusion>
-                <!-- Remove all flink dependency, will test more to be sure -->
-                <exclusion>
-                    <groupId>org.apache.flink</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -117,7 +86,7 @@
     </dependencies>
 
     <properties>
-        <platon-gora.version>1.0.8-slim</platon-gora.version>
+        <platon-gora.version>1.0.9-slim</platon-gora.version>
     </properties>
 
 </project>
