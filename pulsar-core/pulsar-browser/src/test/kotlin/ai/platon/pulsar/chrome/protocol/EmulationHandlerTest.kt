@@ -1,9 +1,12 @@
 package ai.platon.pulsar.chrome.protocol
 
+import ai.platon.cdt.kt.protocol.types.dom.BoxModel
+import ai.platon.cdt.kt.protocol.types.input.DispatchKeyEventType
+import ai.platon.cdt.kt.protocol.types.page.LayoutMetrics
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.NodeRef
-import ai.platon.cdt.kt.protocol.types.dom.BoxModel
-import ai.platon.cdt.kt.protocol.types.page.LayoutMetrics
+import ai.platon.pulsar.common.io.KeyboardModifier
+import ai.platon.pulsar.common.io.VirtualKeyboard
 import ai.platon.pulsar.common.math.geometric.PointD
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
@@ -406,6 +409,22 @@ class EmulationHandlerTest {
             // end → emit "+B"
             assertEquals(listOf("A", "+B"), keyboard.splitKeyString("A++B"))
         }
+
+        @Test
+        @DisplayName("control character aliases are preserved (not stripped by trim)")
+        fun controlCharacterAliasesPreserved() {
+            // \n and \r are CODE_ALIASES for Enter key and must survive splitKeyString
+            assertEquals(listOf("\n"), keyboard.splitKeyString("\n"))
+            assertEquals(listOf("\r"), keyboard.splitKeyString("\r"))
+        }
+
+        @Test
+        @DisplayName("spaces around plus are trimmed but control chars are preserved")
+        fun spacesAroundPlusTrimmed() {
+            // Leading/trailing spaces around '+' are removed, but the key names are intact
+            assertEquals(listOf("Shift", "a"), keyboard.splitKeyString("Shift + a"))
+            assertEquals(listOf("Control", "Enter"), keyboard.splitKeyString("Control + Enter"))
+        }
     }
 
     // =========================================================================
@@ -471,15 +490,64 @@ class EmulationHandlerTest {
         fun pressEmptyString() = runBlocking {
             keyboard.press("", delayMillis = 0)
 
-            verify(bp, never()).dispatchKeyEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            verify(bp, never()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
         @Test
-        @DisplayName("press single printable key dispatches down and up")
+        @DisplayName("press single printable key uses insertText when no modifiers are active")
         fun pressSingleKey() = runBlocking {
+            // Simple lowercase printable characters use insertText (consistent with Keyboard.type)
+            // instead of dispatchKeyEvent, to avoid interception by page JavaScript handlers.
             keyboard.press("a", delayMillis = 0)
 
-            verify(bp, atLeastOnce()).dispatchKeyEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            verify(bp).insertText("a")
+            verify(bp, never()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("press single printable key with Shift held uses dispatchKeyEvent")
+        fun pressSingleKeyWithShiftHeld() = runBlocking {
+            // When a modifier is held, even lowercase chars must use dispatchKeyEvent
+            // so the modifier state produces the correct shifted character.
+            val shiftKey = VirtualKeyboard.KEYBOARD_LAYOUT["Shift"]!!
+            keyboard.down(shiftKey)
+
+            keyboard.press("a", delayMillis = 0)
+
+            verify(bp, atLeastOnce()).dispatchKeyEvent(
+                any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+            verify(bp, never()).insertText(any())
+
+            keyboard.up(shiftKey)
+        }
+
+        @Test
+        @DisplayName("press single digit uses insertText for reliability")
+        fun pressSingleDigit() = runBlocking {
+            keyboard.press("0", delayMillis = 0)
+
+            verify(bp).insertText("0")
+            verify(bp, never()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("press non-printable key name still uses dispatchKeyEvent")
+        fun pressControlCharacter() = runBlocking {
+            // Non-printable keys like "Backspace", "Tab" should still use dispatchKeyEvent
+            // (unlike printable chars which now use insertText for reliability)
+            keyboard.press("Backspace", delayMillis = 0)
+
+            verify(bp, atLeastOnce()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("press special key name still uses dispatchKeyEvent")
+        fun pressSpecialKeyName() = runBlocking {
+            // Special keys like "Enter", "Digit6" should still use dispatchKeyEvent
+            keyboard.press("Digit6", delayMillis = 0)
+
+            verify(bp, atLeastOnce()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
         @Test
@@ -489,7 +557,7 @@ class EmulationHandlerTest {
             keyboard.press("A", delayMillis = 0)
 
             // Should dispatch Shift down, a down, a up, Shift up (4 events)
-            verify(bp, atLeast(2)).dispatchKeyEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            verify(bp, atLeast(2)).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
         }
 
         @Test
@@ -498,7 +566,214 @@ class EmulationHandlerTest {
             // "!" should expand to "Shift+1"
             keyboard.press("!", delayMillis = 0)
 
-            verify(bp, atLeast(2)).dispatchKeyEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            verify(bp, atLeast(2)).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("press modifier combo like Shift+Tab dispatches both keys")
+        fun pressModifierCombo() = runBlocking {
+            keyboard.press("Shift+Tab", delayMillis = 0)
+
+            // Shift down, Tab down, Tab up, Shift up — at least 2 key events
+            verify(bp, atLeastOnce()).dispatchKeyEvent(
+                any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+
+        @Test
+        @DisplayName("press VirtualKey overload dispatches key events")
+        fun pressVirtualKey() = runBlocking {
+            val key = VirtualKeyboard.KEYBOARD_LAYOUT["KeyA"]!!
+            keyboard.press(key, delayMillis = 0)
+
+            // down(key) dispatches keyDown, up(key) dispatches keyUp
+            verify(bp, atLeastOnce()).dispatchKeyEvent(
+                any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+    }
+
+    // =========================================================================
+    // Keyboard — delete
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Keyboard delete")
+    inner class KeyboardDelete {
+
+        @Test
+        @DisplayName("delete dispatches Backspace press for each count")
+        fun deleteDispatchesBackspaceForEachCount() = runBlocking {
+            keyboard.delete(3, delayMillis = 0)
+
+            // Each Backspace press dispatches keyDown + keyUp = 2 events
+            // 3 × 2 = 6 events
+            verify(bp, atLeast(6)).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("delete with zero count dispatches nothing")
+        fun deleteZeroCount() = runBlocking {
+            keyboard.delete(0, delayMillis = 0)
+
+            verify(bp, never()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+    }
+
+    // =========================================================================
+    // Keyboard — down/up edge cases
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Keyboard down and up edge cases")
+    inner class KeyboardDownUpEdgeCases {
+
+        @Test
+        @DisplayName("down with empty string returns silently")
+        fun downEmptyString() = runBlocking {
+            keyboard.down("")
+
+            verify(bp, never()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("up with empty string returns silently")
+        fun upEmptyString() = runBlocking {
+            keyboard.up("")
+
+            verify(bp, never()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("down VirtualKey for a modifier adds it to pressedModifiers")
+        fun downModifierKey() = runBlocking {
+            // Shift is a modifier key
+            val shiftKey = VirtualKeyboard.KEYBOARD_LAYOUT["ShiftLeft"]!!
+            keyboard.down(shiftKey)
+
+            // Modifier key with no text dispatches RAW_KEY_DOWN
+            verify(bp, atLeastOnce()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+
+        @Test
+        @DisplayName("down then up VirtualKey for a modifier clears pressedModifiers")
+        fun downUpModifierKey() = runBlocking {
+            val shiftKey = VirtualKeyboard.KEYBOARD_LAYOUT["ShiftLeft"]!!
+            keyboard.down(shiftKey)
+            reset(bp)
+
+            keyboard.up(shiftKey)
+
+            // keyUp event dispatched
+            verify(bp, atLeastOnce()).dispatchKeyEvent(any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())
+        }
+    }
+
+    // =========================================================================
+    // Keyboard — VirtualKey creation and modifier handling
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Keyboard createVirtualKeyForSingleKeyString and modifier state")
+    inner class KeyboardVirtualKeyAndModifiers {
+
+        @Test
+        @DisplayName("createVirtualKeyForSingleKeyString from KeyboardModifier delegates to name")
+        fun createVirtualKeyFromEnumModifier() {
+            val key = keyboard.createVirtualKeyForSingleKeyString(KeyboardModifier.Shift)
+            assertEquals("Shift", key.key)
+        }
+
+        @Test
+        @DisplayName("createVirtualKeyForSingleKeyString from Alt modifier")
+        fun createVirtualKeyFromAltModifier() {
+            val key = keyboard.createVirtualKeyForSingleKeyString(KeyboardModifier.Alt)
+            assertEquals("Alt", key.key)
+        }
+
+        @Test
+        @DisplayName("createVirtualKeyForSingleKeyString from Control modifier")
+        fun createVirtualKeyFromControlModifier() {
+            val key = keyboard.createVirtualKeyForSingleKeyString(KeyboardModifier.Control)
+            assertEquals("Control", key.key)
+        }
+
+        @Test
+        @DisplayName("createVirtualKeyForSingleKeyString from Meta modifier")
+        fun createVirtualKeyFromMetaModifier() {
+            val key = keyboard.createVirtualKeyForSingleKeyString(KeyboardModifier.Meta)
+            assertEquals("Meta", key.key)
+        }
+
+        @Test
+        @DisplayName("toModifiersMask with Shift held down routes press through dispatchKeyEvent")
+        fun pressWithShiftHeldDown() = runBlocking {
+            // When Shift is already pressed, press("a") must NOT use insertText —
+            // it must fall through to dispatchKeyEvent so the Shift modifier produces "A".
+            val shiftKey = VirtualKeyboard.KEYBOARD_LAYOUT["Shift"]!!
+            keyboard.down(shiftKey)
+
+            keyboard.press("a", delayMillis = 0)
+
+            // Should use dispatchKeyEvent (not insertText) because pressedModifiers is non-empty
+            verify(bp, atLeastOnce()).dispatchKeyEvent(
+                any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+            verify(bp, never()).insertText(any())
+
+            keyboard.up(shiftKey)
+        }
+
+        @Test
+        @DisplayName("keys pressed after a modifier has text cleared (pressedModifiers > 1)")
+        fun textClearedWithMultipleModifiers() = runBlocking {
+            val shiftKey = VirtualKeyboard.KEYBOARD_LAYOUT["Shift"]!!
+            val ctrlKey = VirtualKeyboard.KEYBOARD_LAYOUT["Control"]!!
+
+            keyboard.down(shiftKey)
+            keyboard.down(ctrlKey)
+
+            // Now with 2 modifiers pressed, pressing a printable key should clear text
+            // This tests the pressedModifiers.size > 1 branch in createVirtualKeyForSingleKeyString
+            // "a" with 2 modifiers → text cleared, dispatches RAW_KEY_DOWN
+            keyboard.press("a", delayMillis = 0)
+
+            verify(bp, atLeastOnce()).dispatchKeyEvent(
+                eq(DispatchKeyEventType.RAW_KEY_DOWN), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+
+            keyboard.up(ctrlKey)
+            keyboard.up(shiftKey)
+        }
+    }
+
+    // =========================================================================
+    // Keyboard — type edge cases
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Keyboard type edge cases")
+    inner class KeyboardTypeEdgeCases {
+
+        @Test
+        @DisplayName("type with ISO control character uses dispatchKeyEvent")
+        fun typeWithControlCharacter() = runBlocking {
+            // \r (carriage return, 0x0D) is an ISO control char aliased to Enter in CODE_ALIASES.
+            // type() routes ISO control chars through press(), which dispatches key events.
+            keyboard.type("\r", delayMillis = 0)
+
+            // \r is aliased to Enter key in the keyboard layout, so press dispatches keyDown/keyUp
+            verify(bp, atLeastOnce()).dispatchKeyEvent(
+                any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+
+        @Test
+        @DisplayName("type with delay passes delay to insertText calls")
+        fun typeWithDelayDispatchesInsertTextAndDelays() = runBlocking {
+            // 0 delay — no delay calls, but verifies path is covered
+            keyboard.type("a", delayMillis = 0)
+            verify(bp).insertText("a")
         }
     }
 

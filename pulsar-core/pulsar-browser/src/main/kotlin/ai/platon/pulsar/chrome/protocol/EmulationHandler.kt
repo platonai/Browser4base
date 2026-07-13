@@ -536,6 +536,22 @@ class Keyboard(private val bp: BrowserProtocol) {
                 pressShiftedPrintableChar(char, delayMillis)
                 return
             }
+            // Route simple printable characters through insertText for reliability.
+            // dispatchKeyEvent dispatches trusted key events that can be intercepted
+            // or modified by page JavaScript (autocomplete, input sanitizers, etc.),
+            // whereas insertText bypasses JS handlers and directly inserts text at
+            // the cursor position — consistent with how Keyboard.type works.
+            //
+            // Only use insertText when no modifiers are active. If modifiers are
+            // pressed (e.g. Shift key pushed via down()), we must go through
+            // dispatchKeyEvent so the modifier state is properly applied.
+            if (!Character.isISOControl(char) && pressedModifiers.isEmpty()) {
+                bp.insertText("$char")
+                if (delayMillis > 0) {
+                    delay(delayMillis.milliseconds)
+                }
+                return
+            }
         }
 
         val normalizedKeyString = normalizeKeyStringForPress(keyString)
@@ -652,7 +668,7 @@ class Keyboard(private val bp: BrowserProtocol) {
 
         keyString.forEach { char ->
             if (char == '+' && token.isNotEmpty()) {
-                keys.add(token.toString().trim())
+                keys.add(token.toString().trimSpaces())
                 token.clear()
             } else {
                 token.append(char)
@@ -660,10 +676,23 @@ class Keyboard(private val bp: BrowserProtocol) {
         }
 
         if (token.isNotEmpty()) {
-            keys.add(token.toString().trim())
+            keys.add(token.toString().trimSpaces())
         }
 
         return keys
+    }
+
+    /**
+     * Trims only leading and trailing space characters (0x20), unlike [String.trim]
+     * which also removes other whitespace including control characters like `\n`, `\r`, `\t`.
+     * This preserves control character aliases (e.g. `\n` → Enter key) in [splitKeyString].
+     */
+    private fun String.trimSpaces(): String {
+        var start = 0
+        var end = lastIndex
+        while (start <= end && this[start] == ' ') start++
+        while (end >= start && this[end] == ' ') end--
+        return substring(start, end + 1)
     }
 
     fun createVirtualKeyForSingleKeyString(modifier: KeyboardModifier): VirtualKey {
