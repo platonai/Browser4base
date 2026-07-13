@@ -5,13 +5,11 @@ import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.PageTarget
 import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.chrome.PulsarWebDriver
-import kotlinx.coroutines.delay
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertIs
-import kotlin.time.Duration.Companion.milliseconds
 
 @Tag("E2ETest")
 class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
@@ -67,30 +65,6 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
         assertIs<PulsarWebDriver>(driver)
         driver.waitForSelector("iframe")
         driver.bringToFront()
-
-        // Wait for nested iframe content to fully load before taking the snapshot.
-        // The buildOptimizedDOMTreeNode now traverses iframe contentDocuments, so
-        // unloaded iframes would show "whitelabel error page" in the snapshot.
-        // Poll all iframes (including nested) until their content is ready.
-        repeat(20) { attempt ->
-            val allReady = driver.evaluateValue(
-                """(function() {
-                    function checkFrames(doc) {
-                        var frames = doc.querySelectorAll('iframe, frame');
-                        for (var i = 0; i < frames.length; i++) {
-                            var f = frames[i];
-                            if (!f.contentDocument || f.contentDocument.readyState !== 'complete') return false;
-                            if (!checkFrames(f.contentDocument)) return false;
-                        }
-                        return true;
-                    }
-                    return checkFrames(document);
-                })()"""
-            ) as? Boolean ?: false
-
-            if (allReady) break
-            delay(300.milliseconds)
-        }
 
         val service = CDPSnapshotService(driver.browserProtocol)
         val normalized = normalizeRefs(collectAriaSnapshot(service)).lowercase()
