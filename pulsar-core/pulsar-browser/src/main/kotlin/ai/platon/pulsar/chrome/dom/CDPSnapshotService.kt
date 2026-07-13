@@ -470,8 +470,7 @@ class CDPSnapshotService(
                         originalNode = node,
                         children = children,
                         shouldDisplay = true,
-                        isShadowHost = false,
-                        interactiveIndex = node.interactiveIndex
+                        isShadowHost = false
                     )
                 }
 
@@ -505,8 +504,7 @@ class CDPSnapshotService(
                         originalNode = node,
                         children = optimizedChildren,
                         shouldDisplay = true,
-                        isShadowHost = hasShadowContent,
-                        interactiveIndex = node.interactiveIndex
+                        isShadowHost = hasShadowContent
                     )
                 }
 
@@ -514,8 +512,7 @@ class CDPSnapshotService(
                     OptimizedDOMTreeNode(
                         originalNode = node,
                         children = emptyList(),
-                        shouldDisplay = true,
-                        interactiveIndex = node.interactiveIndex
+                        shouldDisplay = true
                     )
                 }
 
