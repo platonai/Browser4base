@@ -15,7 +15,7 @@ on:
       skip_tests:
         description: 'Skip tests during build'
         required: false
-        default: false
+        default: true
         type: boolean
 
 # Prevent concurrent releases
