@@ -294,6 +294,12 @@
                 <groupId>ai.platon.pulsar</groupId>
                 <artifactId>pulsar-jsoup</artifactId>
                 <version>${pulsar-jsoup.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>
