@@ -35,7 +35,7 @@ class LinkExtractorsTests {
     @DisplayName("fromText with URLs should extract URLs")
     fun fromTextWithUrlsShouldExtractUrls() {
         val text = """
-            Visit http://localhost:18080/ec/dp/B0E000001
+            Visit http://localhost:17080/ec/dp/B0E000001
 After page load: click #title, then scroll to the middle.
 Summarize the product.
 Extract: product name, price, ratings.
@@ -43,7 +43,7 @@ Find all links containing /dp/.
         """.trimIndent()
 
         val urls = LinkExtractors.fromText(text)
-        assertEquals(setOf("http://localhost:18080/ec/dp/B0E000001"), urls)
+        assertEquals(setOf("http://localhost:17080/ec/dp/B0E000001"), urls)
     }
 
     @Test

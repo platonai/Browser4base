@@ -88,7 +88,7 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
                 })()"""
             ) as? Boolean ?: false
 
-            if (allReady) break
+            if (allReady) return@repeat
             delay(300.milliseconds)
         }
 

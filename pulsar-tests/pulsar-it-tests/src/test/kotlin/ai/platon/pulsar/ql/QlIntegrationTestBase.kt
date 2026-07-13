@@ -63,8 +63,8 @@ open class QlIntegrationTestBase {
 
     val session get() = sqlContext.getOrCreateSession()
 
-    /** Port the mock server is listening on (matches server.port=18080 in application.properties). */
-    open val port: Int get() = 18080
+    /** Port the mock server is listening on (matches server.port=17080 in application.properties). */
+    open val port: Int get() = 17080
 
     // -- Mock server URLs ----------------------------------------------------
 
