@@ -1,7 +1,8 @@
 package ai.platon.pulsar.skeleton.plugin
 
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import java.io.InputStreamReader
 import java.util.jar.JarFile
 
@@ -13,15 +14,15 @@ import java.util.jar.JarFile
 data class PluginManifest(
     val name: String,
     val version: String,
-    @SerializedName("description")
+    @JsonProperty("description")
     val description: String = "",
-    @SerializedName("dependsOn")
+    @JsonProperty("dependsOn")
     val dependsOn: List<String> = emptyList(),
-    @SerializedName("autoConfigurationClasses")
+    @JsonProperty("autoConfigurationClasses")
     val autoConfigurationClasses: List<String> = emptyList(),
 ) {
     companion object {
-        private val gson = Gson()
+        private val mapper = jacksonObjectMapper()
         private const val MANIFEST_PATH = "META-INF/browser4-plugin.json"
 
         /**
@@ -33,7 +34,7 @@ data class PluginManifest(
             val entry = jarFile.getJarEntry(MANIFEST_PATH) ?: return null
             return jarFile.getInputStream(entry).use { stream ->
                 InputStreamReader(stream).use { reader ->
-                    gson.fromJson(reader, PluginManifest::class.java)
+                    mapper.readValue(reader)
                 }
             }
         }
