@@ -23,12 +23,51 @@
     <name>Pulsar Persist Mongo</name>
 
     <dependencies>
+<!--        <dependency>-->
+<!--            <groupId>ai.platon.gora</groupId>-->
+<!--            <artifactId>gora-mongodb-shaded</artifactId>-->
+<!--            <version>${platon-gora.version}</version>-->
+<!--        </dependency>-->
+
         <dependency>
             <groupId>ai.platon.gora</groupId>
-            <artifactId>gora-mongodb-shaded</artifactId>
+            <artifactId>gora-mongodb</artifactId>
             <version>${platon-gora.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.spark</groupId>
+                    <artifactId>spark-core_2.13</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-hadoop-compatibility</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-clients</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.flink</groupId>
+                    <artifactId>flink-avro</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.avro</groupId>
+                    <artifactId>avro-mapred</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-mapreduce-client-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-
         <dependency>
             <groupId>ai.platon.pulsar</groupId>
             <artifactId>pulsar-persist</artifactId>
