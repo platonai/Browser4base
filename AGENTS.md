@@ -4,7 +4,7 @@
 
 **Browser4** (Maven artifact: `ai.platon.pulsar:pulsar`) is a lightning-fast, coroutine-safe browser engine for AI. It provides high-performance browser automation, data extraction (CSS/XPath/X-SQL/LLM/ML), and Chrome DevTools Protocol (CDP) control — all coroutine-safe. The codebase is primarily Kotlin (~93%) with some Java (~7%).
 
-- **Repository**: https://github.com/platonai/Browser4-base
+- **Repository**: https://github.com/platonai/Browser4base
 - **License**: Apache 2.0
 - **Version**: 4.9.x (current branch; see `VERSION` file)
 - **Package namespace**: `ai.platon.pulsar`

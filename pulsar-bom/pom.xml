@@ -47,8 +47,8 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/platonai/Browser4-base.git</connection>
-        <developerConnection>scm:git:https://github.com/platonai/Browser4-base.git</developerConnection>
+        <connection>scm:git:https://github.com/platonai/Browser4base.git</connection>
+        <developerConnection>scm:git:https://github.com/platonai/Browser4base.git</developerConnection>
         <url>https://github.com/platonai/Browser4</url>
         <tag>HEAD</tag>
     </scm>
