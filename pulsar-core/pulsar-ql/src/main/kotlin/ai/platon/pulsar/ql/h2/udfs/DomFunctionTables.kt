@@ -70,6 +70,38 @@ object DomFunctionTables {
         return toDOMResultSet(document, elements.map { domValue(it) })
     }
 
+    /**
+     * Load all pages specified by the given urls, and select elements matching [cssQuery] from each page.
+     * For example:
+     * CALL loadAllAndSelect(ARRAY('http://...1', 'http://...2'), '.product-card');
+     * SELECT * FROM LOAD_ALL_AND_SELECT(ARRAY('http://...1', 'http://...2'), '.product-card', 1, 5);
+     */
+    @UDFunction(hasShortcut = true, description = "Load all pages and select elements matching the cssQuery from each page")
+    @JvmStatic
+    @JvmOverloads
+    fun loadAllAndSelect(
+        @H2Context conn: JdbcConnection,
+        urls: ValueArray,
+        cssQuery: String,
+        offset: Int = 1,
+        limit: Int = Integer.MAX_VALUE
+    ): ResultSet {
+        val session = H2SessionFactory.getSession(conn)
+        if (session.isColumnRetrieval(conn)) {
+            return toResultSet("DOM", listOf<ValueDom>())
+        }
+
+        val urlStrings = urls.list.map { it.string }
+        val elements = runBlocking {
+            urlStrings.flatMap { urlString ->
+                val document = session.loadDocument(urlString)
+                document.select(cssQuery, offset, limit).map { domValue(it) }
+            }
+        }
+
+        return toResultSet("DOM", elements)
+    }
+
     @JvmStatic
     @JvmOverloads
     @UDFunction(description = "Select all elements by cssQuery")

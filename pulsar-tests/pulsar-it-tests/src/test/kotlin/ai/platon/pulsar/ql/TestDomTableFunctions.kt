@@ -79,6 +79,104 @@ class TestDomTableFunctions : QlIntegrationTestBase() {
         }
     }
 
+    // -- LOAD_ALL_AND_SELECT --------------------------------------------------
+
+    @Test
+    @DisplayName("test LOAD_ALL_AND_SELECT loads multiple URLs and selects elements")
+    fun testLoadAllAndSelectFromMultipleUrls() {
+        execute(
+            "SELECT * FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY('$ecCategoryUrl', '$ecProductUrl2'), 'div', 1, 5)"
+        )
+    }
+
+    @Test
+    @DisplayName("test LOAD_ALL_AND_SELECT with offset and limit per page")
+    fun testLoadAllAndSelectWithOffsetAndLimit() {
+        query(
+            "SELECT * FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY('$ecCategoryUrl', '$ecProductUrl2'), 'div', 1, 3)"
+        ) { rs ->
+            var count = 0
+            while (rs.next()) count++
+            assertTrue(count > 0, "Expected at least 1 row from multiple URLs")
+            // limit=3 applied per page, 2 pages → max 6 rows total
+            assertTrue(count <= 6, "Expected at most 6 rows with limit=3 per page, got $count")
+        }
+    }
+
+    @Test
+    @DisplayName("test LOAD_ALL_AND_SELECT returns expected DOM column")
+    fun testLoadAllAndSelectReturnsExpectedColumns() {
+        query(
+            "SELECT * FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY('$ecCategoryUrl', '$ecProductUrl2'), 'div', 1, 3)"
+        ) { rs ->
+            val metaData = rs.metaData
+            val columnCount = metaData.columnCount
+            assertTrue(columnCount >= 1, "Expected at least 1 column, got $columnCount")
+
+            val columns = (1..columnCount).map { metaData.getColumnName(it) }
+            logger.info("LOAD_ALL_AND_SELECT columns: $columns")
+            assertTrue(columns.contains("DOM"), "Expected 'DOM' column, got $columns")
+
+            var rowCount = 0
+            while (rs.next()) rowCount++
+            assertTrue(rowCount > 0, "Expected at least 1 row")
+            logger.info("LOAD_ALL_AND_SELECT returned $rowCount rows")
+        }
+    }
+
+    @Test
+    @DisplayName("test LOAD_ALL_AND_SELECT chained with DOM_TEXT extracts text across pages")
+    fun testLoadAllAndSelectChainedWithDomText() {
+        query(
+            """
+            SELECT DOM_TEXT(DOM) AS text
+            FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY('$ecCategoryUrl', '$ecProductUrl2'), 'a', 1, 3)
+            """.trimIndent()
+        ) { rs ->
+            var count = 0
+            while (rs.next()) {
+                val text = rs.getString("TEXT")
+                assertNotNull(text)
+                count++
+            }
+            assertTrue(count > 0, "Expected at least 1 anchor text from multiple pages")
+            logger.info("LOAD_ALL_AND_SELECT chained with DOM_TEXT returned $count rows")
+        }
+    }
+
+    @Test
+    @DisplayName("test LOAD_ALL_AND_SELECT with single URL array still works")
+    fun testLoadAllAndSelectWithSingleUrlArray() {
+        query(
+            "SELECT * FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY('$ecCategoryUrl'), '.product-card')"
+        ) { rs ->
+            assertTrue(rs.next(), "Expected at least 1 row for single URL in array")
+        }
+    }
+
+    @Test
+    @DisplayName("test LOAD_ALL_AND_SELECT chained with DOM_ATTR extracts hrefs")
+    fun testLoadAllAndSelectChainedWithDomAttr() {
+        query(
+            """
+            SELECT
+                DOM_ATTR(DOM, 'href') AS href,
+                DOM_TEXT(DOM) AS text
+            FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY('$ecCategoryUrl', '$ecProductUrl2'), 'a[href]', 1, 5)
+            """.trimIndent()
+        ) { rs ->
+            var count = 0
+            var hasHref = false
+            while (rs.next()) {
+                val href = rs.getString("HREF")
+                if (href != null && href.isNotBlank()) hasHref = true
+                count++
+            }
+            assertTrue(count > 0, "Expected at least 1 anchor from multiple pages")
+            assertTrue(hasHref, "Expected at least 1 non-blank href")
+        }
+    }
+
     // -- DOM_SELECT (table function, takes a DOM value) ----------------------
 
     @Test
