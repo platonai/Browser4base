@@ -259,6 +259,42 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         add("BAIDU_API_KEY")        // alias for QIANFAN_API_KEY
     }
 
+    /**
+     * Maps API key names to canonical provider names for deny-list resolution.
+     * Built from [OPENAI_COMPATIBLE_PROVIDERS] plus non-OpenAI-compatible providers and aliases.
+     */
+    private val API_KEY_TO_PROVIDER: Map<String, String> = buildMap {
+        OPENAI_COMPATIBLE_PROVIDERS.forEach { put(it.apiKeyName, it.providerName) }
+        put("ANTHROPIC_API_KEY", "anthropic")
+        put("GOOGLE_GENERATIVE_AI_API_KEY", "gemini")
+        put("GEMINI_API_KEY", "gemini")
+        put("GOOGLE_API_KEY", "gemini")
+        put("MINIMAX_API_KEY", "minimax")
+        // Aliases
+        put("KIMI_API_KEY", "moonshot")
+        put("LINGYI_API_KEY", "yi")
+        put("TENCENT_API_KEY", "hunyuan")
+        put("BAIDU_API_KEY", "qianfan")
+    }
+
+    /** Canonical provider names from the registry, used for deny-list entry resolution. */
+    private val KNOWN_PROVIDER_NAMES: Set<String> = buildSet {
+        addAll(OPENAI_COMPATIBLE_PROVIDERS.map { it.providerName })
+        add("anthropic")
+        add("claude")     // alias for anthropic
+        add("gemini")
+        add("google")     // alias for gemini
+        add("minimax")
+        // Legacy aliases (matched in doCreateModel's when branch)
+        // Already in OPENAI_COMPATIBLE_PROVIDERS: deepseek, bailian, volcengine
+    }
+
+    /** Maps alias names to their canonical provider name. */
+    private val ALIAS_TO_CANONICAL: Map<String, String> = mapOf(
+        "claude" to "anthropic",
+        "google" to "gemini",
+    )
+
     // ---------------------------------------------------------------------------
     // Public API
     // ---------------------------------------------------------------------------
@@ -300,6 +336,34 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     }
 
     /**
+     * Check whether a provider is on the deny list.
+     *
+     * The provider name can be a canonical name (e.g. "openai", "zhipu"),
+     * an alias (e.g. "claude" → "anthropic"), or an API key name
+     * (e.g. "OPENAI_API_KEY").
+     *
+     * @param provider The provider name, alias, or API key name to check.
+     * @param conf The configuration to read the deny list from.
+     * @return True if the provider is denied.
+     */
+    fun isProviderDenied(provider: String, conf: ImmutableConfig): Boolean {
+        val denyList = parseDenyList(conf)
+        if (denyList.isEmpty()) return false
+        val canonical = resolveCanonicalProviderName(provider) ?: provider.lowercase()
+        return canonical in denyList
+    }
+
+    /**
+     * Get the set of denied provider names from the configuration.
+     *
+     * @param conf The configuration to read the deny list from.
+     * @return A set of canonical provider names that are denied (may be empty).
+     */
+    fun getDeniedProviders(conf: ImmutableConfig): Set<String> {
+        return parseDenyList(conf)
+    }
+
+    /**
      * Create a default model by scanning the configuration for known API keys.
      *
      * Checks providers in this order:
@@ -317,8 +381,11 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
             throw IllegalArgumentException("The LLM is not configured, see docs/config/llm/llm-config.md")
         }
 
+        val denyList = parseDenyList(conf)
+
         // 1. Check all OpenAI-compatible providers (data-driven)
         for (provider in OPENAI_COMPATIBLE_PROVIDERS) {
+            if (provider.providerName in denyList) continue
             val apiKey = conf[provider.apiKeyName]
             if (apiKey != null) {
                 val modelName = conf[provider.modelNameKey] ?: provider.defaultModel
@@ -328,54 +395,68 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         }
 
         // 1b. Alias resolution for Chinese providers (check alternate key names)
-        val kimiKey = conf["KIMI_API_KEY"]
-        if (kimiKey != null) {
-            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "moonshot" }!!
-            val modelName = conf[config.modelNameKey] ?: config.defaultModel
-            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-            return getOrCreateOpenAICompatibleModel(modelName, kimiKey, baseURL, conf)
+        if ("moonshot" !in denyList) {
+            val kimiKey = conf["KIMI_API_KEY"]
+            if (kimiKey != null) {
+                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "moonshot" }!!
+                val modelName = conf[config.modelNameKey] ?: config.defaultModel
+                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+                return getOrCreateOpenAICompatibleModel(modelName, kimiKey, baseURL, conf)
+            }
         }
-        val lingyiKey = conf["LINGYI_API_KEY"]
-        if (lingyiKey != null) {
-            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "yi" }!!
-            val modelName = conf[config.modelNameKey] ?: config.defaultModel
-            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-            return getOrCreateOpenAICompatibleModel(modelName, lingyiKey, baseURL, conf)
+        if ("yi" !in denyList) {
+            val lingyiKey = conf["LINGYI_API_KEY"]
+            if (lingyiKey != null) {
+                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "yi" }!!
+                val modelName = conf[config.modelNameKey] ?: config.defaultModel
+                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+                return getOrCreateOpenAICompatibleModel(modelName, lingyiKey, baseURL, conf)
+            }
         }
-        val tencentKey = conf["TENCENT_API_KEY"]
-        if (tencentKey != null) {
-            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "hunyuan" }!!
-            val modelName = conf[config.modelNameKey] ?: config.defaultModel
-            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-            return getOrCreateOpenAICompatibleModel(modelName, tencentKey, baseURL, conf)
+        if ("hunyuan" !in denyList) {
+            val tencentKey = conf["TENCENT_API_KEY"]
+            if (tencentKey != null) {
+                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "hunyuan" }!!
+                val modelName = conf[config.modelNameKey] ?: config.defaultModel
+                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+                return getOrCreateOpenAICompatibleModel(modelName, tencentKey, baseURL, conf)
+            }
         }
-        val baiduKey = conf["BAIDU_API_KEY"]
-        if (baiduKey != null) {
-            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "qianfan" }!!
-            val modelName = conf[config.modelNameKey] ?: config.defaultModel
-            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-            return getOrCreateOpenAICompatibleModel(modelName, baiduKey, baseURL, conf)
+        if ("qianfan" !in denyList) {
+            val baiduKey = conf["BAIDU_API_KEY"]
+            if (baiduKey != null) {
+                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "qianfan" }!!
+                val modelName = conf[config.modelNameKey] ?: config.defaultModel
+                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+                return getOrCreateOpenAICompatibleModel(modelName, baiduKey, baseURL, conf)
+            }
         }
 
         // 2. MiniMax (Anthropic Messages protocol — uses AnthropicChatModel)
-        val minimaxApiKey = conf["MINIMAX_API_KEY"]
-        if (minimaxApiKey != null) {
-            val modelName = conf["MINIMAX_MODEL_NAME"] ?: "MiniMax-M3"
-            return getOrCreateMinimaxModel(modelName, minimaxApiKey, conf)
+        if ("minimax" !in denyList) {
+            val minimaxApiKey = conf["MINIMAX_API_KEY"]
+            if (minimaxApiKey != null) {
+                val modelName = conf["MINIMAX_MODEL_NAME"] ?: "MiniMax-M3"
+                return getOrCreateMinimaxModel(modelName, minimaxApiKey, conf)
+            }
         }
 
         // 3. Anthropic (native AnthropicChatModel)
-        val anthropicApiKey = conf["ANTHROPIC_API_KEY"]
-        if (anthropicApiKey != null) {
-            val modelName = conf["ANTHROPIC_MODEL_NAME"] ?: "claude-sonnet-4-6"
-            return getOrCreateAnthropicModel(modelName, anthropicApiKey, conf)
+        if ("anthropic" !in denyList && "claude" !in denyList) {
+            val anthropicApiKey = conf["ANTHROPIC_API_KEY"]
+            if (anthropicApiKey != null) {
+                val modelName = conf["ANTHROPIC_MODEL_NAME"] ?: "claude-sonnet-4-6"
+                return getOrCreateAnthropicModel(modelName, anthropicApiKey, conf)
+            }
         }
 
         // 4. Google Gemini (non-OpenAI-compatible — uses native GoogleAiGeminiChatModel)
-        val geminiApiKey = conf["GOOGLE_GENERATIVE_AI_API_KEY"] ?: conf["GEMINI_API_KEY"] ?: conf["GOOGLE_API_KEY"]
-        if (geminiApiKey != null) {
-            val modelName = conf["GEMINI_MODEL_NAME"] ?: "gemini-3.1-flash-lite"
-            return getOrCreateGeminiModel(modelName, geminiApiKey, conf)
+        if ("gemini" !in denyList && "google" !in denyList) {
+            val geminiApiKey = conf["GOOGLE_GENERATIVE_AI_API_KEY"] ?: conf["GEMINI_API_KEY"] ?: conf["GOOGLE_API_KEY"]
+            if (geminiApiKey != null) {
+                val modelName = conf["GEMINI_MODEL_NAME"] ?: "gemini-3.1-flash-lite"
+                return getOrCreateGeminiModel(modelName, geminiApiKey, conf)
+            }
         }
 
         // 5. Generic fallback via LLM_PROVIDER / LLM_NAME / LLM_API_KEY
@@ -478,13 +559,65 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     // Internal helpers
     // ---------------------------------------------------------------------------
 
+    /**
+     * Parse the deny list from configuration.
+     *
+     * Accepts a comma-separated list of provider names (canonical names, aliases,
+     * or API key names). Each entry is trimmed, lowercased, and resolved to a
+     * canonical provider name.
+     *
+     * @return A set of canonical provider names that are denied (may be empty).
+     */
+    private fun parseDenyList(conf: ImmutableConfig): Set<String> {
+        val raw = conf[LLM_PROVIDER_DENY_LIST] ?: return emptySet()
+        return raw.split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .mapNotNull { resolveCanonicalProviderName(it) }
+            .toSet()
+    }
+
+    /**
+     * Resolve a user-supplied name (provider name, alias, or API key name) to a
+     * canonical provider name.
+     *
+     * Resolution order:
+     * 1. Direct alias → canonical mapping (e.g. "claude" → "anthropic")
+     * 2. Direct match in [KNOWN_PROVIDER_NAMES] (e.g. "openai", "zhipu")
+     * 3. Case-insensitive API key name lookup (e.g. "OPENAI_API_KEY" → "openai")
+     *
+     * @return The canonical provider name, or null if unrecognized.
+     */
+    private fun resolveCanonicalProviderName(name: String): String? {
+        val lower = name.lowercase().trim()
+
+        // 1. Alias → canonical (e.g. "claude" → "anthropic")
+        ALIAS_TO_CANONICAL[lower]?.let { return it }
+
+        // 2. Direct match: known provider name
+        if (lower in KNOWN_PROVIDER_NAMES) return lower
+
+        // 3. Case-insensitive API key name lookup (e.g. "zhipu_api_key" → "zhipu")
+        API_KEY_TO_PROVIDER.entries.find { it.key.equals(lower, ignoreCase = true) }?.let {
+            return it.value
+        }
+
+        return null
+    }
+
     private fun isModelConfigured0(conf: ImmutableConfig): Boolean {
         val minKeyLen = 5
+        val denyList = parseDenyList(conf)
 
         // Check all supported API key names (both OpenAI-compatible and native)
         SUPPORTED_API_KEY_NAMES.forEach { keyName ->
             val apiKey = conf[keyName] ?: ""
             if (apiKey.length > minKeyLen) {
+                // Skip if the corresponding provider is denied
+                val providerName = API_KEY_TO_PROVIDER[keyName]
+                if (providerName != null && providerName in denyList) {
+                    return@forEach
+                }
                 return true
             }
         }
@@ -494,12 +627,29 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         val llm = conf[LLM_NAME]
         val apiKey = conf[LLM_API_KEY] ?: ""
 
-        return provider != null && llm != null && apiKey.length > minKeyLen
+        if (provider != null && llm != null && apiKey.length > minKeyLen) {
+            val canonicalProvider = resolveCanonicalProviderName(provider) ?: provider.lowercase()
+            if (canonicalProvider !in denyList) {
+                return true
+            }
+        }
+
+        return false
     }
 
     private fun getOrCreateModel0(
         provider: String, modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
+        // Block denied providers at the earliest entry point for explicit creation
+        val canonical = resolveCanonicalProviderName(provider) ?: provider.lowercase()
+        val denyList = parseDenyList(conf)
+        if (canonical in denyList) {
+            throw IllegalArgumentException(
+                "Provider '$provider' is on the deny list (${LLM_PROVIDER_DENY_LIST}). " +
+                        "Remove it from the deny list to use this provider."
+            )
+        }
+
         val key = "$provider:$modelName:$apiKey"
         return models.computeIfAbsent(key) { doCreateModel(provider, modelName, apiKey, conf) }
     }

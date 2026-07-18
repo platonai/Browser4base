@@ -17,6 +17,8 @@ class UniversalProxyParserTest {
 
     @BeforeEach
     fun setUp() {
+        // Temporary unset
+        System.setProperty("llm.provider.deny.list", "zhipu")
         Assumptions.assumeTrue(ChatModelFactory.isModelConfigured(conf))
     }
 

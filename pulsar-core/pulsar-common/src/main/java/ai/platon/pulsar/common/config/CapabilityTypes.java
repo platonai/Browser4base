@@ -244,6 +244,13 @@ public interface CapabilityTypes {
     String LLM_PROVIDER = "llm.provider";
     String LLM_NAME = "llm.name";
     String LLM_API_KEY = "llm.apiKey";
+    /**
+     * Comma-separated list of provider names to block (e.g. "openai,zhipu,minimax").
+     * Denied providers are excluded from auto-detection and rejected on explicit creation.
+     * Provider names match the canonical names: openai, openrouter, anthropic, gemini,
+     * groq, together, mistral, deepseek, zhipu, moonshot, minimax, volcengine, etc.
+     */
+    String LLM_PROVIDER_DENY_LIST = "llm.provider.deny.list";
 
     ///////////////////////////////////////////////////////////////////////////
     // Other
