@@ -93,16 +93,16 @@ private class Level1NodeFeatureCalculatorVisitor(
 
     // -- helpers for direct FeatureBlock access via node index --
 
-    private fun Node.getF(key: Int): Double = block[extension.nodeIndex, key]
-    private fun Node.setF(key: Int, value: Double) { block[extension.nodeIndex, key] = value }
+    private fun Node.getF(key: Int): Double = block[nodeIndex, key]
+    private fun Node.setF(key: Int, value: Double) { block[nodeIndex, key] = value }
     private fun Node.addF(key: Int, delta: Double) { setF(key, getF(key) + delta) }
 
     // -- NodeVisitor interface --
 
     override fun head(node: Node, depth: Int) {
-        // Store metadata only — no vector objects created
-        node.extension.featureBlock = block
-        node.extension.nodeIndex = sequence
+        // Store metadata via Kotlin properties (backed by variables map in NodeExt)
+        node.featureBlock = block
+        node.nodeIndex = sequence
 
         node.setF(DEP, depth.toDouble())
         node.setF(SEQ, sequence.toDouble())
@@ -170,7 +170,7 @@ private class Level1NodeFeatureCalculatorVisitor(
             // Trim: remove all surrounding unicode white spaces
             // @see https://en.wikipedia.org/wiki/Whitespace_character
             val text = node.text()
-            node.extension.immutableText = text
+            node.immutableText = text
             val ch = text.length.toDouble()
 
             if (ch > 0.0) {

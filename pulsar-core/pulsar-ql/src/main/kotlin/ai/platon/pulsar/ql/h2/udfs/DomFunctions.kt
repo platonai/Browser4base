@@ -315,7 +315,7 @@ object DomFunctions {
     @JvmStatic
     fun ownerDocument(dom: ValueDom): ValueDom {
         if (dom.isNil) return ValueDom.NIL
-        val documentNode = dom.element.extension.ownerDocumentNode ?: return ValueDom.NIL
+        val documentNode = dom.element.ownerDocument ?: return ValueDom.NIL
         return ValueDom.get(documentNode as Document)
     }
 
@@ -323,16 +323,16 @@ object DomFunctions {
     @JvmStatic
     fun ownerBody(dom: ValueDom): ValueDom {
         if (dom.isNil) return ValueDom.NIL
-        val ownerBody = dom.element.extension.ownerBody ?: return ValueDom.NIL
-        return ValueDom.get(ownerBody as Element)
+        val body = dom.element.ownerBody ?: return ValueDom.NIL
+        return ValueDom.get(body as Element)
     }
 
     @UDFunction(description = "Get the Pulsar meta-information element from the document head")
     @JvmStatic
     fun documentVariables(dom: ValueDom): ValueDom {
         if (dom.isNil) return ValueDom.NIL
-        val ownerBody = dom.element.extension.ownerBody ?: return ValueDom.NIL
-        val meta = ownerBody.selectFirstOrNull(PULSAR_META_INFORMATION_SELECTOR) ?: return ValueDom.NIL
+        val body = dom.element.ownerBody ?: return ValueDom.NIL
+        val meta = body.selectFirstOrNull(PULSAR_META_INFORMATION_SELECTOR) ?: return ValueDom.NIL
         return ValueDom.get(meta)
     }
 

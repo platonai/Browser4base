@@ -9,6 +9,7 @@ import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.dom.features.FeatureRegistry.registeredFeatures
 import ai.platon.pulsar.dom.features.NodeFeature.Companion.isFloating
 import ai.platon.pulsar.dom.nodes.GeoAnchor
+import ai.platon.pulsar.dom.nodes.node.ext.features
 import ai.platon.pulsar.dom.select.appendSelectorIfMissing
 import ai.platon.pulsar.dom.select.select
 import ai.platon.pulsar.dom.select.selectFirstOrNull
@@ -251,7 +252,7 @@ object DomToH2Queries {
     }
 
     fun getFeatures(ele: Element, restrictCss: String, offset: Int, limit: Int): Collection<RealVector> {
-        return ele.select(restrictCss, offset, limit) { it.extension.features }
+        return ele.select(restrictCss, offset, limit) { it.features }
     }
 
     fun toValueArray(elements: Elements): ValueArray {
@@ -337,7 +338,7 @@ object DomToH2Queries {
         val columnCount = 1 + registeredFeatures.size
         val values = arrayOfNulls<Any>(columnCount)
         values[0] = ValueDom.get(ele)
-        val features = if (!ele.extension.features.isEmpty) ele.extension.features else return values
+        val features = if (!ele.features.isEmpty) ele.features else return values
 
         // TODO: configurable
         val base = 10f

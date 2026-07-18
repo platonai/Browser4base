@@ -20,6 +20,7 @@ import ai.platon.pulsar.dom.select.selectFirstOrNull
 import org.apache.commons.lang3.StringUtils
 import ai.platon.pulsar.dom.features.FeatureBlock
 import org.apache.commons.math3.linear.ArrayRealVector
+import org.apache.commons.math3.linear.RealVector
 import org.jsoup.nodes.*
 import org.jsoup.select.NodeTraversor
 import java.awt.Point
@@ -30,60 +31,36 @@ import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KProperty
 
+// -- Variable keys for fields moved from NodeExt.java into the variables map --
+// Note: ownerDocument, ownerBody, immutableText are stored via field{} delegate
+// which uses the Kotlin property name as the map key automatically.
+
+internal const val V_FEATURES = "__features"
+internal const val V_NODE_INDEX = "__nodeIndex"
+internal const val V_FEATURE_BLOCK = "__featureBlock"
+
 /**
  * Delegate for double-valued node features.
- * Uses direct [FeatureBlock] access when the node is part of a FeaturedDocument
- * (zero indirection), falling back to [RealVector][org.apache.commons.math3.linear.RealVector]
+ *
+ * All feature access goes through [Node.features] which transparently uses
+ * [FeatureBlock] for document-backed nodes or a stored [RealVector][org.apache.commons.math3.linear.RealVector]
  * for standalone nodes.
  */
 class DoubleFeature(val name: Int) {
-    operator fun getValue(thisRef: Node, property: KProperty<*>): Double {
-        val ext = thisRef.extension
-        val fb = ext.featureBlock
-        return if (fb != null) {
-            (fb as FeatureBlock)[ext.nodeIndex, name]
-        } else {
-            ext.features[name]
-        }
-    }
-
-    operator fun setValue(thisRef: Node, property: KProperty<*>, value: Double) {
-        val ext = thisRef.extension
-        val fb = ext.featureBlock
-        if (fb != null) {
-            (fb as FeatureBlock)[ext.nodeIndex, name] = value
-        } else {
-            ext.features[name] = value
-        }
-    }
+    operator fun getValue(thisRef: Node, property: KProperty<*>): Double = thisRef.features[name]
+    operator fun setValue(thisRef: Node, property: KProperty<*>, value: Double) { thisRef.features[name] = value }
 }
 
 /**
  * Delegate for int-valued node features.
- * Uses direct [FeatureBlock] access when the node is part of a FeaturedDocument
- * (zero indirection), falling back to [RealVector][org.apache.commons.math3.linear.RealVector]
+ *
+ * All feature access goes through [Node.features] which transparently uses
+ * [FeatureBlock] for document-backed nodes or a stored [RealVector][org.apache.commons.math3.linear.RealVector]
  * for standalone nodes.
  */
 class IntFeature(val name: Int) {
-    operator fun getValue(thisRef: Node, property: KProperty<*>): Int {
-        val ext = thisRef.extension
-        val fb = ext.featureBlock
-        return if (fb != null) {
-            (fb as FeatureBlock)[ext.nodeIndex, name].toInt()
-        } else {
-            ext.features[name].toInt()
-        }
-    }
-
-    operator fun setValue(thisRef: Node, property: KProperty<*>, value: Int) {
-        val ext = thisRef.extension
-        val fb = ext.featureBlock
-        if (fb != null) {
-            (fb as FeatureBlock)[ext.nodeIndex, name] = value.toDouble()
-        } else {
-            ext.features[name] = value.toDouble()
-        }
-    }
+    operator fun getValue(thisRef: Node, property: KProperty<*>): Int = thisRef.features[name].toInt()
+    operator fun setValue(thisRef: Node, property: KProperty<*>, value: Int) { thisRef.features[name] = value.toDouble() }
 }
 
 class MapField<T>(val initializer: (Node) -> T) {
@@ -381,9 +358,29 @@ val Node.isNil get() = this === NILNode
 
 /**
  * The owner document of the node.
- * TODO: should not call ownerDocument.extension, which is a recursive call
- * */
-val Node.ownerDocument get() = Objects.requireNonNull(extension.ownerDocumentNode) as Document
+ * Cached lazy value stored in [variables][NodeExt.getVariables].
+ */
+val Node.ownerDocument by field { Objects.requireNonNull(it.ownerDocument()) as Document }
+
+/**
+ * The owner body element of the node (cached, nullable).
+ * Cached lazy value stored in [variables][NodeExt.getVariables].
+ */
+val Node.ownerBody: Node?
+    get() {
+        val vars = extension.variables
+        return vars["ownerBody"] as Node? ?: run {
+            val body = ownerDocument()?.body()
+            vars["ownerBody"] = body
+            body
+        }
+    }
+
+/**
+ * The immutable (cached) text of this node, used primarily for TextNodes.
+ * Stored in [variables][NodeExt.getVariables].
+ */
+var Node.immutableText by field { "" }
 
 /**
  * Get the URL this Document was parsed from. If the starting URL is a redirect,
@@ -414,25 +411,46 @@ val Node.sequence by IntFeature(SEQ)
  * A value of -1 indicates the node is not indexed (e.g., not part of a FeaturedDocument).
  *
  * Set during feature calculation and enables O(1) access to the node's row in the FeatureBlock.
+ * Stored in [variables][NodeExt.getVariables] to avoid per-field storage in pulsar-jsoup.
  */
 var Node.nodeIndex: Int
-    get() = extension.nodeIndex
-    set(value) { extension.nodeIndex = value }
+    get() = extension.variables[V_NODE_INDEX] as? Int ?: -1
+    set(value) { extension.variables[V_NODE_INDEX] = value }
 
 /**
  * The document-level [FeatureBlock] that stores all node feature vectors.
  * Null for nodes that are not part of a FeaturedDocument.
  *
  * Set during feature calculation and enables zero-allocation O(1) feature access.
+ * Stored in [variables][NodeExt.getVariables] to avoid per-field storage in pulsar-jsoup.
  */
 var Node.featureBlock: FeatureBlock?
-    get() = extension.featureBlock as? FeatureBlock
-    set(value) { extension.featureBlock = value }
+    get() = extension.variables[V_FEATURE_BLOCK] as? FeatureBlock
+    set(value) { extension.variables[V_FEATURE_BLOCK] = value }
 
 /**
  * A globally unique id of the node.
  * */
 val Node.globalId: String get() = "$location $sequence-$left-$top-$width-$height"
+
+/**
+ * The feature vector of this node.
+ *
+ * When the node is part of a [FeaturedDocument] with a [FeatureBlock], returns a lightweight
+ * [FeatureBlockVector] view backed by the document-level contiguous DoubleArray (zero allocation).
+ * For standalone nodes, returns the [RealVector][org.apache.commons.math3.linear.RealVector]
+ * stored in the node's [variables][NodeExt.getVariables] map.
+ */
+val Node.features: RealVector
+    get() {
+        val fb = featureBlock
+        return if (fb != null) {
+            fb.rowVector(nodeIndex)
+        } else {
+            val vars = extension.variables
+            (vars[V_FEATURES] as? RealVector) ?: ArrayRealVector().also { vars[V_FEATURES] = it }
+        }
+    }
 
 //////////////////////////////////////////////////////////////////////////
 // Geometric information
@@ -789,7 +807,7 @@ val Node.captionOrSelectorOrName: String
 val Node?.cleanText: String
     get() =
         when (this) {
-            is TextNode -> extension.immutableText.trim()
+            is TextNode -> immutableText.trim()
             is Element -> accumulateText(this).trim()
             else -> ""
         }.trim()
@@ -802,7 +820,7 @@ val Node?.cleanText: String
  * */
 fun Node.joinToString(separator: String = " ", prefix: String = "", suffix: String = ""): String {
     val text = when (this) {
-        is TextNode -> extension.immutableText.trim()
+        is TextNode -> immutableText.trim()
         is Element -> accumulateText(this, separator).trim()
         else -> ""
     }.trim()
@@ -999,14 +1017,9 @@ fun Node.attrOrNull(attrName: String): String? = (this as? Element)?.attr(attrNa
 
 /**
  * Get the feature value by the given key.
- * Uses direct [FeatureBlock] access when available, falling back to [RealVector][org.apache.commons.math3.linear.RealVector].
+ * Delegates to [Node.features] which handles FeatureBlock vs RealVector storage transparently.
  */
-fun Node.getFeature(key: Int): Double {
-    val ext = extension
-    val fb = ext.featureBlock
-    return if (fb != null) (fb as FeatureBlock)[ext.nodeIndex, key]
-    else ext.features[key]
-}
+fun Node.getFeature(key: Int): Double = features[key]
 
 /**
  * Get the feature value by the given name.
@@ -1020,17 +1033,9 @@ fun Node.getFeatureEntry(key: Int): FeatureEntry = FeatureEntry(key, getFeature(
 
 /**
  * Associate the given value with the given key.
- * Uses direct [FeatureBlock] access when available, falling back to [RealVector][org.apache.commons.math3.linear.RealVector].
+ * Delegates to [Node.features] which handles FeatureBlock vs RealVector storage transparently.
  */
-fun Node.setFeature(key: Int, value: Double) {
-    val ext = extension
-    val fb = ext.featureBlock
-    if (fb != null) {
-        (fb as FeatureBlock)[ext.nodeIndex, key] = value
-    } else {
-        ext.features[key] = value
-    }
-}
+fun Node.setFeature(key: Int, value: Double) { features[key] = value }
 
 /**
  * Associate the given value with the given key.
@@ -1043,13 +1048,7 @@ fun Node.setFeature(key: Int, value: Int) {
  * Remove a feature specified by the given key. The removal is done by setting the value to 0.0.
  */
 fun Node.removeFeature(key: Int): Node {
-    val ext = extension
-    val fb = ext.featureBlock
-    if (fb != null) {
-        (fb as FeatureBlock)[ext.nodeIndex, key] = 0.0
-    } else {
-        ext.features[key] = 0.0
-    }
+    features[key] = 0.0
     return this
 }
 
@@ -1057,10 +1056,10 @@ fun Node.removeFeature(key: Int): Node {
  * Clear all the features of the node, resetting featureBlock, nodeIndex, and the feature vector.
  */
 fun Node.clearFeatures(): Node {
-    val ext = extension
-    ext.featureBlock = null
-    ext.nodeIndex = -1
-    ext.features = ArrayRealVector()
+    val vars = extension.variables
+    vars.remove(V_FEATURE_BLOCK)
+    vars[V_NODE_INDEX] = -1
+    vars[V_FEATURES] = ArrayRealVector()
     return this
 }
 
@@ -1281,20 +1280,14 @@ fun Node.removeAttrsIf(filter: (Attribute) -> Boolean): Node {
 fun Node.formatEachFeatures(vararg featureKeys: Int): String {
     val sb = StringBuilder()
     NodeTraversor.traverse({ node: Node, _ ->
-        val ext = node.extension
-        val fb = ext.featureBlock
-        val vec = if (fb != null) (fb as FeatureBlock).rowVector(ext.nodeIndex) else ext.features
-        FeatureFormatter.format(vec, featureKeys.asIterable(), sb = sb)
+        FeatureFormatter.format(node.features, featureKeys.asIterable(), sb = sb)
         sb.append('\n')
     }, this)
     return sb.toString()
 }
 
 fun Node.formatFeatures(vararg featureKeys: Int): String {
-    val ext = extension
-    val fb = ext.featureBlock
-    val vec = if (fb != null) (fb as FeatureBlock).rowVector(ext.nodeIndex) else ext.features
-    return FeatureFormatter.format(vec, featureKeys.asIterable()).toString()
+    return FeatureFormatter.format(features, featureKeys.asIterable()).toString()
 }
 
 fun Node.formatNamedFeatures(): String {
@@ -1340,7 +1333,7 @@ private fun accumulateText(root: Element, seperator: String = " "): String {
 
     NodeTraversor.traverse({ node, depth ->
         if (node is TextNode) {
-            val text = node.extension.immutableText
+            val text = node.immutableText
             if (text.isNotBlank()) {
                 sb.append(text)
             }
@@ -1371,7 +1364,7 @@ private fun getValuableClassNames(classNames: MutableSet<String>): MutableSet<St
 
 private fun Node.calculateViewPort(): DimI {
     val default = AppConstants.DEFAULT_VIEWPORT
-    val ob = extension.ownerBody ?: return default
+    val ob = ownerBody ?: return default
     val parts = ob.attr("view-port").split("x")
     return if (parts.size == 2) {
         DimI(parts[0].toIntOrNull() ?: default.width, parts[1].toIntOrNull() ?: default.height)

@@ -15,9 +15,6 @@
 
 package ai.platon.pulsar.jsoup.ext;
 
-import org.apache.commons.math3.linear.OpenMapRealVector;
-import org.apache.commons.math3.linear.RealVector;
-import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Node;
 
 import javax.annotation.Nonnull;
@@ -31,29 +28,17 @@ import java.util.Map;
  * We have two modifications to jsoup:
  * 1. add NodeExt to Node
  * 2. make NodeVisitor and NodeFilter compatible with kotlin lambda
- * */
+ *
+ * Core storage fields ({@code variables}, {@code tuples}, {@code node}) are kept here.
+ * All feature-related fields ({@code features}, {@code featureBlock}, {@code nodeIndex},
+ * {@code ownerDocumentNode}, {@code ownerBody}, {@code immutableText}) have been moved
+ * to the Kotlin extension layer in {@code ai.platon.pulsar.dom.nodes.node.ext} and are
+ * stored in the {@code variables} map.
+ */
 public class NodeExt {
-    public static final RealVector EMPTY_FEATURE = new OpenMapRealVector();
-
     private final Node node;
-    private Node ownerDocumentNode;
-    private Node ownerBody;
-    private String immutableText;
-    private RealVector features;
     private Map<String, Object> variables;
     private Map<String, List<Object>> tuples;
-    /**
-     * The node's index within its owning document's {@code FeatureBlock}.
-     * Set during feature calculation by the feature calculator.
-     * A value of -1 indicates the node has not been indexed (e.g., not part of a FeaturedDocument).
-     */
-    private int nodeIndex = -1;
-    /**
-     * Reference to the document-level FeatureBlock that stores all node feature vectors.
-     * Stored as Object to avoid a circular dependency between pulsar-jsoup and pulsar-dom.
-     * Set on every node during feature calculation. Null for non-FeaturedDocument nodes.
-     */
-    private Object featureBlock;
 
     public NodeExt(Node node) {
         this.node = node;
@@ -63,82 +48,6 @@ public class NodeExt {
         for (String attrName : attrNames) {
             node.removeAttr(attrName);
         }
-    }
-
-    public Node getOwnerDocumentNode() {
-        if (ownerDocumentNode == null) {
-            ownerDocumentNode = node.ownerDocument();
-        }
-        return ownerDocumentNode;
-    }
-
-    public void setOwnerDocumentNode(Node ownerDocumentNode) {
-        this.ownerDocumentNode = ownerDocumentNode;
-    }
-
-    public Node getOwnerBody() {
-        if (ownerBody == null) {
-            Document document = node.ownerDocument();
-            if (document != null) {
-                ownerBody = document.body();
-            }
-        }
-        return ownerBody;
-    }
-
-    public void setOwnerBody(Node ownerBody) {
-        this.ownerBody = ownerBody;
-    }
-
-    @Nonnull
-    public String getImmutableText() {
-        if (immutableText == null) {
-            immutableText = "";
-        }
-        return immutableText;
-    }
-
-    public void setImmutableText(String immutableText) {
-        this.immutableText = immutableText;
-    }
-
-    @Nonnull
-    public RealVector getFeatures() {
-        if (features == null) {
-            features = EMPTY_FEATURE;
-        }
-        return features;
-    }
-
-    public void setFeatures(RealVector features) {
-        this.features = features;
-    }
-
-    /**
-     * Returns the node's index within its owning document's {@code FeatureBlock}.
-     * A value of -1 indicates the node has not been indexed (e.g., not part of a FeaturedDocument,
-     * or features have not been calculated).
-     */
-    public int getNodeIndex() {
-        return nodeIndex;
-    }
-
-    public void setNodeIndex(int nodeIndex) {
-        this.nodeIndex = nodeIndex;
-    }
-
-    /**
-     * Returns the document-level FeatureBlock that stores all node feature vectors.
-     * Stored as Object to avoid circular dependency; the pulsar-dom module casts it to
-     * {@code ai.platon.pulsar.dom.features.FeatureBlock}.
-     * Null for nodes that are not part of a FeaturedDocument.
-     */
-    public Object getFeatureBlock() {
-        return featureBlock;
-    }
-
-    public void setFeatureBlock(Object featureBlock) {
-        this.featureBlock = featureBlock;
     }
 
     @Nonnull
