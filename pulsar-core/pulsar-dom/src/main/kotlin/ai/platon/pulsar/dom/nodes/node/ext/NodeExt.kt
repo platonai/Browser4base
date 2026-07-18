@@ -18,7 +18,7 @@ import ai.platon.pulsar.dom.model.createLink
 import ai.platon.pulsar.dom.nodes.*
 import ai.platon.pulsar.dom.select.selectFirstOrNull
 import org.apache.commons.lang3.StringUtils
-import org.apache.commons.math3.linear.ArrayRealVector
+import ai.platon.pulsar.dom.features.FeatureBlockVector
 import org.jsoup.nodes.*
 import org.jsoup.select.NodeTraversor
 import java.awt.Point
@@ -211,7 +211,7 @@ fun Element.addClasses(classNames: Iterable<String>): Element {
  * */
 fun Element.slimCopy(): Element {
     val clone = this.clone()
-    clone.forEach { it.extension.features = ArrayRealVector() }
+    clone.forEach { it.extension.features = FeatureBlockVector.empty() }
     simplifyDOM(clone)
 
     clone.clearAttributesCascaded()
@@ -977,7 +977,7 @@ fun Node.removeFeature(key: Int): Node {
  * Clear all the features of the node, the feature vector is set to an empty vector.
  * */
 fun Node.clearFeatures(): Node {
-    extension.features = ArrayRealVector()
+    extension.features = FeatureBlockVector.empty()
     return this
 }
 

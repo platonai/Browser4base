@@ -8,6 +8,8 @@ import ai.platon.pulsar.common.math.vectors.isNotEmpty
 import ai.platon.pulsar.common.urls.Hyperlink
 import ai.platon.pulsar.dom.nodes.*
 import ai.platon.pulsar.dom.nodes.node.ext.*
+import ai.platon.pulsar.dom.features.FeatureBlock
+import ai.platon.pulsar.dom.features.Level1FeatureCalculator
 import ai.platon.pulsar.dom.select.*
 import org.apache.commons.math3.linear.RealVector
 import org.jsoup.nodes.*
@@ -293,6 +295,16 @@ open class FeaturedDocument @JvmOverloads constructor(
      */
     val features: RealVector
         get() = document.extension.features
+
+    /**
+     * The document-level feature block that stores all node feature vectors
+     * in a single contiguous [DoubleArray]. Created during [calculateFeatures].
+     *
+     * This replaces per-node [org.apache.commons.math3.linear.ArrayRealVector] allocations
+     * to reduce GC pressure and improve cache locality.
+     */
+    var featureBlock: FeatureBlock? = null
+        private set
 
     /**
      * The constructor
@@ -752,7 +764,14 @@ open class FeaturedDocument @JvmOverloads constructor(
     }
 
     private fun calculateFeatures() {
-        FeatureCalculatorFactory.calculator.calculate(document)
+        // Ensure the default calculator is in use and retrieve its FeatureBlock after calculation
+        val calculator = FeatureCalculatorFactory.calculator
+        if (calculator is Level1FeatureCalculator) {
+            calculator.calculate(document)
+            featureBlock = calculator.featureBlock
+        } else {
+            calculator.calculate(document)
+        }
         require(features.isNotEmpty)
 
         document.unitArea = densityUnitArea

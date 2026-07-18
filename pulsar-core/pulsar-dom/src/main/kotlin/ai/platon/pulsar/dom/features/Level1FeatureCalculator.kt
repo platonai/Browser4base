@@ -7,7 +7,6 @@ import ai.platon.pulsar.dom.features.defined.*
 import ai.platon.pulsar.dom.nodes.DOMRect
 import ai.platon.pulsar.dom.nodes.forEachElement
 import ai.platon.pulsar.dom.nodes.node.ext.*
-import org.apache.commons.math3.linear.ArrayRealVector
 import org.apache.commons.math3.linear.RealVector
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.jsoup.nodes.Document
@@ -18,7 +17,11 @@ import org.jsoup.select.NodeTraversor
 import org.jsoup.select.NodeVisitor
 
 /**
- * The level 1 feature calculator calculate for the minimal features
+ * The level 1 feature calculator calculate for the minimal features.
+ *
+ * Uses a document-level [FeatureBlock] to store all node feature vectors in a single
+ * contiguous [DoubleArray], replacing per-node [org.apache.commons.math3.linear.ArrayRealVector]
+ * allocations to reduce GC pressure.
  * */
 class Level1FeatureCalculator: AbstractFeatureCalculator() {
     companion object {
@@ -31,12 +34,32 @@ class Level1FeatureCalculator: AbstractFeatureCalculator() {
         }
     }
 
+    /**
+     * The [FeatureBlock] for the current document being calculated.
+     * Set by [FeaturedDocument][ai.platon.pulsar.dom.FeaturedDocument] before calling [calculate].
+     */
+    var featureBlock: FeatureBlock? = null
+        private set
+
     override fun calculate(document: Document) {
-        NodeTraversor.traverse(Level1NodeFeatureCalculatorVisitor(), document)
+        val nodeCount = countNodes(document)
+        val block = FeatureBlock(nodeCount, FeatureRegistry.dimension)
+        this.featureBlock = block
+        NodeTraversor.traverse(Level1NodeFeatureCalculatorVisitor(block), document)
     }
-    
+
     override fun dispose() {
         FeatureRegistry.unregister()
+    }
+
+    /**
+     * Count the total number of nodes in the document.
+     * A fast O(n) traversal with no allocations — used to size the [FeatureBlock].
+     */
+    private fun countNodes(document: Document): Int {
+        var count = 0
+        NodeTraversor.traverse({ _, _ -> ++count }, document)
+        return count
     }
 }
 
@@ -54,15 +77,15 @@ class ClassFactory : ResourceLoader.ClassFactory {
     }
 }
 
-private class Level1NodeFeatureCalculatorVisitor: NodeVisitor {
+private class Level1NodeFeatureCalculatorVisitor(
+    private val featureBlock: FeatureBlock
+) : NodeVisitor {
     var sequence: Int = 0
         private set
 
-    private val featureDimension = FeatureRegistry.registeredFeatures.size
-
     // hit when the node is first seen
     override fun head(node: Node, depth: Int) {
-        val features = ArrayRealVector(featureDimension)
+        val features = featureBlock.rowVector(sequence)
         node.extension.features = features
 
         features[DEP] = depth.toDouble()
