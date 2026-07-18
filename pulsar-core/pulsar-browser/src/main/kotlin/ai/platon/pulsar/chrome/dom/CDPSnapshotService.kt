@@ -1,9 +1,5 @@
 package ai.platon.pulsar.chrome.dom
 
-import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.model.*
-import ai.platon.pulsar.api.snapshot.SnapshotService
 import ai.platon.pulsar.chrome.dom.impl.AccessibilityHandler
 import ai.platon.pulsar.chrome.dom.impl.AccessibilityHandler.AccessibilityTreeResult
 import ai.platon.pulsar.chrome.dom.impl.DOMSnapshotHandler
@@ -13,6 +9,11 @@ import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.chrome.dom.util.HashUtils
 import ai.platon.pulsar.chrome.dom.util.ScrollUtils
 import ai.platon.pulsar.chrome.dom.util.XPathUtils
+import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.DOMSerializer
+import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.math.geometric.DimI
 import kotlinx.coroutines.async
@@ -470,7 +471,8 @@ class CDPSnapshotService(
                         originalNode = node,
                         children = children,
                         shouldDisplay = true,
-                        isShadowHost = false
+                        isShadowHost = false,
+                        interactiveIndex = node.interactiveIndex
                     )
                 }
 
@@ -504,7 +506,8 @@ class CDPSnapshotService(
                         originalNode = node,
                         children = optimizedChildren,
                         shouldDisplay = true,
-                        isShadowHost = hasShadowContent
+                        isShadowHost = hasShadowContent,
+                        interactiveIndex = node.interactiveIndex
                     )
                 }
 
@@ -512,7 +515,8 @@ class CDPSnapshotService(
                     OptimizedDOMTreeNode(
                         originalNode = node,
                         children = emptyList(),
-                        shouldDisplay = true
+                        shouldDisplay = true,
+                        interactiveIndex = node.interactiveIndex
                     )
                 }
 

@@ -1,5 +1,7 @@
 package ai.platon.pulsar.chrome.protocol
 
+import ai.platon.pulsar.chrome.RemoteDevTools
+import ai.platon.pulsar.chrome.protocol.transport.DevToolsInvocationHandler
 import ai.platon.cdt.kt.protocol.ChromeDevTools
 import ai.platon.cdt.kt.protocol.events.console.MessageAdded
 import ai.platon.cdt.kt.protocol.events.fetch.AuthRequired
@@ -33,8 +35,6 @@ import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
 import ai.platon.cdt.kt.protocol.types.runtime.RemoteObject
 import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.chrome.RemoteDevTools
-import ai.platon.pulsar.chrome.protocol.transport.DevToolsInvocationHandler
 
 /**
  * CDP is the single access point for all Chrome DevTools Protocol (CDP) domain APIs.

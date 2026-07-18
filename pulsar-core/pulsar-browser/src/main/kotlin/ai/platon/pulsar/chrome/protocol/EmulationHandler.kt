@@ -18,7 +18,7 @@ import ai.platon.pulsar.common.math.geometric.PointD
 import ai.platon.pulsar.common.math.geometric.RectD
 import kotlinx.coroutines.delay
 import org.apache.commons.lang3.SystemUtils
-import org.apache.commons.math3.util.Precision
+
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -131,7 +131,7 @@ class ClickableDOM(
                 }
             }
 
-            if (!Precision.equals(minX, MAX_SAFE_POSITION) && !Precision.equals(minY, MAX_SAFE_POSITION)) {
+            if (minX != MAX_SAFE_POSITION && minY != MAX_SAFE_POSITION) {
                 return DescriptiveResult(PointD(x = minX + offset.x, y = minY + offset.y))
             }
         }
@@ -536,20 +536,17 @@ class Keyboard(private val bp: BrowserProtocol) {
                 pressShiftedPrintableChar(char, delayMillis)
                 return
             }
-            // Route simple printable characters through insertText for reliability.
-            // dispatchKeyEvent dispatches trusted key events that can be intercepted
-            // or modified by page JavaScript (autocomplete, input sanitizers, etc.),
-            // whereas insertText bypasses JS handlers and directly inserts text at
-            // the cursor position — consistent with how Keyboard.type works.
-            //
-            // Only use insertText when no modifiers are active. If modifiers are
-            // pressed (e.g. Shift key pushed via down()), we must go through
-            // dispatchKeyEvent so the modifier state is properly applied.
-            if (!Character.isISOControl(char) && pressedModifiers.isEmpty()) {
+            // CDP Input.dispatchKeyEvent does not reliably insert text into
+            // editable elements in headless Chrome (see commit 6a5ba71d7).
+            // Use insertText — the same mechanism Keyboard.type() relies on —
+            // for all single printable characters to guarantee the character
+            // appears.  The surrounding keyDown/keyUp still fire so that JS
+            // keyboard listeners observe the key press.
+            if (!Character.isISOControl(char)) {
+                down(keyString)
                 bp.insertText("$char")
-                if (delayMillis > 0) {
-                    delay(delayMillis.milliseconds)
-                }
+                delay(delayMillis.coerceAtLeast(60).milliseconds)
+                up(keyString)
                 return
             }
         }
@@ -602,6 +599,11 @@ class Keyboard(private val bp: BrowserProtocol) {
                 autoRepeat = autoRepeat,
                 commands = emptyList(),
             )
+            // CDP Input.dispatchKeyEvent with keyDown does not reliably insert
+            // text into editable elements in headless Chrome (see commit
+            // 6a5ba71d7).  Fall back to Input.insertText — the same mechanism
+            // Keyboard.type() uses — to guarantee the character appears.
+            bp.insertText("$char")
             delay(delayMillis.coerceAtLeast(60).milliseconds)
             bp.dispatchKeyEvent(
                 type = DispatchKeyEventType.KEY_UP,
@@ -668,7 +670,7 @@ class Keyboard(private val bp: BrowserProtocol) {
 
         keyString.forEach { char ->
             if (char == '+' && token.isNotEmpty()) {
-                keys.add(token.toString().trimSpaces())
+                keys.add(token.toString().trim())
                 token.clear()
             } else {
                 token.append(char)
@@ -676,23 +678,10 @@ class Keyboard(private val bp: BrowserProtocol) {
         }
 
         if (token.isNotEmpty()) {
-            keys.add(token.toString().trimSpaces())
+            keys.add(token.toString().trim())
         }
 
         return keys
-    }
-
-    /**
-     * Trims only leading and trailing space characters (0x20), unlike [String.trim]
-     * which also removes other whitespace including control characters like `\n`, `\r`, `\t`.
-     * This preserves control character aliases (e.g. `\n` → Enter key) in [splitKeyString].
-     */
-    private fun String.trimSpaces(): String {
-        var start = 0
-        var end = lastIndex
-        while (start <= end && this[start] == ' ') start++
-        while (end >= start && this[end] == ' ') end--
-        return substring(start, end + 1)
     }
 
     fun createVirtualKeyForSingleKeyString(modifier: KeyboardModifier): VirtualKey {
@@ -783,7 +772,12 @@ class EmulationHandler(
     private val isActive get() = bp != null
 
     suspend fun click(
-        node: NodeRef, count: Int, position: String = "center", modifier: String? = null, delayMillis: Long = 100
+        node: NodeRef,
+        count: Int,
+        position: String = "center",
+        modifier: String? = null,
+        delayMillis: Long = 100,
+        dispatchCdpMouseEvents: Boolean = true,
     ) {
         val point = getInteractPoint(node, position, useRandomOffset = true) ?: return
 
@@ -802,6 +796,15 @@ class EmulationHandler(
                     userGesture = true,
                 )
             }
+        }
+
+        // On Windows, CDP Input.dispatchMouseEvent does not reliably trigger
+        // DOM click events in headless Chrome.  When dispatchCdpMouseEvents is
+        // false (Windows-only), the caller will use a DOM click fallback instead.
+        // We still run the prep work above (point calculation + focus) so the
+        // element is ready for interaction.
+        if (!dispatchCdpMouseEvents) {
+            return
         }
 
         // Use CDP Input.dispatchMouseEvent (trusted, synchronous) instead of

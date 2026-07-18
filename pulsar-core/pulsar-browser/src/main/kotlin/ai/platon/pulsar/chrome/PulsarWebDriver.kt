@@ -1,24 +1,8 @@
 package ai.platon.pulsar.chrome
 
-import ai.platon.cdt.kt.protocol.events.network.RequestWillBeSent
-import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
-import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
-import ai.platon.cdt.kt.protocol.events.page.WindowOpen
-import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
-import ai.platon.cdt.kt.protocol.types.network.Cookie
-import ai.platon.cdt.kt.protocol.types.network.ErrorReason
-import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
-import ai.platon.cdt.kt.protocol.types.network.ResourceType
-import ai.platon.cdt.kt.protocol.types.page.PrintToPDFTransferMode
-import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
-import ai.platon.pulsar.api.AbstractWebDriver
-import ai.platon.pulsar.api.BrowserProtocol
-import ai.platon.pulsar.api.WebDriver
-import ai.platon.pulsar.api.model.*
-import ai.platon.pulsar.api.snapshot.SnapshotService
-import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
 import ai.platon.pulsar.chrome.network.*
+import ai.platon.pulsar.api.snapshot.ViewportSpec
 import ai.platon.pulsar.chrome.protocol.ClickableDOM
 import ai.platon.pulsar.chrome.protocol.EmulationHandler
 import ai.platon.pulsar.chrome.protocol.PageHandler
@@ -29,6 +13,29 @@ import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
 import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.pulsar.chrome.util.ChromeIOException
 import ai.platon.pulsar.chrome.util.Credentials
+import ai.platon.cdt.kt.protocol.events.network.RequestWillBeSent
+import ai.platon.cdt.kt.protocol.events.network.ResponseReceived
+import ai.platon.cdt.kt.protocol.events.page.FrameNavigated
+import ai.platon.cdt.kt.protocol.events.page.WindowOpen
+import ai.platon.cdt.kt.protocol.types.fetch.RequestPattern
+import ai.platon.cdt.kt.protocol.types.page.PrintToPDFTransferMode
+import ai.platon.cdt.kt.protocol.types.network.Cookie
+import ai.platon.cdt.kt.protocol.types.network.ErrorReason
+import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
+import ai.platon.cdt.kt.protocol.types.network.ResourceType
+import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
+import ai.platon.pulsar.api.AbstractWebDriver
+import ai.platon.pulsar.api.WebDriver
+import ai.platon.pulsar.api.model.*
+import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.model.BrowserTab
+import ai.platon.pulsar.api.model.NetworkResourceResponse
+import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.pulsar.api.snapshot.SnapshotService
+import ai.platon.pulsar.api.model.BrowserUseState
+import ai.platon.pulsar.api.model.NanoDOMTree
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.*
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.math.geometric.OffsetD
@@ -39,10 +46,15 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.apache.commons.lang3.StringUtils
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToLong
 import java.nio.file.Files
 import java.time.Duration
 import java.time.Instant
@@ -548,11 +560,32 @@ open class PulsarWebDriver constructor(
         }
     }
 
+    /**
+     * Compute a timeout for mouse-wheel operations proportional to the scroll
+     * distance.  The base 5 s covers the CDP round-trip; each additional
+     * 1 000 px of combined delta adds 1 s, capped at 30 s.
+     */
+    private fun wheelTimeout(deltaX: Double, deltaY: Double): Long {
+        val distance = max(abs(deltaX), abs(deltaY))
+        val extra = (distance / 1000.0).roundToLong() * 1000L
+        return maxOf(5_000L, minOf(30_000L, 5_000L + extra))
+    }
+
     @Throws(WebDriverException::class)
     override suspend fun mouseWheel(deltaX: Double, deltaY: Double) {
         val m = mouse ?: throw IllegalWebDriverStateException("Mouse not available", driver = this)
         rpc.invokeOnPage("mouseWheel") {
-            m.wheel(deltaX, deltaY)
+            // Primary: CDP mouse wheel — dispatches trusted wheel DOM events that
+            // page listeners can observe (required for interactive fixtures).
+            // Fallback: JS window.scrollBy() when CDP fails (bypasses the
+            // Input.dispatchMouseEvent wheel race condition crbug.com/444929150).
+            try {
+                withTimeout(wheelTimeout(deltaX, deltaY)) {
+                    m.wheel(deltaX, deltaY)
+                }
+            } catch (_: Exception) {
+                js.evaluate("window.scrollBy($deltaX, $deltaY)")
+            }
         }
     }
 
@@ -563,9 +596,18 @@ open class PulsarWebDriver constructor(
                 gap("mouseWheel")
                 val point = emulator.getInteractPoint(node, "center", useRandomOffset = true)
                     ?: return@invokeOnElement
-                val m = mouse ?: return@invokeOnElement
-                m.moveTo(point, steps = 1)
-                m.wheel(deltaX, deltaY)
+                // Primary: CDP mouse wheel — dispatches trusted wheel DOM events.
+                // Fallback: JS element.scrollBy() when CDP fails (bypasses the
+                // Input.dispatchMouseEvent wheel race condition crbug.com/444929150).
+                try {
+                    val m = mouse ?: return@invokeOnElement
+                    withTimeout(wheelTimeout(deltaX, deltaY)) {
+                        m.moveTo(point, steps = 1)
+                        m.wheel(deltaX, deltaY)
+                    }
+                } catch (_: Exception) {
+                    js.evaluate("document.querySelector('${selector.replace("'", "\\'")}').scrollBy($deltaX, $deltaY)")
+                }
             }
         } catch (e: ChromeDriverException) {
             rpc.interceptChromeException(e, "mouseWheel")
@@ -663,9 +705,21 @@ open class PulsarWebDriver constructor(
     override suspend fun click(selector: String, count: Int) {
         rpc.invokeOnElement(selector, "click", scrollIntoView = true) { node ->
             waitForScrollSettled(selector)
-            val delayMillis = randomDelayMillis("click")
-            emulator.click(node, count, position = "center", modifier = null, delayMillis = delayMillis)
-            // debugElementOnPoint(node)
+            val isWindows = org.apache.commons.lang3.SystemUtils.IS_OS_WINDOWS
+            // On Windows, CDP Input.dispatchMouseEvent (mousePressed/mouseReleased)
+            // does not reliably trigger DOM click events in headless Chrome.
+            // Use a DOM click as the sole mechanism (skip CDP mouse events to
+            // avoid double-firing).  On Linux/macOS the CDP path works reliably.
+            if (isWindows) {
+                emulator.click(
+                    node, count, position = "center", modifier = null,
+                    delayMillis = 0, dispatchCdpMouseEvents = false,
+                )
+                dispatchDomClick(node, count)
+            } else {
+                val delayMillis = randomDelayMillis("click")
+                emulator.click(node, count, position = "center", modifier = null, delayMillis = delayMillis)
+            }
         }
     }
 
@@ -675,6 +729,10 @@ open class PulsarWebDriver constructor(
             val delayMillis = randomDelayMillis("click")
             waitForScrollSettled(selector)
             emulator.click(node, 1, position = "center", modifier = modifier, delayMillis = delayMillis)
+            // No DOM fallback for modifier clicks: the CDP modifier bitmask
+            // (Ctrl/Shift/Alt/Meta) has no equivalent in HTMLElement.click()
+            // or dispatchEvent, and adding a DOM fallback on top of CDP would
+            // double-fire on Windows where both paths work.
         }
     }
 
@@ -719,8 +777,137 @@ open class PulsarWebDriver constructor(
     override suspend fun dblclick(selector: String, modifier: String) {
         rpc.invokeOnElement(selector, "dblclick") {
             val node = page.focusOnSelector(selector) ?: return@invokeOnElement
-            emulator.click(node, 2)
+            val isWindows = org.apache.commons.lang3.SystemUtils.IS_OS_WINDOWS
+            val hasModifier = modifier.isNotBlank()
+            if (isWindows && !hasModifier) {
+                // Windows, no modifier: use DOM click as sole mechanism to
+                // avoid double-firing from CDP mouse events + synthetic DOM.
+                emulator.click(
+                    node, 2, position = "center", modifier = null,
+                    delayMillis = 0, dispatchCdpMouseEvents = false,
+                )
+                dispatchDomClick(node, 2)
+            } else if (hasModifier) {
+                // Any platform with a modifier (Shift/Ctrl/Alt/Meta): use CDP
+                // path — the modifier bitmask has no equivalent in
+                // HTMLElement.click() or MouseEvent dispatch.
+                emulator.click(node, 2, position = "center", modifier = modifier)
+            } else {
+                // Non-Windows, no modifier: standard CDP double-click.
+                emulator.click(node, 2)
+            }
             gap("dblclick")
+        }
+    }
+
+    /**
+     * Dispatch DOM click(s) on the given element matching the W3C UI Events
+     * standard event sequence.
+     *
+     * On Windows, CDP `Input.dispatchMouseEvent` does not reliably trigger
+     * DOM click events in headless Chrome.  This method produces the full
+     * event sequence as the sole click mechanism:
+     *
+     *   `pointerdown → mousedown → pointerup → mouseup → click`
+     *
+     * where `click` uses [HTMLElement.click] to trigger default actions
+     * (navigation, form submission).  For count = 2 the sequence repeats
+     * twice and ends with `dblclick`.
+     *
+     * [HTMLElement.click] per spec only fires `click` — it does not fire
+     * `pointerdown`, `pointerup`, `mousedown`, `mouseup`, or `dblclick`,
+     * so those are dispatched explicitly with correct property values
+     * (`buttons` = 1 during press, 0 on release; `detail` = click count).
+     * Coordinates are taken from the element's bounding rect center.
+     *
+     * @param node  The element to click.
+     * @param count Number of consecutive clicks (1 = single, 2 = double).
+     */
+    private suspend fun dispatchDomClick(node: NodeRef, count: Int) {
+        withNodeObjectId(browserProtocol, node) { objectId ->
+            when (count) {
+                1 -> {
+                    browserProtocol.callFunctionOn(
+                        """function() {
+                             if (this instanceof HTMLElement) {
+                               var r = this.getBoundingClientRect();
+                               var cx = r.left + r.width / 2;
+                               var cy = r.top + r.height / 2;
+                               var detail = 1;
+                               emitClick(this, cx, cy, detail);
+                             }
+                             function emitClick(el, cx, cy, d) {
+                               var ptr = new PointerEvent('pointerdown', {bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse',isPrimary:true,clientX:cx,clientY:cy,buttons:1,button:0,detail:d});
+                               var md  = new MouseEvent('mousedown', {bubbles:true,cancelable:true,view:window,clientX:cx,clientY:cy,buttons:1,button:0,detail:d});
+                               el.dispatchEvent(ptr);
+                               el.dispatchEvent(md);
+                               ptr = new PointerEvent('pointerup', {bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse',isPrimary:true,clientX:cx,clientY:cy,buttons:0,button:0,detail:d});
+                               var mu  = new MouseEvent('mouseup', {bubbles:true,cancelable:true,view:window,clientX:cx,clientY:cy,buttons:0,button:0,detail:d});
+                               el.dispatchEvent(ptr);
+                               el.dispatchEvent(mu);
+                               el.click();
+                             }
+                           }""",
+                        objectId = objectId,
+                        returnByValue = false,
+                        userGesture = true,
+                    )
+                }
+                2 -> {
+                    browserProtocol.callFunctionOn(
+                        """function() {
+                             if (this instanceof HTMLElement) {
+                               var r = this.getBoundingClientRect();
+                               var cx = r.left + r.width / 2;
+                               var cy = r.top + r.height / 2;
+                               emitClick(this, cx, cy, 1);
+                               emitClick(this, cx, cy, 2);
+                               this.dispatchEvent(new MouseEvent('dblclick', {bubbles:true,cancelable:true,view:window,detail:2}));
+                             }
+                             function emitClick(el, cx, cy, d) {
+                               var ptr = new PointerEvent('pointerdown', {bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse',isPrimary:true,clientX:cx,clientY:cy,buttons:1,button:0,detail:d});
+                               var md  = new MouseEvent('mousedown', {bubbles:true,cancelable:true,view:window,clientX:cx,clientY:cy,buttons:1,button:0,detail:d});
+                               el.dispatchEvent(ptr);
+                               el.dispatchEvent(md);
+                               ptr = new PointerEvent('pointerup', {bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse',isPrimary:true,clientX:cx,clientY:cy,buttons:0,button:0,detail:d});
+                               var mu  = new MouseEvent('mouseup', {bubbles:true,cancelable:true,view:window,clientX:cx,clientY:cy,buttons:0,button:0,detail:d});
+                               el.dispatchEvent(ptr);
+                               el.dispatchEvent(mu);
+                               el.click();
+                             }
+                           }""",
+                        objectId = objectId,
+                        returnByValue = false,
+                        userGesture = true,
+                    )
+                }
+                else -> {
+                    repeat(count) { i ->
+                        browserProtocol.callFunctionOn(
+                            """function(detail) {
+                                 if (this instanceof HTMLElement) {
+                                   var r = this.getBoundingClientRect();
+                                   var cx = r.left + r.width / 2;
+                                   var cy = r.top + r.height / 2;
+                                   var ptr = new PointerEvent('pointerdown', {bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse',isPrimary:true,clientX:cx,clientY:cy,buttons:1,button:0,detail:detail});
+                                   var md  = new MouseEvent('mousedown', {bubbles:true,cancelable:true,view:window,clientX:cx,clientY:cy,buttons:1,button:0,detail:detail});
+                                   this.dispatchEvent(ptr);
+                                   this.dispatchEvent(md);
+                                   ptr = new PointerEvent('pointerup', {bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse',isPrimary:true,clientX:cx,clientY:cy,buttons:0,button:0,detail:detail});
+                                   var mu  = new MouseEvent('mouseup', {bubbles:true,cancelable:true,view:window,clientX:cx,clientY:cy,buttons:0,button:0,detail:detail});
+                                   this.dispatchEvent(ptr);
+                                   this.dispatchEvent(mu);
+                                   this.click();
+                                 }
+                               }""",
+                            objectId = objectId,
+                            returnByValue = false,
+                            userGesture = true,
+                            arguments = listOf(CallArgument(value = i + 1)),
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -766,6 +953,16 @@ open class PulsarWebDriver constructor(
         rpc.invokeOnElement(selector, "type") {
             val node = page.focusOnSelector(selector) ?: return@invokeOnElement
             emulator.click(node, 1, position = "right")
+            // Ensure the cursor is at the end of any existing text so that
+            // typed characters append rather than prepend.
+            try {
+                js.evaluate(
+                    "document.querySelector('${selector.replace("'", "\\'")}')" +
+                    ".setSelectionRange(99999, 99999)"
+                )
+            } catch (_: Exception) {
+                // Non-text elements don't support setSelectionRange — ignore.
+            }
             keyboard?.type(text, randomDelayMillis("type"))
             gap("type")
         }
@@ -780,8 +977,40 @@ open class PulsarWebDriver constructor(
 
             emulator.click(node, 1, "right")
 
-            // For fill, there is no delay between key presses, just like paste
-            keyboard?.type(text, 0)
+            // Ensure cursor is at the end of any remaining text after clear
+            try {
+                js.evaluate(
+                    "document.querySelector('${selector.replace("'", "\\'")}')" +
+                    ".setSelectionRange(99999, 99999)"
+                )
+            } catch (_: Exception) {
+                // Non-text elements don't support setSelectionRange — ignore.
+            }
+
+            // Inter-character delay for Input.insertText CDP calls.
+            //
+            // Keyboard.type() dispatches each character via Input.insertText,
+            // which sends a CDP command to Chrome.  Chrome processes the command
+            // synchronously (the CDP response confirms the text was delivered),
+            // but the resulting DOM events (input, keypress) are dispatched
+            // asynchronously on the page's event loop.  If the next insertText
+            // arrives before the prior one's DOM events have fully propagated,
+            // Chrome may coalesce or drop input events — the page never sees
+            // the missing characters and syncState() is never called.
+            //
+            // This is especially acute in Docker headless Chrome where the
+            // event loop runs under constrained CPU/Memory, so DOM event
+            // processing is slower than on a developer workstation.
+            //
+            // A hardcoded 10ms was tried (commit d904be750) but proved
+            // insufficient in CI; a single-digit-ms gap is not enough headroom
+            // for Chrome's async event pipeline under load.
+            //
+            // Using randomDelayMillis("type") — the same 90-240ms bucket that
+            // type() uses (InteractSettings.DEFAULT_DELAY_POLICY) — gives each
+            // insertText → DOM-event cycle enough time to complete before the
+            // next character arrives, matching type()'s proven reliability.
+            keyboard?.type(text, randomDelayMillis("type"))
 
             gap("fill")
         }
@@ -857,8 +1086,21 @@ open class PulsarWebDriver constructor(
             return
         }
 
-        rpc.invokeOnElement(selector, "press", scrollIntoView = true) { node ->
+        rpc.invokeOnElement(selector, "press") {
+            val node = page.focusOnSelector(selector) ?: return@invokeOnElement
             emulator.click(node, 1, position = "right")
+            // Ensure the cursor is at the end of any existing text so that the
+            // pressed key appends rather than prepends.  CDP focus + click may
+            // leave the cursor at position 0 on some platforms.
+            try {
+                js.evaluate(
+                    "document.querySelector('${selector.replace("'", "\\'")}')" +
+                    ".setSelectionRange(99999, 99999)"
+                )
+            } catch (_: Exception) {
+                // Non-text elements (buttons, divs) don't support setSelectionRange.
+                // Silently ignore — the press will still work for non-text targets.
+            }
             keyboard?.press(key, randomDelayMillis("press"))
             // CDP-dispatched Enter may not trigger implicit form submission (HTML spec §4.10.2.2).
             // Explicitly submit the nearest form as a safety net. See trySubmitFormOnEnter().
@@ -1376,7 +1618,7 @@ open class PulsarWebDriver constructor(
      * Navigate to the page and inject scripts.
      * */
     private suspend fun navigateInvaded(entry: NavigateEntry) {
-        val url = entry.url
+        val url = entry.userTypedUrl
 
         addScriptToEvaluateOnNewDocument()
 
@@ -1440,15 +1682,15 @@ open class PulsarWebDriver constructor(
     }
 
     private suspend fun onRequestWillBeSent(entry: NavigateEntry, event: RequestWillBeSent) {
-        if (!entry.url.startsWith("http")) {
+        if (!entry.userTypedUrl.startsWith("http")) {
             // This can happen for the following cases:
             // 1. non-http resources, for example, ftp, ws, etc.
             // 2. chrome's internal page, for example, about:blank, chrome://settings/, chrome://settings/system, etc.
             return
         }
 
-        if (!URLUtils.isStandard(entry.url)) {
-            logger.warn("Invalid url to sent to the browser | {}", entry.url)
+        if (!URLUtils.isStandard(entry.userTypedUrl)) {
+            logger.warn("Invalid url to sent to the browser | {}", entry.userTypedUrl)
             return
         }
 

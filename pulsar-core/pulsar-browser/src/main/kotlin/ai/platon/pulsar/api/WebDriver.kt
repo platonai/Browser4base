@@ -1,7 +1,16 @@
 package ai.platon.pulsar.api
 
-import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
+import ai.platon.pulsar.api.model.JsEvaluation
+import ai.platon.pulsar.api.model.NavigateEntry
+import ai.platon.pulsar.api.model.NavigateHistory
+import ai.platon.pulsar.api.model.WebDriverException
+import ai.platon.pulsar.api.model.NetworkResourceResponse
+import ai.platon.pulsar.api.model.NodeRef
+import ai.platon.pulsar.api.model.BrowserUseState
+import ai.platon.pulsar.api.model.NanoDOMTree
+import ai.platon.pulsar.api.model.PageTarget
+import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.common.CheckState
 import ai.platon.pulsar.common.ai.llm.MCP
 import ai.platon.pulsar.common.browser.BrowserType
@@ -10,6 +19,7 @@ import ai.platon.pulsar.common.math.geometric.RectD
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
 import ai.platon.pulsar.common.urls.Hyperlink
+
 import org.jsoup.Connection
 import java.io.Closeable
 import java.time.Duration

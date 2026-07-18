@@ -11,7 +11,6 @@ import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.scripting.ScriptConfuser
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.js.JsUtils
-import kotlinx.coroutines.delay
 
 class JsHandler(
     private val bp: BrowserProtocol,
@@ -23,38 +22,11 @@ class JsHandler(
     private val confuser get() = isolatedWorldManager.settings.confuser
 
     /**
-     * Resolves the isolated world context ID, retrying if the context is temporarily unavailable.
-     *
-     * During frame navigation, [IsolatedWorldManager.clearContexts] is called before
-     * [IsolatedWorldManager.ensureRuntime] recreates the context. In fast-loading scenarios
-     * (e.g. CI headless mode), the polling loop in waitForNavigation may detect the URL change
-     * and proceed before ensureRuntime has completed. This method bridges that gap by retrying
-     * with a short delay, avoiding an unnecessary fallback to the page world.
-     *
-     * @param maxRetries Maximum number of retries (default 5)
-     * @param delayMs Delay between retries in milliseconds (default 100)
-     * @return The isolated context ID, or null if still unavailable after all retries
-     */
-    private suspend fun resolveIsolatedContextId(maxRetries: Int = 5, delayMs: Long = 100): Int? {
-        repeat(maxRetries) { attempt ->
-            val contextId = isolatedWorldManager
-                .getContextId(runCatching { bp.mainFrame().id }.getOrNull())
-            if (contextId != null && contextId > 0) {
-                return contextId
-            }
-            if (attempt < maxRetries - 1) {
-                delay(delayMs)
-            }
-        }
-        return null
-    }
-
-    /**
      * Evaluates expression on global object and returns detailed evaluation result.
      *
      * @param script JavaScript expression to evaluate
      * @return Detailed evaluation result including remote object and exception details, or null if evaluation fails
-     * @throws ai.platon.pulsar.driver.chrome.util.ChromeDriverException if the script fails to execute
+     * @throws ai.platon.pulsar.chrome.util.ChromeDriverException if the script fails to execute
      * */
     @Throws(ChromeDriverException::class)
     suspend fun evaluateDetail(script: String): Evaluate? {
@@ -62,7 +34,8 @@ class JsHandler(
 
         val confusedExpr = confuser.confuse(expression)
 
-        val isolatedContextId = resolveIsolatedContextId()
+        val isolatedContextId = isolatedWorldManager
+            .getContextId(runCatching { bp.mainFrame().id }.getOrNull())
         if (isolatedContextId != null && isolatedContextId > 0) {
             val isolatedResult = runCatching {
                 evaluateInContext(confusedExpr, isolatedContextId, returnByValue = false)
@@ -228,7 +201,8 @@ class JsHandler(
 
         val confusedExpr = confuser.confuse(expression)
 
-        val isolatedContextId = resolveIsolatedContextId()
+        val isolatedContextId = isolatedWorldManager
+            .getContextId(runCatching { bp.mainFrame().id }.getOrNull())
         if (isolatedContextId != null && isolatedContextId > 0) {
             val isolatedResult = runCatching {
                 evaluateInContext(confusedExpr, isolatedContextId, returnByValue = true, awaitPromise = awaitPromise)

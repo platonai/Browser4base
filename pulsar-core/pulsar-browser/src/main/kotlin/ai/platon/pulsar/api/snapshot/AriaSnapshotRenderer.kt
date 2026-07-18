@@ -305,11 +305,7 @@ object AriaSnapshotRenderer {
                 nodeName == "#comment" ||
                 nodeName == "comment" ||
                 nodeName == "script" ||
-                nodeName == "style" ||
-                nodeName == "head" ||
-                nodeName == "title" ||
-                nodeName == "meta" ||
-                nodeName == "link"
+                nodeName == "style"
     }
 
     private fun isTextNode(node: MergedDOMTreeNode): Boolean {

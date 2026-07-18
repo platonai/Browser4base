@@ -19,9 +19,9 @@
  */
 package ai.platon.pulsar.chrome.protocol
 
-import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
 import ai.platon.pulsar.chrome.protocol.transport.EventDispatcher
 import ai.platon.pulsar.common.ResourceLoader
+import ai.platon.cdt.kt.protocol.types.accessibility.AXNode
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
