@@ -48,6 +48,12 @@ public class NodeExt {
      * A value of -1 indicates the node has not been indexed (e.g., not part of a FeaturedDocument).
      */
     private int nodeIndex = -1;
+    /**
+     * Reference to the document-level FeatureBlock that stores all node feature vectors.
+     * Stored as Object to avoid a circular dependency between pulsar-jsoup and pulsar-dom.
+     * Set on every node during feature calculation. Null for non-FeaturedDocument nodes.
+     */
+    private Object featureBlock;
 
     public NodeExt(Node node) {
         this.node = node;
@@ -119,6 +125,20 @@ public class NodeExt {
 
     public void setNodeIndex(int nodeIndex) {
         this.nodeIndex = nodeIndex;
+    }
+
+    /**
+     * Returns the document-level FeatureBlock that stores all node feature vectors.
+     * Stored as Object to avoid circular dependency; the pulsar-dom module casts it to
+     * {@code ai.platon.pulsar.dom.features.FeatureBlock}.
+     * Null for nodes that are not part of a FeaturedDocument.
+     */
+    public Object getFeatureBlock() {
+        return featureBlock;
+    }
+
+    public void setFeatureBlock(Object featureBlock) {
+        this.featureBlock = featureBlock;
     }
 
     @Nonnull

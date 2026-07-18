@@ -1,13 +1,10 @@
 package ai.platon.pulsar.dom.features
 
 import ai.platon.pulsar.common.ResourceLoader
-import ai.platon.pulsar.common.math.vectors.get
-import ai.platon.pulsar.common.math.vectors.set
 import ai.platon.pulsar.dom.features.defined.*
 import ai.platon.pulsar.dom.nodes.DOMRect
 import ai.platon.pulsar.dom.nodes.forEachElement
 import ai.platon.pulsar.dom.nodes.node.ext.*
-import org.apache.commons.math3.linear.RealVector
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -20,9 +17,9 @@ import org.jsoup.select.NodeVisitor
  * The level 1 feature calculator calculate for the minimal features.
  *
  * Uses a document-level [FeatureBlock] to store all node feature vectors in a single
- * contiguous [DoubleArray], replacing per-node [org.apache.commons.math3.linear.ArrayRealVector]
- * allocations to reduce GC pressure.
- * */
+ * contiguous [DoubleArray] with zero per-node heap allocations during calculation.
+ * Only [FeatureBlock] + [DoubleArray] are allocated — no intermediate vector objects.
+ */
 class Level1FeatureCalculator: AbstractFeatureCalculator() {
     companion object {
         init {
@@ -36,7 +33,7 @@ class Level1FeatureCalculator: AbstractFeatureCalculator() {
 
     /**
      * The [FeatureBlock] for the current document being calculated.
-     * Set by [FeaturedDocument][ai.platon.pulsar.dom.FeaturedDocument] before calling [calculate].
+     * Set during [calculate] and accessible after calculation completes.
      */
     var featureBlock: FeatureBlock? = null
         private set
@@ -65,7 +62,7 @@ class Level1FeatureCalculator: AbstractFeatureCalculator() {
 
 /**
  * The class factory for ResourceLoader
- * */
+ */
 class ClassFactory : ResourceLoader.ClassFactory {
     override fun match(name: String): Boolean {
         return name.startsWith(this.javaClass.`package`.name)
@@ -77,71 +74,43 @@ class ClassFactory : ResourceLoader.ClassFactory {
     }
 }
 
+/**
+ * A zero-allocation feature calculator visitor.
+ *
+ * Instead of creating per-node [org.apache.commons.math3.linear.RealVector] objects,
+ * this visitor writes directly into the document-level [FeatureBlock] using each node's
+ * index. The only heap allocations are:
+ * 1. The [FeatureBlock] (one per document)
+ * 2. The [DoubleArray] inside the FeatureBlock (one per document)
+ *
+ * No per-node objects are created during the traversal.
+ */
 private class Level1NodeFeatureCalculatorVisitor(
-    private val featureBlock: FeatureBlock
+    private val block: FeatureBlock
 ) : NodeVisitor {
     var sequence: Int = 0
         private set
 
-    // hit when the node is first seen
+    // -- helpers for direct FeatureBlock access via node index --
+
+    private fun Node.getF(key: Int): Double = block[extension.nodeIndex, key]
+    private fun Node.setF(key: Int, value: Double) { block[extension.nodeIndex, key] = value }
+    private fun Node.addF(key: Int, delta: Double) { setF(key, getF(key) + delta) }
+
+    // -- NodeVisitor interface --
+
     override fun head(node: Node, depth: Int) {
-        val features = featureBlock.rowVector(sequence)
-        node.extension.features = features
+        // Store metadata only — no vector objects created
+        node.extension.featureBlock = block
         node.extension.nodeIndex = sequence
 
-        features[DEP] = depth.toDouble()
-        features[SEQ] = sequence.toDouble()
+        node.setF(DEP, depth.toDouble())
+        node.setF(SEQ, sequence.toDouble())
 
-        calcSelfIndicator(node, features)
+        calcSelfIndicator(node)
         ++sequence
     }
 
-    // 单个节点统计项
-    private fun calcSelfIndicator(node: Node, features: RealVector) {
-        if (node !is Element && node !is TextNode) {
-            return
-        }
-
-        val rect = getDOMRect(node)
-        if (!rect.isEmpty) {
-            features[TOP] = rect.top
-            features[LEFT] = rect.left
-            features[WIDTH] = rect.width
-            features[HEIGHT] = rect.height
-        }
-
-        if (node is TextNode) {
-            // Trim: remove all surrounding unicode white spaces, including all HT, VT, LF, FF, CR, ASCII space, etc
-            // @see https://en.wikipedia.org/wiki/Whitespace_character
-            val text = node.text()
-            node.extension.immutableText = text
-            val ch = text.length.toDouble()
-
-            if (ch > 0.0) {
-                features[CH] = ch
-            }
-        }
-
-        if (node is Element) {
-            var a = 0.0
-            var img = 0.0
-
-            // link relative
-            if (node.nodeName() == "a") {
-                ++a
-            }
-
-            // image relative
-            if (node.nodeName() == "img") {
-                ++img
-            }
-
-            features[A] = a
-            features[IMG] = img
-        }
-    }
-
-    // hit when all the node's children (if any) have been visited
     override fun tail(node: Node, depth: Int) {
         if (node !is Element && node !is TextNode) {
             return
@@ -149,35 +118,28 @@ private class Level1NodeFeatureCalculatorVisitor(
 
         if (node is TextNode) {
             val parent = node.parent() ?: return
-            val features = node.extension.features
-
-            // no-blank own text node
-            val otn = if (features[CH] == 0.0) 0.0 else 1.0
-            val parentFeatures = parent.extension.features
-            parentFeatures[TN] = parentFeatures[TN] + otn
-            parentFeatures[CH] = parentFeatures[CH] + features[CH]
-
+            val ch = node.getF(CH)
+            val otn = if (ch == 0.0) 0.0 else 1.0
+            parent.addF(TN, otn)
+            parent.addF(CH, ch)
             return
         }
 
         if (node is Element) {
-            // accumulate features for parent node
             val pe = node.parent() ?: return
-            val nodeFeatures = node.extension.features
-            val parentFeatures = pe.extension.features
 
-            // code structure feature
-            parentFeatures[CH] = parentFeatures[CH] + nodeFeatures[CH]
-            parentFeatures[TN] = parentFeatures[TN] + nodeFeatures[TN]
-            parentFeatures[A] = parentFeatures[A] + nodeFeatures[A]
-            parentFeatures[IMG] = parentFeatures[IMG] + nodeFeatures[IMG]
-            parentFeatures[C] = parentFeatures[C] + 1.0
+            // accumulate features upward to parent
+            pe.addF(CH, node.getF(CH))
+            pe.addF(TN, node.getF(TN))
+            pe.addF(A, node.getF(A))
+            pe.addF(IMG, node.getF(IMG))
+            pe.addF(C, 1.0)
 
             // count of element siblings
-            val childCount = nodeFeatures[C]
+            val childCount = node.getF(C)
             node.childNodes().forEach {
                 if (it is Element) {
-                    it.extension.features[SIB] = childCount
+                    it.setF(SIB, childCount)
                 }
             }
         }
@@ -188,6 +150,52 @@ private class Level1NodeFeatureCalculatorVisitor(
             node.height = rect.height.toInt()
         }
     }
+
+    // -- self indicator calculation --
+
+    private fun calcSelfIndicator(node: Node) {
+        if (node !is Element && node !is TextNode) {
+            return
+        }
+
+        val rect = getDOMRect(node)
+        if (!rect.isEmpty) {
+            node.setF(TOP, rect.top)
+            node.setF(LEFT, rect.left)
+            node.setF(WIDTH, rect.width)
+            node.setF(HEIGHT, rect.height)
+        }
+
+        if (node is TextNode) {
+            // Trim: remove all surrounding unicode white spaces
+            // @see https://en.wikipedia.org/wiki/Whitespace_character
+            val text = node.text()
+            node.extension.immutableText = text
+            val ch = text.length.toDouble()
+
+            if (ch > 0.0) {
+                node.setF(CH, ch)
+            }
+        }
+
+        if (node is Element) {
+            var a = 0.0
+            var img = 0.0
+
+            if (node.nodeName() == "a") {
+                ++a
+            }
+
+            if (node.nodeName() == "img") {
+                ++img
+            }
+
+            node.setF(A, a)
+            node.setF(IMG, img)
+        }
+    }
+
+    // -- geometry helpers --
 
     private fun getDOMRect(node: Node): DOMRect {
         return if (node is TextNode) getDOMRectInternal("tv", node)

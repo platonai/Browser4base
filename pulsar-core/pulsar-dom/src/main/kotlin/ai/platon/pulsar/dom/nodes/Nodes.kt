@@ -341,7 +341,7 @@ fun Node.accumulate(featureKey: Int, includeRoot: Boolean = true, filter: (Node)
     var sum = 0.0
     forEach(includeRoot = includeRoot) {
         if (filter(it)) {
-            sum += it.extension.features[featureKey]
+            sum += it.getFeature(featureKey)
         }
     }
     return sum
@@ -351,7 +351,7 @@ fun Node.minmax(featureKey: Int): Pair<Double, Double> {
     var min = Double.MAX_VALUE
     var max = Double.MIN_VALUE
     forEach {
-        val v = it.extension.features[featureKey]
+        val v = it.getFeature(featureKey)
         if (v > max) {
             max = v
         }

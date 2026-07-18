@@ -18,7 +18,8 @@ import ai.platon.pulsar.dom.model.createLink
 import ai.platon.pulsar.dom.nodes.*
 import ai.platon.pulsar.dom.select.selectFirstOrNull
 import org.apache.commons.lang3.StringUtils
-import ai.platon.pulsar.dom.features.FeatureBlockVector
+import ai.platon.pulsar.dom.features.FeatureBlock
+import org.apache.commons.math3.linear.ArrayRealVector
 import org.jsoup.nodes.*
 import org.jsoup.select.NodeTraversor
 import java.awt.Point
@@ -29,19 +30,59 @@ import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KProperty
 
+/**
+ * Delegate for double-valued node features.
+ * Uses direct [FeatureBlock] access when the node is part of a FeaturedDocument
+ * (zero indirection), falling back to [RealVector][org.apache.commons.math3.linear.RealVector]
+ * for standalone nodes.
+ */
 class DoubleFeature(val name: Int) {
-    operator fun getValue(thisRef: Node, property: KProperty<*>): Double = thisRef.extension.features[name]
+    operator fun getValue(thisRef: Node, property: KProperty<*>): Double {
+        val ext = thisRef.extension
+        val fb = ext.featureBlock
+        return if (fb != null) {
+            (fb as FeatureBlock)[ext.nodeIndex, name]
+        } else {
+            ext.features[name]
+        }
+    }
 
     operator fun setValue(thisRef: Node, property: KProperty<*>, value: Double) {
-        thisRef.extension.features[name] = value
+        val ext = thisRef.extension
+        val fb = ext.featureBlock
+        if (fb != null) {
+            (fb as FeatureBlock)[ext.nodeIndex, name] = value
+        } else {
+            ext.features[name] = value
+        }
     }
 }
 
+/**
+ * Delegate for int-valued node features.
+ * Uses direct [FeatureBlock] access when the node is part of a FeaturedDocument
+ * (zero indirection), falling back to [RealVector][org.apache.commons.math3.linear.RealVector]
+ * for standalone nodes.
+ */
 class IntFeature(val name: Int) {
-    operator fun getValue(thisRef: Node, property: KProperty<*>): Int = thisRef.extension.features[name].toInt()
+    operator fun getValue(thisRef: Node, property: KProperty<*>): Int {
+        val ext = thisRef.extension
+        val fb = ext.featureBlock
+        return if (fb != null) {
+            (fb as FeatureBlock)[ext.nodeIndex, name].toInt()
+        } else {
+            ext.features[name].toInt()
+        }
+    }
 
     operator fun setValue(thisRef: Node, property: KProperty<*>, value: Int) {
-        thisRef.extension.features[name] = value.toDouble()
+        val ext = thisRef.extension
+        val fb = ext.featureBlock
+        if (fb != null) {
+            (fb as FeatureBlock)[ext.nodeIndex, name] = value.toDouble()
+        } else {
+            ext.features[name] = value.toDouble()
+        }
     }
 }
 
@@ -211,7 +252,7 @@ fun Element.addClasses(classNames: Iterable<String>): Element {
  * */
 fun Element.slimCopy(): Element {
     val clone = this.clone()
-    clone.forEach { it.extension.features = FeatureBlockVector.empty() }
+    clone.forEach { it.clearFeatures() }
     simplifyDOM(clone)
 
     clone.clearAttributesCascaded()
@@ -377,6 +418,16 @@ val Node.sequence by IntFeature(SEQ)
 var Node.nodeIndex: Int
     get() = extension.nodeIndex
     set(value) { extension.nodeIndex = value }
+
+/**
+ * The document-level [FeatureBlock] that stores all node feature vectors.
+ * Null for nodes that are not part of a FeaturedDocument.
+ *
+ * Set during feature calculation and enables zero-allocation O(1) feature access.
+ */
+var Node.featureBlock: FeatureBlock?
+    get() = extension.featureBlock as? FeatureBlock
+    set(value) { extension.featureBlock = value }
 
 /**
  * A globally unique id of the node.
@@ -948,46 +999,68 @@ fun Node.attrOrNull(attrName: String): String? = (this as? Element)?.attr(attrNa
 
 /**
  * Get the feature value by the given key.
- * */
-fun Node.getFeature(key: Int): Double = extension.features[key]
+ * Uses direct [FeatureBlock] access when available, falling back to [RealVector][org.apache.commons.math3.linear.RealVector].
+ */
+fun Node.getFeature(key: Int): Double {
+    val ext = extension
+    val fb = ext.featureBlock
+    return if (fb != null) (fb as FeatureBlock)[ext.nodeIndex, key]
+    else ext.features[key]
+}
 
 /**
  * Get the feature value by the given name.
- * */
-fun Node.getFeature(name: String): Double = extension.features[NodeFeature.getKey(name)]
+ */
+fun Node.getFeature(name: String): Double = getFeature(NodeFeature.getKey(name))
 
 /**
  * Get the feature entry by the given key.
- * */
+ */
 fun Node.getFeatureEntry(key: Int): FeatureEntry = FeatureEntry(key, getFeature(key))
 
 /**
  * Associate the given value with the given key.
- * */
+ * Uses direct [FeatureBlock] access when available, falling back to [RealVector][org.apache.commons.math3.linear.RealVector].
+ */
 fun Node.setFeature(key: Int, value: Double) {
-    extension.features[key] = value
+    val ext = extension
+    val fb = ext.featureBlock
+    if (fb != null) {
+        (fb as FeatureBlock)[ext.nodeIndex, key] = value
+    } else {
+        ext.features[key] = value
+    }
 }
 
 /**
  * Associate the given value with the given key.
- * */
+ */
 fun Node.setFeature(key: Int, value: Int) {
-    extension.features[key] = value.toDouble()
+    setFeature(key, value.toDouble())
 }
 
 /**
  * Remove a feature specified by the given key. The removal is done by setting the value to 0.0.
- * */
+ */
 fun Node.removeFeature(key: Int): Node {
-    extension.features[key] = 0.0
+    val ext = extension
+    val fb = ext.featureBlock
+    if (fb != null) {
+        (fb as FeatureBlock)[ext.nodeIndex, key] = 0.0
+    } else {
+        ext.features[key] = 0.0
+    }
     return this
 }
 
 /**
- * Clear all the features of the node, the feature vector is set to an empty vector.
- * */
+ * Clear all the features of the node, resetting featureBlock, nodeIndex, and the feature vector.
+ */
 fun Node.clearFeatures(): Node {
-    extension.features = FeatureBlockVector.empty()
+    val ext = extension
+    ext.featureBlock = null
+    ext.nodeIndex = -1
+    ext.features = ArrayRealVector()
     return this
 }
 
@@ -1208,14 +1281,20 @@ fun Node.removeAttrsIf(filter: (Attribute) -> Boolean): Node {
 fun Node.formatEachFeatures(vararg featureKeys: Int): String {
     val sb = StringBuilder()
     NodeTraversor.traverse({ node: Node, _ ->
-        FeatureFormatter.format(node.extension.features, featureKeys.asIterable(), sb = sb)
+        val ext = node.extension
+        val fb = ext.featureBlock
+        val vec = if (fb != null) (fb as FeatureBlock).rowVector(ext.nodeIndex) else ext.features
+        FeatureFormatter.format(vec, featureKeys.asIterable(), sb = sb)
         sb.append('\n')
     }, this)
     return sb.toString()
 }
 
 fun Node.formatFeatures(vararg featureKeys: Int): String {
-    return FeatureFormatter.format(extension.features, featureKeys.asIterable()).toString()
+    val ext = extension
+    val fb = ext.featureBlock
+    val vec = if (fb != null) (fb as FeatureBlock).rowVector(ext.nodeIndex) else ext.features
+    return FeatureFormatter.format(vec, featureKeys.asIterable()).toString()
 }
 
 fun Node.formatNamedFeatures(): String {

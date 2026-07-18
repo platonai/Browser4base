@@ -294,7 +294,7 @@ open class FeaturedDocument @JvmOverloads constructor(
      * @return a real-valued vector with basic algebraic operations.
      */
     val features: RealVector
-        get() = document.extension.features
+        get() = featureBlock?.rowVector(0) ?: document.extension.features
 
     /**
      * The document-level feature block that stores all node feature vectors
