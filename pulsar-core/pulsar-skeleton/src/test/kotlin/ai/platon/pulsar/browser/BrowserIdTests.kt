@@ -1,6 +1,5 @@
-package ai.platon.pulsar.browser
+package ai.platon.pulsar.api
 
-import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.BrowserId.Companion.SYSTEM_DEFAULT
 import ai.platon.pulsar.browser.privacy.PrivacyContext
 import ai.platon.pulsar.common.AppPaths

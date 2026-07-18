@@ -2,8 +2,8 @@ package ai.platon.pulsar.skeleton.common.urls
 
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.config.VolatileConfig
-import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.common.urls.UrlAware
+import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
 import java.net.MalformedURLException
 import java.net.URI

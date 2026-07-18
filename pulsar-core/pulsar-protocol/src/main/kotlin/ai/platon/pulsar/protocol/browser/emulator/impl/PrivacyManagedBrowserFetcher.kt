@@ -25,7 +25,7 @@ import ai.platon.pulsar.common.AppContext
 import ai.platon.pulsar.common.brief
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.stringify
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.persist.AbstractWebPage
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.skeleton.common.persist.ext.browseEventHandlers
@@ -39,7 +39,6 @@ import ai.platon.pulsar.skeleton.workflow.protocol.browser.BrowserEmulator
 import ai.platon.pulsar.skeleton.workflow.protocol.browser.IncognitoBrowserFetcher
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.jvm.java
 
 /**
  * Created by Vincent on 18-1-1.

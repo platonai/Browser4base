@@ -2,6 +2,7 @@ package ai.platon.pulsar.skeleton.workflow.common
 
 import ai.platon.pulsar.common.ResourceLoader
 import ai.platon.pulsar.persist.metadata.MultiMetadata
+import ai.platon.pulsar.skeleton.workflow.common.MimeTypeResolver
 import org.apache.tika.Tika
 import org.apache.tika.mime.MimeTypes
 import kotlin.test.Test

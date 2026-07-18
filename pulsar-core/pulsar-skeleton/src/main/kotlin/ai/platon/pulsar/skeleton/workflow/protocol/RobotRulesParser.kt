@@ -2,6 +2,7 @@ package ai.platon.pulsar.skeleton.workflow.protocol
 
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.skeleton.workflow.common.LazyConfigurable
+import java.nio.file.Files
 import crawlercommons.robots.BaseRobotRules
 import crawlercommons.robots.SimpleRobotRules
 import crawlercommons.robots.SimpleRobotRules.RobotRulesMode
@@ -11,7 +12,6 @@ import java.io.FileReader
 import java.io.LineNumberReader
 import java.net.URI
 import java.net.URL
-import java.nio.file.Files
 import java.util.*
 import kotlin.system.exitProcess
 

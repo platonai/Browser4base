@@ -17,7 +17,6 @@ package ai.platon.pulsar.protocol.browser.emulator.context
 
 import ai.platon.pulsar.api.BrowserProfile
 import ai.platon.pulsar.chrome.ChromeDestroyer
-import ai.platon.pulsar.protocol.browser.DefaultWebDriverPoolManager
 import ai.platon.pulsar.browser.privacy.AbstractPrivacyContext
 import ai.platon.pulsar.browser.privacy.PrivacyContext
 import ai.platon.pulsar.browser.privacy.PrivacyException
@@ -30,11 +29,12 @@ import ai.platon.pulsar.common.emoji.PopularEmoji
 import ai.platon.pulsar.common.logging.ThrottlingLogger
 import ai.platon.pulsar.common.proxy.ProxyPoolManager
 import ai.platon.pulsar.common.proxy.ProxyVendorException
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.persist.AbstractWebPage
 import ai.platon.pulsar.persist.RetryScope
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.persist.model.GoraWebPage
+import ai.platon.pulsar.protocol.browser.DefaultWebDriverPoolManager
 import ai.platon.pulsar.protocol.browser.driver.WebDriverPoolManager
 import ai.platon.pulsar.skeleton.CoreMetrics
 import ai.platon.pulsar.skeleton.common.AppSystemInfo
@@ -46,7 +46,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.jvm.java
 
 open class MultiPrivacyContextManager(
     driverPoolManager: WebDriverPoolManager,

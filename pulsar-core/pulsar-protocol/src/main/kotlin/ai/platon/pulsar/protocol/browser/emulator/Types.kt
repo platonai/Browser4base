@@ -19,7 +19,7 @@ import ai.platon.pulsar.api.InteractSettings
 import ai.platon.pulsar.api.model.BrowserSettings
 import ai.platon.pulsar.common.FlowState
 import ai.platon.pulsar.common.HttpHeaders
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.persist.AbstractWebPage
 import ai.platon.pulsar.persist.PageDatum
 import ai.platon.pulsar.persist.ProtocolStatus
@@ -27,7 +27,6 @@ import ai.platon.pulsar.persist.model.ActiveDOMMessage
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
 import java.time.Duration
 import java.time.Instant
-import kotlin.jvm.java
 
 class NavigateTask constructor(
     val fetchTask: FetchTask,

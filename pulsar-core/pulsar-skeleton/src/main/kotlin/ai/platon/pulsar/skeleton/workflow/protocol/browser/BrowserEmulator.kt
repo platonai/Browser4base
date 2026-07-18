@@ -17,7 +17,7 @@ package ai.platon.pulsar.skeleton.workflow.protocol.browser
 
 import ai.platon.pulsar.api.model.WebDriverException
 import ai.platon.pulsar.common.event.EventEmitter
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.persist.WebPage
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchResult
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask

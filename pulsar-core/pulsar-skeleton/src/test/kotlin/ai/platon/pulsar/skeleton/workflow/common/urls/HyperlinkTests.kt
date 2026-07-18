@@ -1,7 +1,6 @@
 package ai.platon.pulsar.skeleton.workflow.common.urls
 
 import ai.platon.pulsar.common.printlnPro
-import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.pulsarObjectMapper
 import ai.platon.pulsar.common.urls.*
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
@@ -61,7 +60,7 @@ class HyperlinkTests {
             UrlCommon.urlString1, "fully", 100, args = "-i 1s",
             referrer = "http://bar.tt/", href = "http://foo.com/sp?se=1"
         )
-        val json = Pson.toJson(u1.data())
+        val json = pulsarObjectMapper().writeValueAsString(u1.data())
         printlnPro(json)
         assertTrue { json.contains(UrlCommon.urlString1) }
         val u2 = pulsarObjectMapper().readValue(json, HyperlinkDatum::class.java)

@@ -33,11 +33,11 @@ class TestCases {
             "config/seeds/national.txt",
             "config/seeds/papers.txt"
         )
-        val lines: MutableList<String> = mutableListOf()
+        val lines: MutableList<String> = ArrayList()
         for (file in files) {
             lines.addAll(Files.readAllLines(Paths.get(file)))
         }
-        val lines2: MutableSet<String?> = mutableSetOf()
+        val lines2: MutableSet<String?> = HashSet()
         lines.forEach(Consumer { url: String? ->
             var pattern = StringUtils.substringBetween(url, "://", "/")
             pattern = "+http://$pattern/(.+)"

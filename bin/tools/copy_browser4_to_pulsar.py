@@ -13,6 +13,8 @@ Usage:
 
 Jobs:
     browser     browser4-browser/src -> pulsar-browser/src
+    protocol    browser4-protocol/src -> pulsar-protocol/src
+    skeleton    browser4-skeleton/src -> pulsar-skeleton/src
     rest        browser4-rest/src/main -> pulsar-it-tests/src/main
     it-tests    pulsar-it-tests/src/test (browser-relevant only)
     e2e-tests   pulsar-e2e-tests/src/test (browser-relevant only)
@@ -55,6 +57,12 @@ CLASS_RENAMES = {
     "Browser4AutoConfiguration": "PulsarAutoConfiguration",
     # B4ResourceLoader was renamed to ResourceLoader
     "B4ResourceLoader": "ResourceLoader",
+}
+
+# Fully-qualified class references that were renamed during migration.
+# These are safer than CLASS_RENAMES for generic names like TestUrls.
+FQ_CLASS_RENAMES = {
+    "ai.platon.pulsar.test.TestUrls": "ai.platon.pulsar.test.RealTestUrls",
 }
 
 # ---------------------------------------------------------------------------
@@ -118,6 +126,18 @@ COPY_JOBS = {
             "kotlin/ai/platon/pulsar/agentic",
         ],
     },
+    "protocol": {
+        "name": "browser4-protocol -> pulsar-protocol",
+        "source_root": SOURCE_BASE / "browser4-core" / "browser4-protocol" / "src",
+        "dest_root": DEST_BASE / "pulsar-core" / "pulsar-protocol" / "src",
+        "skip_paths": [],
+    },
+    "skeleton": {
+        "name": "browser4-skeleton -> pulsar-skeleton",
+        "source_root": SOURCE_BASE / "browser4-core" / "browser4-skeleton" / "src",
+        "dest_root": DEST_BASE / "pulsar-core" / "pulsar-skeleton" / "src",
+        "skip_paths": [],
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -133,6 +153,10 @@ CLEANUP_PATHS = [
     DEST_BASE / "pulsar-tests" / "pulsar-e2e-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "browser4",
     DEST_BASE / "pulsar-core" / "pulsar-browser" / "src" / "main" / "kotlin" / "ai" / "platon" / "browser4",
     DEST_BASE / "pulsar-core" / "pulsar-browser" / "src" / "test" / "kotlin" / "ai" / "platon" / "browser4",
+    DEST_BASE / "pulsar-core" / "pulsar-protocol" / "src" / "main" / "kotlin" / "ai" / "platon" / "browser4",
+    DEST_BASE / "pulsar-core" / "pulsar-protocol" / "src" / "test" / "kotlin" / "ai" / "platon" / "browser4",
+    DEST_BASE / "pulsar-core" / "pulsar-skeleton" / "src" / "main" / "kotlin" / "ai" / "platon" / "browser4",
+    DEST_BASE / "pulsar-core" / "pulsar-skeleton" / "src" / "test" / "kotlin" / "ai" / "platon" / "browser4",
 ]
 
 
@@ -210,6 +234,12 @@ def transform_content(content, filepath):
         if old_class in content:
             count = content.count(old_class)
             content = content.replace(old_class, new_class)
+            changed += count
+
+    for old_fq, new_fq in FQ_CLASS_RENAMES.items():
+        if old_fq in content:
+            count = content.count(old_fq)
+            content = content.replace(old_fq, new_fq)
             changed += count
 
     for pattern, replacement in POST_FIXUPS:

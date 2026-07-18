@@ -18,7 +18,7 @@ package ai.platon.pulsar.protocol.browser.emulator.context
 import ai.platon.pulsar.common.DateTimes
 import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.proxy.*
-import ai.platon.pulsar.core.api.WebDriver
+import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.skeleton.common.metrics.MetricsSystem
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchResult
 import ai.platon.pulsar.skeleton.workflow.fetch.FetchTask
@@ -254,7 +254,7 @@ open class ProxyContext(
                 refresh()
                 numSuccessPages.incrementAndGet()
                 lastTarget = task.url
-                servedDomains.putIfAbsent(task.domain, AtomicInteger(0))
+                servedDomains.putIfAbsent(task.domain, AtomicInteger())
                 servedDomains[task.domain]?.incrementAndGet()
             } else {
                 numFailedPages.incrementAndGet()
