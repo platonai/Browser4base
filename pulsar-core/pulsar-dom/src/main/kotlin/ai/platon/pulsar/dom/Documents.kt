@@ -22,8 +22,9 @@ object Documents {
      * before the HTML declares a `<base href>` tag.
      * @return sane HTML
      */
-    fun parse(html: String, baseURI: String): FeaturedDocument {
-        return FeaturedDocument(Parser.parse(html, baseURI))
+    @JvmOverloads
+    fun parse(html: String, baseURI: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(Parser.parse(html, baseURI), calculateFeatures)
     }
 
     /**
@@ -36,8 +37,9 @@ object Documents {
      * @param parser alternate [parser][Parser.xmlParser] to use.
      * @return sane HTML
      */
-    fun parse(html: String, baseURI: String, parser: Parser): FeaturedDocument {
-        return FeaturedDocument(parser.parseInput(html, baseURI))
+    @JvmOverloads
+    fun parse(html: String, baseURI: String, parser: Parser, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(parser.parseInput(html, baseURI), calculateFeatures)
     }
 
     /**
@@ -48,8 +50,9 @@ object Documents {
      * @return sane HTML
      * @see .parse
      */
-    fun parse(html: String): FeaturedDocument {
-        return FeaturedDocument(Parser.parse(html, ""))
+    @JvmOverloads
+    fun parse(html: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(Parser.parse(html, ""), calculateFeatures)
     }
 
     /**
@@ -62,12 +65,14 @@ object Documents {
      * @return sane HTML
      * @throws IOException if the file could not be found, or read, or if the charsetName is invalid.
      */
-    fun parse(file: File, charsetName: String, baseURI: String): FeaturedDocument {
-        return FeaturedDocument(DataUtil.load(file, charsetName, baseURI))
+    @JvmOverloads
+    fun parse(file: File, charsetName: String, baseURI: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(DataUtil.load(file, charsetName, baseURI), calculateFeatures)
     }
 
-    fun parse(path: Path, charsetName: String, baseURI: String): FeaturedDocument {
-        return parse(path.toFile(), charsetName, baseURI)
+    @JvmOverloads
+    fun parse(path: Path, charsetName: String, baseURI: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return parse(path.toFile(), charsetName, baseURI, calculateFeatures)
     }
 
     /**
@@ -80,12 +85,14 @@ object Documents {
      * @throws IOException if the file could not be found, or read, or if the charsetName is invalid.
      * @see .parse
      */
-    fun parse(file: File, charsetName: String): FeaturedDocument {
-        return FeaturedDocument(DataUtil.load(file, charsetName, file.absolutePath))
+    @JvmOverloads
+    fun parse(file: File, charsetName: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(DataUtil.load(file, charsetName, file.absolutePath), calculateFeatures)
     }
 
-    fun parse(path: Path, charsetName: String): FeaturedDocument {
-        return parse(path.toFile(), charsetName)
+    @JvmOverloads
+    fun parse(path: Path, charsetName: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return parse(path.toFile(), charsetName, calculateFeatures)
     }
 
     // TODO: check the logic whether to support the no script version
@@ -103,8 +110,9 @@ object Documents {
      * @return sane HTML
      * @throws IOException if the file could not be found, or read, or if the charsetName is invalid.
      */
-    fun parse(istream: InputStream, charsetName: String, baseURI: String): FeaturedDocument {
-        return FeaturedDocument(DataUtil.load(istream, charsetName, baseURI))
+    @JvmOverloads
+    fun parse(istream: InputStream, charsetName: String, baseURI: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(DataUtil.load(istream, charsetName, baseURI), calculateFeatures)
     }
 
     // TODO: check the logic whether to support the no script version
@@ -124,8 +132,9 @@ object Documents {
      * @return sane HTML
      * @throws IOException if the file could not be found, or read, or if the charsetName is invalid.
      */
-    fun parse(istream: InputStream, charsetName: String, baseURI: String, parser: Parser): FeaturedDocument {
-        return FeaturedDocument(DataUtil.load(istream, charsetName, baseURI, parser))
+    @JvmOverloads
+    fun parse(istream: InputStream, charsetName: String, baseURI: String, parser: Parser, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(DataUtil.load(istream, charsetName, baseURI, parser), calculateFeatures)
     }
 
     /**
@@ -136,8 +145,9 @@ object Documents {
      * @return sane HTML document
      * @see FeaturedDocument.body
      */
-    fun parseBodyFragment(bodyHtml: String, baseURI: String): FeaturedDocument {
-        return FeaturedDocument(Parser.parseBodyFragment(bodyHtml, baseURI))
+    @JvmOverloads
+    fun parseBodyFragment(bodyHtml: String, baseURI: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(Parser.parseBodyFragment(bodyHtml, baseURI), calculateFeatures)
     }
 
     /**
@@ -147,8 +157,9 @@ object Documents {
      * @return sane HTML document
      * @see FeaturedDocument.body
      */
-    fun parseBodyFragment(bodyHtml: String): FeaturedDocument {
-        return FeaturedDocument(Parser.parseBodyFragment(bodyHtml, ""))
+    @JvmOverloads
+    fun parseBodyFragment(bodyHtml: String, calculateFeatures: Boolean = true): FeaturedDocument {
+        return FeaturedDocument(Parser.parseBodyFragment(bodyHtml, ""), calculateFeatures)
     }
 
     /**
@@ -165,13 +176,15 @@ object Documents {
      * @throws java.net.SocketTimeoutException if the connection times out
      * @throws IOException if a connection or read error occurs
      */
-    fun parse(url: URL, timeoutMillis: Long): FeaturedDocument {
+    @JvmOverloads
+    fun parse(url: URL, timeoutMillis: Long, calculateFeatures: Boolean = true): FeaturedDocument {
         val con = HttpConnection.connect(url)
         con.timeout(timeoutMillis.toInt())
-        return FeaturedDocument(con.get())
+        return FeaturedDocument(con.get(), calculateFeatures)
     }
 
-    fun parse(url: URL, timeout: Duration): FeaturedDocument {
-        return Documents.parse(url, timeout.toMillis())
+    @JvmOverloads
+    fun parse(url: URL, timeout: Duration, calculateFeatures: Boolean = true): FeaturedDocument {
+        return Documents.parse(url, timeout.toMillis(), calculateFeatures)
     }
 }

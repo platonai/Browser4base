@@ -8,6 +8,7 @@ import ai.platon.pulsar.dom.nodes.DOMRect
 import ai.platon.pulsar.dom.nodes.forEachElement
 import ai.platon.pulsar.dom.nodes.node.ext.*
 import org.apache.commons.math3.linear.ArrayRealVector
+import org.apache.commons.math3.linear.RealVector
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -57,81 +58,62 @@ private class Level1NodeFeatureCalculatorVisitor: NodeVisitor {
     var sequence: Int = 0
         private set
 
+    private val featureDimension = FeatureRegistry.registeredFeatures.size
+
     // hit when the node is first seen
     override fun head(node: Node, depth: Int) {
-        val extension = node.extension
-        extension.features = ArrayRealVector(FeatureRegistry.registeredFeatures.size)
+        val features = ArrayRealVector(featureDimension)
+        node.extension.features = features
 
-        extension.features[DEP] = depth.toDouble()
-        extension.features[SEQ] = sequence.toDouble()
+        features[DEP] = depth.toDouble()
+        features[SEQ] = sequence.toDouble()
 
-        calcSelfIndicator(node)
+        calcSelfIndicator(node, features)
         ++sequence
     }
 
     // 单个节点统计项
-    private fun calcSelfIndicator(node: Node) {
+    private fun calcSelfIndicator(node: Node, features: RealVector) {
         if (node !is Element && node !is TextNode) {
             return
         }
 
-        val extension = node.extension
         val rect = getDOMRect(node)
         if (!rect.isEmpty) {
-            extension.features[TOP] = rect.top
-            extension.features[LEFT] = rect.left
-            extension.features[WIDTH] = rect.width
-            extension.features[HEIGHT] = rect.height
+            features[TOP] = rect.top
+            features[LEFT] = rect.left
+            features[WIDTH] = rect.width
+            features[HEIGHT] = rect.height
         }
 
         if (node is TextNode) {
             // Trim: remove all surrounding unicode white spaces, including all HT, VT, LF, FF, CR, ASCII space, etc
             // @see https://en.wikipedia.org/wiki/Whitespace_character
-            extension.immutableText = node.text()
-            val text = extension.immutableText
+            val text = node.text()
+            node.extension.immutableText = text
             val ch = text.length.toDouble()
 
-            if (ch > 0) {
-                accumulateFeatures(node, FeatureEntry(CH, ch)
-                )
+            if (ch > 0.0) {
+                features[CH] = ch
             }
         }
 
         if (node is Element) {
             var a = 0.0
-            var va = 0.0
-            var aW = 0.0
-            var aH = 0.0
-
             var img = 0.0
-            var vimg = 0.0
-            var imgW = 0.0
-            var imgH = 0.0
 
             // link relative
             if (node.nodeName() == "a") {
                 ++a
-                aW = rect.width
-                aH = rect.height
-                if (aW > 0 && aH > 0) {
-                    ++va
-                }
             }
 
             // image relative
             if (node.nodeName() == "img") {
                 ++img
-                imgW = rect.width
-                imgH = rect.height
-                if (imgW > 0 && imgH > 0) {
-                    ++vimg
-                }
             }
 
-            accumulateFeatures(node,
-                    FeatureEntry(A, a),
-                    FeatureEntry(IMG, img)
-            )
+            features[A] = a
+            features[IMG] = img
         }
     }
 
@@ -142,16 +124,14 @@ private class Level1NodeFeatureCalculatorVisitor: NodeVisitor {
         }
 
         if (node is TextNode) {
-            val parent = node.parent()!!
-            val extension = node.extension
+            val parent = node.parent() ?: return
+            val features = node.extension.features
 
             // no-blank own text node
-            val otn = if (extension.features[CH] == 0.0) 0.0 else 1.0
-            val votn = if (otn > 0 && extension.features[WIDTH] > 0 && extension.features[HEIGHT] > 0) 1.0 else 0.0
-            accumulateFeatures(parent,
-                    FeatureEntry(TN, otn),
-                    node.getFeatureEntry(CH)
-            )
+            val otn = if (features[CH] == 0.0) 0.0 else 1.0
+            val parentFeatures = parent.extension.features
+            parentFeatures[TN] = parentFeatures[TN] + otn
+            parentFeatures[CH] = parentFeatures[CH] + features[CH]
 
             return
         }
@@ -159,35 +139,29 @@ private class Level1NodeFeatureCalculatorVisitor: NodeVisitor {
         if (node is Element) {
             // accumulate features for parent node
             val pe = node.parent() ?: return
+            val nodeFeatures = node.extension.features
+            val parentFeatures = pe.extension.features
 
-            accumulateFeatures(pe,
-                    // code structure feature
-                    node.getFeatureEntry(CH),
-                    node.getFeatureEntry(TN),
-                    node.getFeatureEntry(A),
-                    node.getFeatureEntry(IMG),
-                    FeatureEntry(C, 1.0)
-            )
+            // code structure feature
+            parentFeatures[CH] = parentFeatures[CH] + nodeFeatures[CH]
+            parentFeatures[TN] = parentFeatures[TN] + nodeFeatures[TN]
+            parentFeatures[A] = parentFeatures[A] + nodeFeatures[A]
+            parentFeatures[IMG] = parentFeatures[IMG] + nodeFeatures[IMG]
+            parentFeatures[C] = parentFeatures[C] + 1.0
 
             // count of element siblings
+            val childCount = nodeFeatures[C]
             node.childNodes().forEach {
                 if (it is Element) {
-                    it.extension.features[SIB] = node.extension.features[C]
+                    it.extension.features[SIB] = childCount
                 }
             }
-        } // if
+        }
 
         if (node.nodeName().equals("body", ignoreCase = true)) {
             val rect = calculateBodyRect(node)
             node.width = rect.width.toInt()
             node.height = rect.height.toInt()
-        }
-    }
-
-    private fun accumulateFeatures(node: Node, vararg features: FeatureEntry) {
-        for (feature in features) {
-            val old = node.getFeature(feature.key)
-            node.setFeature(feature.key, feature.value + old)
         }
     }
 
@@ -197,7 +171,7 @@ private class Level1NodeFeatureCalculatorVisitor: NodeVisitor {
     }
 
     private fun getDOMRectInternal(attrKey: String, node: TextNode): DOMRect {
-        val parent = node.parent()!!
+        val parent = node.parent() ?: return DOMRect()
         val i = node.siblingIndex()
         val vi = parent.attr("$attrKey$i")
         return DOMRect.parseDOMRect(vi)
@@ -219,12 +193,5 @@ private class Level1NodeFeatureCalculatorVisitor: NodeVisitor {
         }
 
         return DOMRect(0.0, 0.0, widths.getPercentile(90.0), 20 + height.toDouble())
-    }
-
-    private fun divide(ele: Element, numerator: Int, denominator: Int, divideByZeroValue: Double): Double {
-        val n = ele.getFeature(numerator)
-        val d = ele.getFeature(denominator)
-
-        return if (d == 0.0) divideByZeroValue else n / d
     }
 }

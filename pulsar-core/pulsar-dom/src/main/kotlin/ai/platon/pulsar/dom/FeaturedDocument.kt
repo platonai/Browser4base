@@ -42,7 +42,10 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * @see org.jsoup.nodes.Document
  * */
-open class FeaturedDocument(val document: Document) {
+open class FeaturedDocument @JvmOverloads constructor(
+    val document: Document,
+    calculateFeatures: Boolean = true
+) {
     companion object {
         private val instanceSequencer = AtomicInteger()
 
@@ -305,7 +308,9 @@ open class FeaturedDocument(val document: Document) {
     constructor(other: FeaturedDocument) : this(other.unbox())
 
     init {
-        initialize()
+        if (calculateFeatures) {
+            initialize()
+        }
     }
 
     /**
@@ -743,20 +748,7 @@ open class FeaturedDocument(val document: Document) {
     override fun toString() = document.uniqueName
 
     private fun initialize() {
-        // Only one thread is allow to access the document
-        // NIL document might be accessed by multiple threads
-        val threadId = Thread.currentThread().id
-        document.threadIds.add(threadId)
-        if (document.threadIds.size != 1) {
-            val threads = document.threadIds.joinToString()
-            System.err.println("Warning: multiple threads ($threads) are process document | $location")
-        }
-
-        if (document.isInitialized.compareAndSet(false, true)) {
-            calculateFeatures()
-        }
-
-        document.threadIds.remove(threadId)
+        calculateFeatures()
     }
 
     private fun calculateFeatures() {
