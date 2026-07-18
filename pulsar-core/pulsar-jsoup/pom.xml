@@ -57,22 +57,6 @@
         </dependency>
 
         <dependency>
-            <!-- jetty for webserver integration tests. 9.x is last with Java7 support -->
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-server</artifactId>
-            <version>${jetty.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <!-- jetty for webserver integration tests -->
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-servlet</artifactId>
-            <version>${jetty.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <!-- javax.annotations.nonnull, with Apache 2 (not GPL) license. Build time only. -->
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>

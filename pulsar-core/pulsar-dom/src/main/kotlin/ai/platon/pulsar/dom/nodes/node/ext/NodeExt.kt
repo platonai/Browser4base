@@ -369,6 +369,16 @@ var Node.depth by IntFeature(DEP)
 val Node.sequence by IntFeature(SEQ)
 
 /**
+ * The index of the node within its owning document's [FeatureBlock][ai.platon.pulsar.dom.features.FeatureBlock].
+ * A value of -1 indicates the node is not indexed (e.g., not part of a FeaturedDocument).
+ *
+ * Set during feature calculation and enables O(1) access to the node's row in the FeatureBlock.
+ */
+var Node.nodeIndex: Int
+    get() = extension.nodeIndex
+    set(value) { extension.nodeIndex = value }
+
+/**
  * A globally unique id of the node.
  * */
 val Node.globalId: String get() = "$location $sequence-$left-$top-$width-$height"

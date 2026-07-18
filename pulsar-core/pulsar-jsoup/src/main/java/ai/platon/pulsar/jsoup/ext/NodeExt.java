@@ -42,6 +42,12 @@ public class NodeExt {
     private RealVector features;
     private Map<String, Object> variables;
     private Map<String, List<Object>> tuples;
+    /**
+     * The node's index within its owning document's {@code FeatureBlock}.
+     * Set during feature calculation by the feature calculator.
+     * A value of -1 indicates the node has not been indexed (e.g., not part of a FeaturedDocument).
+     */
+    private int nodeIndex = -1;
 
     public NodeExt(Node node) {
         this.node = node;
@@ -93,13 +99,26 @@ public class NodeExt {
     @Nonnull
     public RealVector getFeatures() {
         if (features == null) {
-            features = new OpenMapRealVector();
+            features = EMPTY_FEATURE;
         }
         return features;
     }
 
     public void setFeatures(RealVector features) {
         this.features = features;
+    }
+
+    /**
+     * Returns the node's index within its owning document's {@code FeatureBlock}.
+     * A value of -1 indicates the node has not been indexed (e.g., not part of a FeaturedDocument,
+     * or features have not been calculated).
+     */
+    public int getNodeIndex() {
+        return nodeIndex;
+    }
+
+    public void setNodeIndex(int nodeIndex) {
+        this.nodeIndex = nodeIndex;
     }
 
     @Nonnull

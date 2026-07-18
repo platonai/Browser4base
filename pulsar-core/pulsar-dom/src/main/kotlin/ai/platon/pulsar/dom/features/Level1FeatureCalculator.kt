@@ -87,6 +87,7 @@ private class Level1NodeFeatureCalculatorVisitor(
     override fun head(node: Node, depth: Int) {
         val features = featureBlock.rowVector(sequence)
         node.extension.features = features
+        node.extension.nodeIndex = sequence
 
         features[DEP] = depth.toDouble()
         features[SEQ] = sequence.toDouble()
