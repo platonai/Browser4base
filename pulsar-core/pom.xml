@@ -35,7 +35,6 @@
     <modules>
         <module>pulsar-resources</module>
         <module>pulsar-common</module>
-        <module>pulsar-jsoup</module>
         <module>pulsar-dom</module>
         <module>pulsar-persist</module>
         <module>pulsar-persist-mongo</module>

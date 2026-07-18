@@ -367,7 +367,7 @@
 
         <!-- Pulsar dependency -->
         <pulsar-h2.version>1.4.197</pulsar-h2.version>
-        <pulsar-jsoup.version>${project.version}</pulsar-jsoup.version>
+        <pulsar-jsoup.version>1.14.4</pulsar-jsoup.version>
     </properties>
 
     <profiles>
