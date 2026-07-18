@@ -24,7 +24,7 @@ inputs:
     required: false
     default: '8082'
   OPENROUTER_API_KEY:
-    description: 'DeepSeek API key (required)'
+    description: 'LLM API key (OpenRouter, OpenAI, DeepSeek, etc. — any supported provider)'
     required: true
   proxy_rotation_url:
     description: 'Proxy rotation URL (required)'

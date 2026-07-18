@@ -103,7 +103,7 @@ inputs:
 
   # Environment Variables
   OPENROUTER_API_KEY:
-    description: 'DeepSeek API key'
+    description: 'LLM API key (OpenRouter, OpenAI, DeepSeek, etc. — any supported provider)'
     required: false
     default: ''
   proxy_rotation_url:

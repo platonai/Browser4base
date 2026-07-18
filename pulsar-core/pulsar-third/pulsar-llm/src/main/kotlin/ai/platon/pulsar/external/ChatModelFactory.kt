@@ -5,13 +5,39 @@ import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.logging.ThrottlingLogger
 import ai.platon.pulsar.external.impl.CachedBrowserChatModel
+import dev.langchain4j.model.anthropic.AnthropicChatModel
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
+ * Configuration for an OpenAI-compatible LLM provider.
+ *
+ * @param apiKeyName The config key for the API key (e.g. "OPENAI_API_KEY").
+ * @param modelNameKey The config key for the model name override (e.g. "OPENAI_MODEL_NAME").
+ * @param baseUrlKey The config key for the base URL override (e.g. "OPENAI_BASE_URL").
+ * @param defaultModel The default model name when none is configured.
+ * @param defaultBaseUrl The default API base URL.
+ * @param providerName The canonical provider name for use with [getOrCreate] (provider, modelName, apiKey, conf).
+ */
+data class ProviderConfig(
+    val apiKeyName: String,
+    val modelNameKey: String,
+    val baseUrlKey: String,
+    val defaultModel: String,
+    val defaultBaseUrl: String,
+    val providerName: String
+)
+
+/**
  * The factory to create models.
+ *
+ * Supports all major LLM providers through a data-driven registry.
+ * OpenAI-compatible providers are handled via [OpenAiChatModel] with the
+ * appropriate base URL. Anthropic and Google Gemini use their native
+ * LangChain4j modules ([AnthropicChatModel] / [GoogleAiGeminiChatModel]).
  */
 object ChatModelFactory {
     private val logger = getLogger(this::class)
@@ -49,14 +75,193 @@ docker run -d -p 8082:8082 -e OPENROUTER_API_KEY=${OPENROUTER_API_KEY} galaxyeye
 For more details, please refer to the [LLM configuration documentation]($$DOCUMENT_PATH)
 """
 
-    // 按顺序检查所有可能的API密钥配置
-    val SUPPORTED_API_KEY_NAMES = listOf(
-        "OPENROUTER_API_KEY",
-        "DEEPSEEK_API_KEY",
-        "DASHSCOPE_API_KEY",
-        "VOLCENGINE_API_KEY",
-        "OPENAI_API_KEY"
+    // ---------------------------------------------------------------------------
+    // Provider registry — ordered by priority (first match wins)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * OpenAI-compatible providers checked in [getOrCreate] by API key presence.
+     *
+     * **Order matters** — the first provider with a matching API key wins.
+     * OpenRouter is checked first as the universal gateway; dedicated provider
+     * keys follow. Chinese domestic providers are grouped together for clarity.
+     */
+    private val OPENAI_COMPATIBLE_PROVIDERS: List<ProviderConfig> = listOf(
+        // ---- Global / gateway ----
+        ProviderConfig(
+            apiKeyName = "OPENROUTER_API_KEY",
+            modelNameKey = "OPENROUTER_MODEL_NAME",
+            baseUrlKey = "OPENROUTER_BASE_URL",
+            defaultModel = "bytedance-seed/seed-1.6",
+            defaultBaseUrl = "https://openrouter.ai/api/v1",
+            providerName = "openrouter"
+        ),
+
+        // ---- Global OpenAI-compatible providers ----
+        ProviderConfig(
+            apiKeyName = "GROQ_API_KEY",
+            modelNameKey = "GROQ_MODEL_NAME",
+            baseUrlKey = "GROQ_BASE_URL",
+            defaultModel = "llama-3.3-70b-versatile",
+            defaultBaseUrl = "https://api.groq.com/openai/v1",
+            providerName = "groq"
+        ),
+        ProviderConfig(
+            apiKeyName = "TOGETHER_API_KEY",
+            modelNameKey = "TOGETHER_MODEL_NAME",
+            baseUrlKey = "TOGETHER_BASE_URL",
+            defaultModel = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            defaultBaseUrl = "https://api.together.xyz/v1",
+            providerName = "together"
+        ),
+        ProviderConfig(
+            apiKeyName = "MISTRAL_API_KEY",
+            modelNameKey = "MISTRAL_MODEL_NAME",
+            baseUrlKey = "MISTRAL_BASE_URL",
+            defaultModel = "mistral-large-latest",
+            defaultBaseUrl = "https://api.mistral.ai/v1",
+            providerName = "mistral"
+        ),
+        ProviderConfig(
+            apiKeyName = "XAI_API_KEY",
+            modelNameKey = "XAI_MODEL_NAME",
+            baseUrlKey = "XAI_BASE_URL",
+            defaultModel = "grok-4.5",
+            defaultBaseUrl = "https://api.x.ai/v1",
+            providerName = "xai"
+        ),
+        ProviderConfig(
+            apiKeyName = "PERPLEXITY_API_KEY",
+            modelNameKey = "PERPLEXITY_MODEL_NAME",
+            baseUrlKey = "PERPLEXITY_BASE_URL",
+            defaultModel = "llama-3.1-sonar-large-128k-online",
+            defaultBaseUrl = "https://api.perplexity.ai",
+            providerName = "perplexity"
+        ),
+        ProviderConfig(
+            apiKeyName = "FIREWORKS_API_KEY",
+            modelNameKey = "FIREWORKS_MODEL_NAME",
+            baseUrlKey = "FIREWORKS_BASE_URL",
+            defaultModel = "accounts/fireworks/models/llama-v3p3-70b-instruct",
+            defaultBaseUrl = "https://api.fireworks.ai/inference/v1",
+            providerName = "fireworks"
+        ),
+
+        // ---- Chinese domestic providers ----
+        ProviderConfig(
+            apiKeyName = "DEEPSEEK_API_KEY",
+            modelNameKey = "DEEPSEEK_MODEL_NAME",
+            baseUrlKey = "DEEPSEEK_BASE_URL",
+            defaultModel = "deepseek-v4-flash",
+            defaultBaseUrl = "https://api.deepseek.com/v1",
+            providerName = "deepseek"
+        ),
+        ProviderConfig(
+            apiKeyName = "DASHSCOPE_API_KEY",
+            modelNameKey = "DASHSCOPE_MODEL_NAME",
+            baseUrlKey = "DASHSCOPE_BASE_URL",
+            defaultModel = "qwen3.6-plus",
+            defaultBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            providerName = "bailian"
+        ),
+        ProviderConfig(
+            apiKeyName = "VOLCENGINE_API_KEY",
+            modelNameKey = "VOLCENGINE_MODEL_NAME",
+            baseUrlKey = "VOLCENGINE_BASE_URL",
+            defaultModel = "doubao-seed-2-0-pro-260215",
+            defaultBaseUrl = "https://ark.cn-beijing.volces.com/api/v3",
+            providerName = "volcengine"
+        ),
+        ProviderConfig(
+            apiKeyName = "ZHIPU_API_KEY",
+            modelNameKey = "ZHIPU_MODEL_NAME",
+            baseUrlKey = "ZHIPU_BASE_URL",
+            defaultModel = "glm-5.1",
+            defaultBaseUrl = "https://open.bigmodel.cn/api/paas/v4/",
+            providerName = "zhipu"
+        ),
+        ProviderConfig(
+            apiKeyName = "MOONSHOT_API_KEY",
+            modelNameKey = "MOONSHOT_MODEL_NAME",
+            baseUrlKey = "MOONSHOT_BASE_URL",
+            defaultModel = "kimi-k2.6",
+            defaultBaseUrl = "https://api.moonshot.cn/v1",
+            providerName = "moonshot"
+        ),
+        ProviderConfig(
+            apiKeyName = "BAICHUAN_API_KEY",
+            modelNameKey = "BAICHUAN_MODEL_NAME",
+            baseUrlKey = "BAICHUAN_BASE_URL",
+            defaultModel = "Baichuan4",
+            defaultBaseUrl = "https://api.baichuan-ai.com/v1",
+            providerName = "baichuan"
+        ),
+        ProviderConfig(
+            apiKeyName = "YI_API_KEY",
+            modelNameKey = "YI_MODEL_NAME",
+            baseUrlKey = "YI_BASE_URL",
+            defaultModel = "yi-large",
+            defaultBaseUrl = "https://api.lingyiwanwu.com/v1",
+            providerName = "yi"
+        ),
+        // MiniMax uses Anthropic Messages protocol (not OpenAI-compatible).
+        // See dedicated handling in getOrCreate() → createMinimaxChatModel().
+        ProviderConfig(
+            apiKeyName = "STEPFUN_API_KEY",
+            modelNameKey = "STEPFUN_MODEL_NAME",
+            baseUrlKey = "STEPFUN_BASE_URL",
+            defaultModel = "step-3.5-flash",
+            defaultBaseUrl = "https://api.stepfun.com/v1",
+            providerName = "stepfun"
+        ),
+        ProviderConfig(
+            apiKeyName = "HUNYUAN_API_KEY",
+            modelNameKey = "HUNYUAN_MODEL_NAME",
+            baseUrlKey = "HUNYUAN_BASE_URL",
+            defaultModel = "hunyuan-pro",
+            defaultBaseUrl = "https://api.lkeap.cloud.tencent.com/v1",
+            providerName = "hunyuan"
+        ),
+        ProviderConfig(
+            apiKeyName = "QIANFAN_API_KEY",
+            modelNameKey = "QIANFAN_MODEL_NAME",
+            baseUrlKey = "QIANFAN_BASE_URL",
+            defaultModel = "ernie-4.0-8k",
+            defaultBaseUrl = "https://qianfan.baidubce.com/v2",
+            providerName = "qianfan"
+        ),
+
+        // ---- Global (checked last so dedicated keys win) ----
+        ProviderConfig(
+            apiKeyName = "OPENAI_API_KEY",
+            modelNameKey = "OPENAI_MODEL_NAME",
+            baseUrlKey = "OPENAI_BASE_URL",
+            defaultModel = "gpt-5.6-sol",
+            defaultBaseUrl = "https://api.openai.com/v1",
+            providerName = "openai"
+        ),
     )
+
+    /** All supported API key names checked in [isModelConfigured0]. */
+    val SUPPORTED_API_KEY_NAMES: List<String> = buildList {
+        addAll(OPENAI_COMPATIBLE_PROVIDERS.map { it.apiKeyName })
+        // Non-OpenAI-compatible providers
+        add("ANTHROPIC_API_KEY")
+        add("GOOGLE_GENERATIVE_AI_API_KEY")  // primary Google key name
+        add("GEMINI_API_KEY")                 // alias for Google
+        add("GOOGLE_API_KEY")                 // alias for Google
+        // MiniMax — uses Anthropic protocol (not in OPENAI_COMPATIBLE_PROVIDERS)
+        add("MINIMAX_API_KEY")
+        // Aliases for Chinese providers
+        add("KIMI_API_KEY")         // alias for MOONSHOT_API_KEY
+        add("LINGYI_API_KEY")       // alias for YI_API_KEY
+        add("TENCENT_API_KEY")      // alias for HUNYUAN_API_KEY
+        add("BAIDU_API_KEY")        // alias for QIANFAN_API_KEY
+    }
+
+    // ---------------------------------------------------------------------------
+    // Public API
+    // ---------------------------------------------------------------------------
 
     /**
      * Check if the model is configured.
@@ -95,7 +300,13 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     }
 
     /**
-     * Create a default model.
+     * Create a default model by scanning the configuration for known API keys.
+     *
+     * Checks providers in this order:
+     * 1. OpenAI-compatible providers ([OPENAI_COMPATIBLE_PROVIDERS]) — by API key presence
+     * 2. Anthropic (`ANTHROPIC_API_KEY`)
+     * 3. Google Gemini (`GEMINI_API_KEY` or `GOOGLE_API_KEY`)
+     * 4. Generic fallback via `LLM_PROVIDER` / `LLM_NAME` / `LLM_API_KEY`
      *
      * @return The created model.
      * @throws IllegalArgumentException If the configuration is not configured.
@@ -106,71 +317,92 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
             throw IllegalArgumentException("The LLM is not configured, see docs/config/llm/llm-config.md")
         }
 
-        // OPENROUTER_API_KEY=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
-        // MODEL_TO_USE=openrouter/google/gemini-flash-1.5
-        var apiKey = conf["OPENROUTER_API_KEY"]
-        if (apiKey != null) {
-            val modelName = conf["OPENROUTER_MODEL_NAME"] ?: "bytedance-seed/seed-1.6"
-            val baseURL = conf["OPENROUTER_BASE_URL"] ?: "https://openrouter.ai/api/v1"
-            return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+        // 1. Check all OpenAI-compatible providers (data-driven)
+        for (provider in OPENAI_COMPATIBLE_PROVIDERS) {
+            val apiKey = conf[provider.apiKeyName]
+            if (apiKey != null) {
+                val modelName = conf[provider.modelNameKey] ?: provider.defaultModel
+                val baseURL = conf[provider.baseUrlKey] ?: provider.defaultBaseUrl
+                return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+            }
         }
 
-        // Notice: all keys are transformed to dot.separated.kebab-case using KStrings.toDotSeparatedKebabCase(),
-        // so the following keys are equal:
-        // - OPENROUTER_API_KEY, deepseek.apiKey, deepseek.api-key
-        apiKey = conf["DEEPSEEK_API_KEY"]
-        if (apiKey != null) {
-            val modelName = conf["DEEPSEEK_MODEL_NAME"] ?: "deepseek-chat"
-            val baseURL = conf["DEEPSEEK_BASE_URL"] ?: "https://api.deepseek.com/"
-            return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+        // 1b. Alias resolution for Chinese providers (check alternate key names)
+        val kimiKey = conf["KIMI_API_KEY"]
+        if (kimiKey != null) {
+            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "moonshot" }!!
+            val modelName = conf[config.modelNameKey] ?: config.defaultModel
+            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+            return getOrCreateOpenAICompatibleModel(modelName, kimiKey, baseURL, conf)
+        }
+        val lingyiKey = conf["LINGYI_API_KEY"]
+        if (lingyiKey != null) {
+            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "yi" }!!
+            val modelName = conf[config.modelNameKey] ?: config.defaultModel
+            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+            return getOrCreateOpenAICompatibleModel(modelName, lingyiKey, baseURL, conf)
+        }
+        val tencentKey = conf["TENCENT_API_KEY"]
+        if (tencentKey != null) {
+            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "hunyuan" }!!
+            val modelName = conf[config.modelNameKey] ?: config.defaultModel
+            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+            return getOrCreateOpenAICompatibleModel(modelName, tencentKey, baseURL, conf)
+        }
+        val baiduKey = conf["BAIDU_API_KEY"]
+        if (baiduKey != null) {
+            val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "qianfan" }!!
+            val modelName = conf[config.modelNameKey] ?: config.defaultModel
+            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+            return getOrCreateOpenAICompatibleModel(modelName, baiduKey, baseURL, conf)
         }
 
-        apiKey = conf["DASHSCOPE_API_KEY"]
-        if (apiKey != null) {
-            val modelName = conf["DASHSCOPE_MODEL_NAME"] ?: "qwen-plus"
-            val baseURL = conf["DASHSCOPE_BASE_URL"] ?: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+        // 2. MiniMax (Anthropic Messages protocol — uses AnthropicChatModel)
+        val minimaxApiKey = conf["MINIMAX_API_KEY"]
+        if (minimaxApiKey != null) {
+            val modelName = conf["MINIMAX_MODEL_NAME"] ?: "MiniMax-M3"
+            return getOrCreateMinimaxModel(modelName, minimaxApiKey, conf)
         }
 
-        apiKey = conf["VOLCENGINE_API_KEY"]
-        if (apiKey != null) {
-            val modelName = conf["VOLCENGINE_MODEL_NAME"] ?: "doubao-1.5-pro-32k-250115"
-            val baseURL = conf["VOLCENGINE_BASE_URL"] ?: "https://ark.cn-beijing.volces.com/api/v3"
-            return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+        // 3. Anthropic (native AnthropicChatModel)
+        val anthropicApiKey = conf["ANTHROPIC_API_KEY"]
+        if (anthropicApiKey != null) {
+            val modelName = conf["ANTHROPIC_MODEL_NAME"] ?: "claude-sonnet-4-6"
+            return getOrCreateAnthropicModel(modelName, anthropicApiKey, conf)
         }
 
-        apiKey = conf["OPENAI_API_KEY"]
-        if (apiKey != null) {
-            val openaiBaseURL = conf["OPENAI_BASE_URL"] ?: "https://api.openai.com/v1"
-            val modelName = conf["OPENAI_MODEL_NAME"] ?: "gpt-4o"
-            return getOrCreateOpenAICompatibleModel(modelName, apiKey, openaiBaseURL, conf)
+        // 4. Google Gemini (non-OpenAI-compatible — uses native GoogleAiGeminiChatModel)
+        val geminiApiKey = conf["GOOGLE_GENERATIVE_AI_API_KEY"] ?: conf["GEMINI_API_KEY"] ?: conf["GOOGLE_API_KEY"]
+        if (geminiApiKey != null) {
+            val modelName = conf["GEMINI_MODEL_NAME"] ?: "gemini-3.1-flash-lite"
+            return getOrCreateGeminiModel(modelName, geminiApiKey, conf)
         }
 
+        // 5. Generic fallback via LLM_PROVIDER / LLM_NAME / LLM_API_KEY
         val documentPath = "https://github.com/platonai/browser4/blob/master/docs/config/llm/llm-config-advanced.md"
         val provider = requireNotNull(conf[LLM_PROVIDER]) { "$LLM_PROVIDER is not set, see $documentPath" }
         val modelName = requireNotNull(conf[LLM_NAME]) { "$LLM_NAME is not set, see $documentPath" }
-        apiKey = requireNotNull(conf[LLM_API_KEY]) { "$LLM_API_KEY is not set, see $documentPath" }
+        val apiKey = requireNotNull(conf[LLM_API_KEY]) { "$LLM_API_KEY is not set, see $documentPath" }
 
         return getOrCreate(provider, modelName, apiKey, conf)
     }
 
     /**
-     * Create a model.
+     * Create a model from explicit provider parameters.
      *
-     * @param provider The provider of the model.
+     * @param provider The provider name (e.g. "openai", "deepseek", "anthropic", "gemini", "groq", ...).
      * @param modelName The name of model to create.
      * @param apiKey The API key to use.
      * @return The created model.
-     * @throws IllegalArgumentException If the configuration is not configured.
      */
     @Throws(IllegalArgumentException::class)
     fun getOrCreate(provider: String, modelName: String, apiKey: String, conf: ImmutableConfig) =
         getOrCreateModel0(provider, modelName, apiKey, conf)
 
     /**
-     * Create a default model.
+     * Create a default model, returning null on failure.
      *
-     * @return The created model.
+     * @return The created model, or null if not configured or creation fails.
      */
     fun getOrCreateOrNull(conf: ImmutableConfig): BrowserChatModel? {
         if (!isModelConfigured(conf)) {
@@ -182,6 +414,14 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
             .getOrNull()
     }
 
+    /**
+     * Create or retrieve a cached [BrowserChatModel] for an OpenAI-compatible provider.
+     *
+     * @param modelName The model name.
+     * @param apiKey The API key.
+     * @param baseUrl The base URL of the OpenAI-compatible API.
+     * @param conf The immutable configuration.
+     */
     fun getOrCreateOpenAICompatibleModel(
         modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
@@ -189,10 +429,59 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         return models.computeIfAbsent(key) { createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf) }
     }
 
+    /**
+     * Create or retrieve a cached [BrowserChatModel] for Anthropic Claude.
+     *
+     * @param modelName The Anthropic model name (e.g. "claude-sonnet-4-5-20250901").
+     * @param apiKey The Anthropic API key.
+     * @param conf The immutable configuration.
+     */
+    fun getOrCreateAnthropicModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val key = "anthropic:$modelName:$apiKey"
+        return models.computeIfAbsent(key) { createAnthropicChatModel(modelName, apiKey, conf) }
+    }
+
+    /**
+     * Create or retrieve a cached [BrowserChatModel] for Google Gemini.
+     *
+     * @param modelName The Gemini model name (e.g. "gemini-2.0-flash").
+     * @param apiKey The Google AI API key.
+     * @param conf The immutable configuration.
+     */
+    fun getOrCreateGeminiModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val key = "gemini:$modelName:$apiKey"
+        return models.computeIfAbsent(key) { createGeminiChatModel(modelName, apiKey, conf) }
+    }
+
+    /**
+     * Create or retrieve a cached [BrowserChatModel] for MiniMax.
+     *
+     * MiniMax uses the Anthropic Messages protocol (not OpenAI-compatible),
+     * so this builds an [AnthropicChatModel] pointed at MiniMax's endpoint.
+     *
+     * @param modelName The MiniMax model name (e.g. "MiniMax-M2.5").
+     * @param apiKey The MiniMax API key.
+     * @param conf The immutable configuration.
+     */
+    fun getOrCreateMinimaxModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val key = "minimax:$modelName:$apiKey"
+        return models.computeIfAbsent(key) { createMinimaxChatModel(modelName, apiKey, conf) }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Internal helpers
+    // ---------------------------------------------------------------------------
+
     private fun isModelConfigured0(conf: ImmutableConfig): Boolean {
         val minKeyLen = 5
 
-        // 如果任何一个主流API密钥配置有效，直接返回true
+        // Check all supported API key names (both OpenAI-compatible and native)
         SUPPORTED_API_KEY_NAMES.forEach { keyName ->
             val apiKey = conf[keyName] ?: ""
             if (apiKey.length > minKeyLen) {
@@ -200,7 +489,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
             }
         }
 
-        // 检查传统配置方式
+        // Check legacy configuration
         val provider = conf[LLM_PROVIDER]
         val llm = conf[LLM_NAME]
         val apiKey = conf[LLM_API_KEY] ?: ""
@@ -208,53 +497,87 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         return provider != null && llm != null && apiKey.length > minKeyLen
     }
 
-    private fun getOrCreateModel0(provider: String, modelName: String, apiKey: String, conf: ImmutableConfig): BrowserChatModel {
+    private fun getOrCreateModel0(
+        provider: String, modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
         val key = "$provider:$modelName:$apiKey"
         return models.computeIfAbsent(key) { doCreateModel(provider, modelName, apiKey, conf) }
     }
 
-    private fun doCreateModel(provider: String, modelName: String, apiKey: String, conf: ImmutableConfig): BrowserChatModel {
-        logger.info("Creating LLM with provider and model name | {} {} {}", provider, modelName, encodeSecretKey(apiKey))
+    /**
+     * Route to the appropriate model builder based on the provider name.
+     *
+     * - OpenAI-compatible providers are looked up in [OPENAI_COMPATIBLE_PROVIDERS];
+     *   if found, their default base URL is used (can be overridden per call is not
+     *   exposed here — use [getOrCreateOpenAICompatibleModel] for custom base URLs).
+     * - "anthropic" / "claude" uses the native [AnthropicChatModel].
+     * - "gemini" / "google" uses the native [GoogleAiGeminiChatModel].
+     * - Unknown providers fall back to the DeepSeek-compatible builder.
+     */
+    private fun doCreateModel(
+        provider: String, modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        logger.info(
+            "Creating LLM with provider and model name | {} {} {}",
+            provider, modelName, encodeSecretKey(apiKey)
+        )
 
-        return when (provider) {
-            "bailian" -> createBaiLianChatModel(modelName, apiKey, conf)
-            "deepseek" -> createDeepSeekChatModel(modelName, apiKey, conf)
-            "volcengine" -> createVolcengineChatModel(modelName, apiKey, conf)
-            else -> createDeepSeekChatModel(modelName, apiKey, conf)
+        // Look up in the OpenAI-compatible registry
+        val config = OPENAI_COMPATIBLE_PROVIDERS.find {
+            it.providerName.equals(provider, ignoreCase = true)
+        }
+        if (config != null) {
+            return createOpenAICompatibleModel0(modelName, apiKey, config.defaultBaseUrl, conf)
+        }
+
+        return when (provider.lowercase()) {
+            // Native LangChain4j providers (non-OpenAI-compatible)
+            "anthropic", "claude" -> createAnthropicChatModel(modelName, apiKey, conf)
+            "gemini", "google" -> createGeminiChatModel(modelName, apiKey, conf)
+            "minimax" -> createMinimaxChatModel(modelName, apiKey, conf)
+
+            // Legacy aliases for backward compatibility
+            "bailian" -> createOpenAICompatibleModel0(
+                modelName, apiKey,
+                "https://dashscope.aliyuncs.com/compatible-mode/v1", conf
+            )
+            "volcengine" -> createOpenAICompatibleModel0(
+                modelName, apiKey,
+                "https://ark.cn-beijing.volces.com/api/v3", conf
+            )
+            "deepseek" -> createOpenAICompatibleModel0(
+                modelName, apiKey,
+                "https://api.deepseek.com/v1", conf
+            )
+
+            // Unknown provider — best-effort: treat as OpenAI-compatible with a
+            // generic base URL; the caller is responsible for ensuring correctness.
+            else -> {
+                logger.warn(
+                    "Unknown provider '{}', treating as OpenAI-compatible. " +
+                            "Set the base URL via configuration or use getOrCreateOpenAICompatibleModel().",
+                    provider
+                )
+                createOpenAICompatibleModel0(modelName, apiKey, "https://api.openai.com/v1", conf)
+            }
         }
     }
 
-    /**
-     * QianWen API is compatible with OpenAI API, so it's OK to use OpenAIChatModel.
-     * @see <a href='https://help.aliyun.com/zh/model-studio/getting-started/what-is-model-studio'>What is Model Studio</a>
-     * */
-    private fun createBaiLianChatModel(modelName: String, apiKey: String, conf: ImmutableConfig): BrowserChatModel {
-        val baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        val lm = OpenAiChatModel.builder()
-            .apiKey(apiKey)
-            .baseUrl(baseUrl)
-            .modelName(modelName)
-            .logRequests(false)
-            .logResponses(true)
-            .maxRetries(2)
-            .timeout(Duration.ofSeconds(60))
-            .build()
-
-        return CachedBrowserChatModel(lm, conf)
-    }
+    // ---------------------------------------------------------------------------
+    // Provider-specific builders
+    // ---------------------------------------------------------------------------
 
     /**
-     * DeepSeek API is compatible with OpenAI API, so it's OK to use OpenAIChatModel.
+     * Anthropic Claude via the native [AnthropicChatModel].
      *
-     * @see <a href='https://github.com/deepseek-ai/DeepSeek-V2/issues/18'>DeepSeek-V2 Issue 18</a>
-     * */
-    private fun createDeepSeekChatModel(modelName: String, apiKey: String, conf: ImmutableConfig): BrowserChatModel {
-        val lm = OpenAiChatModel.builder()
+     * @see <a href="https://docs.anthropic.com/en/api">Anthropic API</a>
+     */
+    private fun createAnthropicChatModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val lm = AnthropicChatModel.builder()
             .apiKey(apiKey)
-            .baseUrl("https://api.deepseek.com/")
             .modelName(modelName)
-            .logRequests(false)
-            .logResponses(true)
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
             .build()
@@ -262,17 +585,16 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     }
 
     /**
-     * Volcengine API is compatible with OpenAI API, so it's OK to use OpenAIChatModel.
+     * Google Gemini via the native [GoogleAiGeminiChatModel].
      *
-     * @see <a href='https://www.volcengine.com/docs/82379/1399008'>快速入门-调用模型服务</a>
-     * */
-    private fun createVolcengineChatModel(modelName: String, apiKey: String, conf: ImmutableConfig): BrowserChatModel {
-        val lm = OpenAiChatModel.builder()
+     * @see <a href="https://ai.google.dev/gemini-api/docs">Gemini API</a>
+     */
+    private fun createGeminiChatModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val lm = GoogleAiGeminiChatModel.builder()
             .apiKey(apiKey)
-            .baseUrl("https://ark.cn-beijing.volces.com/api/v3")
             .modelName(modelName)
-            .logRequests(true)
-            .logResponses(true)
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
             .build()
@@ -280,10 +602,35 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     }
 
     /**
-     * DeepSeek API is compatible with OpenAI API, so it's OK to use OpenAIChatModel.
+     * MiniMax via [AnthropicChatModel].
      *
-     * @see https://github.com/deepseek-ai/DeepSeek-V2/issues/18
-     * */
+     * MiniMax uses the Anthropic Messages protocol, so the [AnthropicChatModel]
+     * builder is pointed at MiniMax's endpoint. International endpoint is
+     * `https://api.minimax.io/anthropic/v1`; China endpoint is
+     * `https://api.minimaxi.com/anthropic/v1`. The China endpoint is the default.
+     *
+     * @see <a href="https://platform.minimax.io/docs">MiniMax API</a>
+     */
+    private fun createMinimaxChatModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val lm = AnthropicChatModel.builder()
+            .apiKey(apiKey)
+            .baseUrl("https://api.minimaxi.com/anthropic")
+            .modelName(modelName)
+            .maxRetries(2)
+            .timeout(Duration.ofSeconds(90))
+            .build()
+        return CachedBrowserChatModel(lm, conf)
+    }
+
+    /**
+     * Generic OpenAI-compatible model builder.
+     *
+     * Most modern LLM providers (Groq, Together, Mistral, xAI, Perplexity,
+     * Fireworks, DeepSeek, etc.) expose an OpenAI-compatible chat completions
+     * endpoint, so [OpenAiChatModel] works for all of them.
+     */
     private fun createOpenAICompatibleModel0(
         modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
@@ -301,7 +648,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
 
     /**
      * Replace characters in the secret key with asterisks except the latest 4 characters for logging.
-     * */
+     */
     private fun encodeSecretKey(key: String): String {
         return if (key.length <= 4) {
             key.replace(Regex("."), "*")

@@ -38,6 +38,16 @@
             <artifactId>langchain4j-open-ai</artifactId>
         </dependency>
 
+        <!-- Native provider modules for non-OpenAI-compatible APIs -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-anthropic</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-google-ai-gemini</artifactId>
+        </dependency>
+
 
         <dependency>
             <groupId>ai.platon.pulsar</groupId>
