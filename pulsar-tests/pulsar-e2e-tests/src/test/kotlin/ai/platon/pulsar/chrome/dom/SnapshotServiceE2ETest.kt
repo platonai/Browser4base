@@ -1,8 +1,8 @@
 package ai.platon.pulsar.chrome.dom
 
+import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.model.*
-import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.serialize.json.Pson
 import ai.platon.pulsar.common.serialize.json.prettyPulsarObjectMapper
@@ -38,7 +38,7 @@ class SnapshotServiceE2ETest : WebDriverTestBase() {
 
     @Test
     @DisplayName("Given interactive page When collecting all trees Then get DOM AX and Snapshot with timings")
-    fun testGetDomAxAndSnapshot() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun testGetDomAxAndSnapshot() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         driver.waitForSelector("h1")
         driver.bringToFront()

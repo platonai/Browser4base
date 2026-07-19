@@ -1,10 +1,10 @@
 package ai.platon.pulsar.chrome.dom
 
+import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.ElementRefCriteria
 import ai.platon.pulsar.api.model.SnapshotOptions
-import ai.platon.pulsar.chrome.PulsarWebDriver
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -16,7 +16,7 @@ class SnapshotServiceIsScrollableTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("scroll analysis basics - overflow metadata exists and hidden stays false")
-    fun isScrollableBasicsRegularElementsAndOverflowHidden() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun isScrollableBasicsRegularElementsAndOverflowHidden() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val service = CDPSnapshotService(driver.browserProtocol)
 
@@ -115,7 +115,7 @@ class SnapshotServiceIsScrollableTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("scroll analysis special - body html overflow styles are captured")
-    fun isScrollableSpecialBodyHtmlAndToggleOverflow() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun isScrollableSpecialBodyHtmlAndToggleOverflow() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val service = CDPSnapshotService(driver.browserProtocol)
 
@@ -192,7 +192,7 @@ class SnapshotServiceIsScrollableTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("scroll analysis dedup fixtures - nested containers keep expected geometry")
-    fun isScrollableDedupNestedContainersSimilarVsDistinctAreas() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun isScrollableDedupNestedContainersSimilarVsDistinctAreas() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val service = CDPSnapshotService(driver.browserProtocol)
 
@@ -342,7 +342,7 @@ class SnapshotServiceIsScrollableTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("isScrollable null when scroll analysis disabled")
-    fun isScrollableNullWhenScrollAnalysisDisabled() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun isScrollableNullWhenScrollAnalysisDisabled() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val service = CDPSnapshotService(driver.browserProtocol)
 

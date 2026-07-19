@@ -1,9 +1,14 @@
 package ai.platon.pulsar.util.server
 
-import ai.platon.pulsar.test.server.MockSiteApplication
+import ai.platon.pulsar.boot.autoconfigure.test.PulsarTestContextInitializer
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.context.annotation.Import
+import org.springframework.test.context.ContextConfiguration
 
-@SpringBootApplication
-@Import(MockSiteApplication::class)
+@SpringBootApplication(
+    scanBasePackages = [
+        "ai.platon.pulsar.boot.autoconfigure",
+        "ai.platon.pulsar.test.server"
+    ]
+)
+@ContextConfiguration(initializers = [PulsarTestContextInitializer::class])
 class EnableMockServerApplication

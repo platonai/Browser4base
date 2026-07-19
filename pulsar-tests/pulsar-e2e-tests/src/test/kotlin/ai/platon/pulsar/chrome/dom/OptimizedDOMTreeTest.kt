@@ -1,13 +1,13 @@
 package ai.platon.pulsar.chrome.dom
 
+import ai.platon.pulsar.chrome.PulsarWebDriver
+import ai.platon.pulsar.chrome.dom.impl.OptimizedDOMTreeBuilder
+import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import ai.platon.pulsar.api.model.NodeType
 import ai.platon.pulsar.api.model.OptimizedDOMTreeNode
 import ai.platon.pulsar.api.model.SnapshotOptions
-import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.dom.impl.OptimizedDOMTreeBuilder
-import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.common.printlnPro
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
@@ -29,7 +29,7 @@ class OptimizedDOMTreeTest : WebDriverTestBase() {
     @Test
     @DisplayName("OptimizedDOMTreeBuilder invariants on interactive-dynamic page")
     fun optimizedDOMTreeBuilderInvariantsOnInteractiveDynamicPage() =
-        runEnhancedWebDriverTest(interactiveDynamicURL) { driver ->
+        runWebDriverTestAndCompute(interactiveDynamicURL) { driver ->
             assertIs<PulsarWebDriver>(driver)
 
             val service = CDPSnapshotService(driver.browserProtocol)
@@ -115,7 +115,7 @@ class OptimizedDOMTreeTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("isNew flag respects previous backend node ids")
-    fun isNewFlagRespectsPreviousBackendNodeIds() = runEnhancedWebDriverTest(interactiveDynamicURL) { driver ->
+    fun isNewFlagRespectsPreviousBackendNodeIds() = runWebDriverTestAndCompute(interactiveDynamicURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
 
         val service = CDPSnapshotService(driver.browserProtocol)
@@ -165,7 +165,7 @@ class OptimizedDOMTreeTest : WebDriverTestBase() {
     @Test
     @DisplayName("optimizeTree prunes invisible wrapper with pruned children on real page")
     fun optimizetreePrunesInvisibleWrapperWithPrunedChildrenOnRealPage() =
-        runEnhancedWebDriverTest(interactiveDynamicURL) { driver ->
+        runWebDriverTestAndCompute(interactiveDynamicURL) { driver ->
             assertIs<PulsarWebDriver>(driver)
 
             val service = CDPSnapshotService(driver.browserProtocol)

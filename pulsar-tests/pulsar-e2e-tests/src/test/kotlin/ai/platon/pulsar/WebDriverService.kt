@@ -117,6 +117,65 @@ open class WebDriverService(
         assertEquals("function", finalResult?.toString(), "__pulsar_utils__ is not injected properly")
     }
 
+    fun runWebDriverTestAndCompute(url: String, block: suspend (driver: WebDriver) -> Unit) {
+        runBlocking {
+            browserFactory.launchRandomTempBrowser().use {
+                it.newDriver().use { driver ->
+                    openAndCompute(url, driver)
+
+                    val pageSource = driver.pageSource()
+                    val display = StringUtils.abbreviateMiddle(pageSource, "...", 100)
+                    assumeTrue(
+                        { (pageSource?.length ?: 0) > requiredPageSize },
+                        "Page source is too small | $display"
+                    )
+
+                    block(driver)
+                }
+            }
+        }
+    }
+
+    fun runWebDriverTestAndCompute(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) {
+        runBlocking {
+            browser.newDriver().use { driver ->
+                openAndCompute(url, driver)
+
+                val pageSource = driver.pageSource()
+                val display = StringUtils.abbreviateMiddle(pageSource, "...", 100)
+                assumeTrue(
+                    { (pageSource?.length ?: 0) > requiredPageSize },
+                    "Page source is too small | $display"
+                )
+
+                block(driver)
+            }
+        }
+    }
+
+    fun runWebDriverTestAndCompute(browser: Browser, block: suspend (driver: WebDriver) -> Unit) {
+        runBlocking {
+            browser.newDriver().use { block(it) }
+        }
+    }
+
+    open suspend fun openAndCompute(url: String, driver: WebDriver, scrollCount: Int = 3) {
+        driver.navigate(url)
+
+        driver.waitForNavigation()
+        driver.waitForSelector("body")
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
+
+        driver.waitForNavigation()
+        var n = scrollCount
+        while (n-- > 0) {
+            driver.scrollDown(1)
+            delay(1000.milliseconds)
+        }
+        driver.scrollToTop()
+    }
+
     open suspend fun open(url: String, driver: WebDriver, scrollCount: Int = 3) {
         driver.navigate(url)
 

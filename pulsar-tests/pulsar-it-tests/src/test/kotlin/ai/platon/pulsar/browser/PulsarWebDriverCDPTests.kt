@@ -1,11 +1,11 @@
 package ai.platon.pulsar.browser
 
-import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.AbstractWebDriver
 import ai.platon.pulsar.api.Browser
 import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.chrome.protocol.DirectChromeProtocol
+import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.common.printlnPro
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
@@ -24,8 +24,8 @@ class PulsarWebDriverCDPTests : WebDriverTestBase() {
     }
 
     private val browserLoggerName = "ai.platon.pulsar.protocol.browser"
-    private val chromeLoggerName = "ai.platon.pulsar.driver.chrome"
-    private val transportLoggerName = "ai.platon.pulsar.driver.chrome.impl"
+    private val chromeLoggerName = "ai.platon.pulsar.chrome"
+    private val transportLoggerName = "ai.platon.pulsar.chrome.protocol"
     private val testURL get() = "$generatedAssetsBaseURL/interactive-4.html"
 
     fun increasesLogLevels() {
@@ -52,8 +52,8 @@ class PulsarWebDriverCDPTests : WebDriverTestBase() {
 
     @Test
     @Ignore("Disabled temporarily")
-    fun whenNavigateAHtmlPageThenTheNavigateStateAreCorrect() = runEnhancedWebDriverTest(browser) { driver ->
-        openEnhanced(interactiveUrl, driver, 1)
+    fun whenNavigateAHtmlPageThenTheNavigateStateAreCorrect() = runWebDriverTestAndCompute(browser) { driver ->
+        openAndCompute(interactiveUrl, driver, 1)
 
         val navigateEntry = driver.navigateEntry
         assertTrue("Expect mainFrameReceived") { navigateEntry.mainFrameReceived }
@@ -71,7 +71,7 @@ class PulsarWebDriverCDPTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test evaluate 1+1")
-    fun testEvaluate1Plus1() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testEvaluate1Plus1() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         val code = """1+1"""
 
         val result = driver.evaluate(code)
@@ -105,7 +105,7 @@ class PulsarWebDriverCDPTests : WebDriverTestBase() {
                     printlnPro(e.message)
                 }
 
-                openEnhanced(url, driver)
+                openAndCompute(url, driver)
                 block(driver)
             }
         }

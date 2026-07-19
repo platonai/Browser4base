@@ -96,6 +96,24 @@ open class WebDriverTestBase : MockSiteAccess() {
     protected fun runWebDriverTest(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
         webDriverService.runWebDriverTest(url, browser, block)
 
+    /**
+     * Run webdriver test with compute (page source verification + scroll).
+     * */
+    protected fun runWebDriverTestAndCompute(url: String, block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(url, browser, block)
+
+    protected fun runWebDriverTestAndCompute(block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(browser, block)
+
+    protected fun runWebDriverTestAndCompute(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(url, browser, block)
+
+    protected fun runWebDriverTestAndCompute(browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(browser, block)
+
+    protected suspend fun openAndCompute(url: String, driver: WebDriver, scrollCount: Int = 3) =
+        webDriverService.openAndCompute(url, driver, scrollCount)
+
     protected suspend fun openEnhanced(url: String, driver: WebDriver, scrollCount: Int = 3) =
         webDriverService.openEnhanced(url, driver, scrollCount)
 

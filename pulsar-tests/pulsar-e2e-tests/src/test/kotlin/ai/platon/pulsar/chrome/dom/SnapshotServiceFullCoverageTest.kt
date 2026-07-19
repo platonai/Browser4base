@@ -1,12 +1,12 @@
 package ai.platon.pulsar.chrome.dom
 
+import ai.platon.pulsar.chrome.PulsarWebDriver
+import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.model.ElementRefCriteria
 import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import ai.platon.pulsar.api.model.PageTarget
 import ai.platon.pulsar.api.model.SnapshotOptions
-import ai.platon.pulsar.chrome.PulsarWebDriver
-import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.common.printlnPro
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
@@ -23,7 +23,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("Get trees, build and serialize end-to-end with assertions")
-    fun getTreesBuildAndSerializeEndToEndWithAssertions() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun getTreesBuildAndSerializeEndToEndWithAssertions() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         driver.waitForSelector("h1")
 
@@ -82,7 +82,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
     @Test
     @DisplayName("Find element using css, xpath, backend id, element hash and convert to interacted element")
     fun findElementUsingCssXpathBackendIdElementHashAndConvertToInteractedElement() =
-        runEnhancedWebDriverTest(testURL) { driver ->
+        runWebDriverTestAndCompute(testURL) { driver ->
             assertIs<PulsarWebDriver>(driver)
             val service = CDPSnapshotService(driver.browserProtocol)
 
@@ -164,7 +164,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
     @Test
     @DisplayName("Options toggling - no AX or Snapshot yields minimal enhanced nodes")
     fun optionsTogglingNoAxOrSnapshotYieldsMinimalEnhancedNodes() =
-        runEnhancedWebDriverTest(interactiveDynamicURL) { driver ->
+        runWebDriverTestAndCompute(interactiveDynamicURL) { driver ->
             assertIs<PulsarWebDriver>(driver)
             val cdp = driver.browserProtocol
             val service = CDPSnapshotService(cdp)
@@ -202,7 +202,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("Scrollability and interactivity analysis on dynamic content")
-    fun scrollabilityAndInteractivityAnalysisOnDynamicContent() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun scrollabilityAndInteractivityAnalysisOnDynamicContent() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val cdp = driver.browserProtocol
         val service = CDPSnapshotService(driver.browserProtocol)
@@ -304,7 +304,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("Dynamic content load is reflected in enhanced DOM tree")
-    fun dynamicContentLoadIsReflectedInEnhancedDomTree() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun dynamicContentLoadIsReflectedInEnhancedDomTree() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val service = CDPSnapshotService(driver.browserProtocol)
 
@@ -354,7 +354,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("SnapshotNodeEx bounds and rects are populated correctly")
-    fun snapshotNodeExBoundsAndRectsArePopulatedCorrectly() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun snapshotNodeExBoundsAndRectsArePopulatedCorrectly() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val service = CDPSnapshotService(driver.browserProtocol)
 
@@ -416,7 +416,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("SnapshotNodeEx bounds on interactive elements")
-    fun snapshotNodeExBoundsOnInteractiveElements() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun snapshotNodeExBoundsOnInteractiveElements() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val cdp = driver.browserProtocol
         val service = CDPSnapshotService(driver.browserProtocol)
@@ -576,7 +576,7 @@ class SnapshotServiceFullCoverageTest : WebDriverTestBase() {
 
     @Test
     @DisplayName("SnapshotNodeEx scrollRects on scrollable container")
-    fun snapshotNodeExScrollRectsOnScrollableContainer() = runEnhancedWebDriverTest(testURL) { driver ->
+    fun snapshotNodeExScrollRectsOnScrollableContainer() = runWebDriverTestAndCompute(testURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
         val cdp = driver.browserProtocol
 

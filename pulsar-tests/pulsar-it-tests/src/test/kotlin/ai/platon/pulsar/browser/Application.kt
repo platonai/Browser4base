@@ -1,10 +1,14 @@
 package ai.platon.pulsar.browser
 
-import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
-import ai.platon.pulsar.test.server.MockSiteApplication
+import ai.platon.pulsar.boot.autoconfigure.test.PulsarTestContextInitializer
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.context.annotation.Import
+import org.springframework.test.context.ContextConfiguration
 
-@SpringBootApplication
-@Import(PulsarAutoConfiguration::class, MockSiteApplication::class)
+@SpringBootApplication(
+    scanBasePackages = [
+        "ai.platon.pulsar.boot.autoconfigure",
+        "ai.platon.pulsar.test.server"
+    ]
+)
+@ContextConfiguration(initializers = [PulsarTestContextInitializer::class])
 class Application

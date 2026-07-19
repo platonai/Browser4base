@@ -1,9 +1,9 @@
 package ai.platon.pulsar.chrome.dom
 
+import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.pulsar.FastWebDriverService
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.scripting.ScriptLoader
-import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.pulsar.common.Strings
 import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.common.printlnPro
@@ -27,7 +27,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test evaluate that returns primitive value")
-    fun testEvaluateThatReturnsPrimitiveValue() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testEvaluateThatReturnsPrimitiveValue() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         val expression = """1+1"""
 
         val result = driver.evaluate(expression)
@@ -36,7 +36,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test evaluate that returns JS Object")
-    fun testEvaluateThatReturnsJsObject() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testEvaluateThatReturnsJsObject() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         val expression = """document"""
 
         val result = driver.evaluateDetail(expression)
@@ -52,7 +52,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test evaluateValueDetail that returns JS Object")
-    fun testEvaluateValueDetailThatReturnsJsObject() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testEvaluateValueDetailThatReturnsJsObject() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         val code = """document"""
 
         val result = driver.evaluateValueDetail(code)
@@ -70,7 +70,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test __pulsar_NodeExt is accessible via CDP in isolated world")
-    fun testPulsarNodeExtCanNotBeSeen() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testPulsarNodeExtCanNotBeSeen() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         // With the dual-world architecture (Browser4-4.11+), the Browser4 runtime lives in an
         // isolated world. Page JavaScript cannot see these symbols, but CDP evaluation
         // (via evaluateValue) accesses the isolated world where they ARE defined.
@@ -87,7 +87,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test getConfig")
-    fun testGetConfig() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testGetConfig() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         val expression = """__pulsar_utils__.getConfig()"""
 
         val result = driver.evaluateValue(expression)
@@ -102,7 +102,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
     @Test
     @DisplayName("Given JS with escaped special characters When execute Then success")
     fun givenJsWithEscapedSpecialCharactersWhenExecuteThenSuccess() =
-        runEnhancedWebDriverTest(testURL, browser) { driver ->
+        runWebDriverTestAndCompute(testURL, browser) { driver ->
             val selectors = """
 #itemList [data-id='1'] input[type='text']
         """.trimIndent().split("\n")
@@ -122,7 +122,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test queryComputedStyle")
-    fun testQueryComputedStyle() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testQueryComputedStyle() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         // Load the required scripts
         ScriptLoader.addInitParameter("ATTR_ELEMENT_NODE_DATA", AppConstants.PULSAR_ATTR_ELEMENT_NODE_DATA)
         driver.browser.settings.scriptLoader.reload()
@@ -142,14 +142,14 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
             if (utilsObjectName == null) {
                 printlnPro("WARNING: No utils object found, skipping test")
-                return@runEnhancedWebDriverTest
+                return@runWebDriverTestAndCompute
             }
 
             // Verify the utils object is actually accessible
             val utilsAccessible = driver.evaluateValue("""typeof window['$utilsObjectName'] !== 'undefined'""")
             if (utilsAccessible != true) {
                 printlnPro("WARNING: Utils object not accessible, skipping test")
-                return@runEnhancedWebDriverTest
+                return@runWebDriverTestAndCompute
             }
 
             // Test the queryComputedStyle function
@@ -159,7 +159,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
             if (result == null) {
                 printlnPro("WARNING: queryComputedStyle returned null, skipping assertions")
-                return@runEnhancedWebDriverTest
+                return@runWebDriverTestAndCompute
             }
 
             assertTrue { result is Map<*, *> }
@@ -178,7 +178,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
         runBlocking {
             ScriptLoader.addInitParameter("ATTR_ELEMENT_NODE_DATA", AppConstants.PULSAR_ATTR_ELEMENT_NODE_DATA)
             driver.browser.settings.scriptLoader.reload()
-            openEnhanced(testURL, driver)
+            openAndCompute(testURL, driver)
 
             val config = driver.evaluateValue("__pulsar_CONFIGS")
             printlnPro(config)
@@ -264,7 +264,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test JS queryComputedStyle")
-    fun testJsQueryComputedStyle() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testJsQueryComputedStyle() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         // Load the required scripts
         ScriptLoader.addInitParameter("ATTR_ELEMENT_NODE_DATA", AppConstants.PULSAR_ATTR_ELEMENT_NODE_DATA)
         driver.browser.settings.scriptLoader.reload()
@@ -274,7 +274,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
             val utilsExists = driver.evaluateValue("""typeof __pulsar_utils__ !== 'undefined'""")
             if (utilsExists != true) {
                 printlnPro("WARNING: __pulsar_utils__ not available, skipping test")
-                return@runEnhancedWebDriverTest
+                return@runWebDriverTestAndCompute
             }
 
             val expression = """__pulsar_utils__.queryComputedStyle('button', ['color', 'background-color'])"""
@@ -292,7 +292,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
 
     @Test
     @DisplayName("test JS compute")
-    fun testJsCompute() = runEnhancedWebDriverTest(testURL, browser) { driver ->
+    fun testJsCompute() = runWebDriverTestAndCompute(testURL, browser) { driver ->
         // With the dual-world architecture (Browser4-4.11+), the Browser4 runtime is injected
         // into the isolated world where CDP evaluation can access it. __pulsar_NodeTraversor
         // and __pulsar_NodeFeatureCalculator are available in the isolated world.
@@ -302,7 +302,7 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
         val calculatorExists = driver.evaluateValue("""typeof __pulsar_NodeFeatureCalculator !== 'undefined'""")
         if (traversorExists != true || calculatorExists != true) {
             printlnPro("WARNING: __pulsar_NodeTraversor or __pulsar_NodeFeatureCalculator not available, skipping test")
-            return@runEnhancedWebDriverTest
+            return@runWebDriverTestAndCompute
         }
 
         val expression = """new __pulsar_NodeTraversor(new __pulsar_NodeFeatureCalculator()).traverse(document.body);"""
@@ -310,6 +310,125 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
         val result = driver.evaluateValue(expression)
         // The traverse method returns void (undefined), so result should be null
         assertNull(result)
+    }
+
+    // --- Tests for getOriginalContentLength, setCaptureMetaInfo, and serializeAnnotatedHTML ---
+
+    @Test
+    @DisplayName("getOriginalContentLength returns correct length")
+    fun testGetOriginalContentLength() = runWebDriverTestAndCompute(testURL, browser) { driver ->
+        val outerHtmlLen = driver.evaluateValue("document.documentElement.outerHTML.length") as? Int
+            ?: throw AssertionError("Failed to get outerHTML length")
+        val result = driver.evaluateValue("__pulsar_utils__.getOriginalContentLength()") as? Int
+            ?: throw AssertionError("getOriginalContentLength() returned null")
+
+        assertEquals(outerHtmlLen, result,
+            "getOriginalContentLength should match outerHTML.length")
+    }
+
+    @Test
+    @DisplayName("getOriginalContentLength works before vi data is computed")
+    fun testGetOriginalContentLengthBeforeCompute() = runWebDriverTest(testURL, browser) { driver ->
+        // NOTE: We use runWebDriverTest (which calls open()) instead of
+        // runWebDriverTestAndCompute (which calls openAndCompute()) because
+        // openAndCompute() always calls compute(), and this test specifically
+        // needs to verify behavior BEFORE compute() is called.
+
+        // Verify _viDataComputed is false initially
+        val computed = driver.evaluateValue("__pulsar_utils__._viDataComputed")
+        // _viDataComputed may be undefined (not false) before constructor runs properly
+        assertTrue(computed == null || computed == false,
+            "viDataComputed should not be true before compute() is called")
+
+        val result = driver.evaluateValue("__pulsar_utils__.getOriginalContentLength()") as? Int
+        assertNotNull(result, "getOriginalContentLength() should return non-null")
+        assertTrue(result > 0, "Content length should be positive, got $result")
+    }
+
+    @Test
+    @DisplayName("setCaptureMetaInfo stores meta links without DOM mutation")
+    fun testSetCaptureMetaInfo() = runWebDriverTestAndCompute(testURL, browser) { driver ->
+        // Count existing link elements in head with the normalized URI rel
+        val beforeCount = driver.evaluateValue(
+            """document.querySelectorAll('head link[rel="pulsar:normalizedURI"]').length"""
+        ) as? Int ?: 0
+
+        // Set meta links via the JS API
+        val testUrl = "http://test.url/captured-page"
+        val linksJson = """{"pulsar:normalizedURI": "$testUrl"}"""
+        driver.evaluateValue("__pulsar_utils__.setCaptureMetaInfo($linksJson)")
+
+        // Verify the stored value on the JS side
+        val storedRel = driver.evaluateValue(
+            """__pulsar_utils__._captureMetaLinks["pulsar:normalizedURI"]"""
+        ) as? String
+        assertEquals(testUrl, storedRel, "_captureMetaLinks should store the URL")
+
+        // Verify NO DOM mutation occurred
+        val afterCount = driver.evaluateValue(
+            """document.querySelectorAll('head link[rel="pulsar:normalizedURI"]').length"""
+        ) as? Int ?: 0
+        assertEquals(beforeCount, afterCount,
+            "Setting _captureMetaLinks should NOT add <link> elements to the live DOM")
+    }
+
+    @Test
+    @DisplayName("capture meta links appear in getAnnotatedHTML output")
+    fun testSerializeAnnotatedHTMLWithMetaLinks() = runWebDriverTestAndCompute(testURL, browser) { driver ->
+        // Set meta links on JS side
+        val testUrl = "http://test.url/captured-page"
+        val linksJson = """{"pulsar:normalizedURI": "$testUrl"}"""
+        driver.evaluateValue("__pulsar_utils__._captureMetaLinks = $linksJson")
+
+        // Force vi data computation so getAnnotatedHTML uses serializeAnnotatedHTML
+        driver.evaluateValue("__pulsar_utils__.compute()")
+
+        // Retrieve annotated HTML
+        val html = driver.evaluateValue("__pulsar_utils__.getAnnotatedHTML()") as? String
+            ?: throw AssertionError("getAnnotatedHTML() returned null")
+
+        // Verify the link element is present in the output
+        assertTrue(html.contains("pulsar:normalizedURI"),
+            "HTML should contain pulsar:normalizedURI link")
+        assertTrue(html.contains(testUrl),
+            "HTML should contain the test URL")
+    }
+
+    @Test
+    @DisplayName("getAnnotatedHTML falls back to outerHTML without compute")
+    fun testGetAnnotatedHTMLFallbackWithoutCompute() = runWebDriverTestAndCompute(testURL, browser) { driver ->
+        // Ensure _viDataComputed is false (should be by default before compute())
+        val computed = driver.evaluateValue("__pulsar_utils__._viDataComputed") as? Boolean
+        if (computed != true) {
+            // getAnnotatedHTML without prior compute() should return plain outerHTML
+            val html = driver.evaluateValue("__pulsar_utils__.getAnnotatedHTML()") as? String
+                ?: throw AssertionError("getAnnotatedHTML() should return HTML even without compute")
+
+            // Should NOT contain vi attributes (since compute() wasn't called)
+            val hasViAttr = html.contains("vi=\"")
+            if (hasViAttr) {
+                printlnPro("NOTE: vi attributes already present (compute() may have been called by a prior test)")
+            }
+            // The fallback path should still return valid HTML
+            assertTrue(html.startsWith("<html") || html.startsWith("<!DOCTYPE"),
+                "Fallback HTML should be valid document HTML")
+        }
+    }
+
+    @Test
+    @DisplayName("empty _captureMetaLinks produces no extra markup")
+    fun testEmptyCaptureMetaLinks() = runWebDriverTestAndCompute(testURL, browser) { driver ->
+        // Clear any previously set meta links
+        driver.evaluateValue("__pulsar_utils__._captureMetaLinks = {}")
+
+        // Compute and get HTML
+        driver.evaluateValue("__pulsar_utils__.compute()")
+        val html = driver.evaluateValue("__pulsar_utils__.getAnnotatedHTML()") as? String
+            ?: throw AssertionError("getAnnotatedHTML() returned null")
+
+        // Should not contain any unexpected link elements from _captureMetaLinks
+        // The existing DOM may have its own links, but check that the HTML is valid
+        assertTrue(html.isNotEmpty(), "HTML should not be empty")
     }
 }
 

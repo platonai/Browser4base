@@ -3,8 +3,8 @@ package ai.platon.pulsar.browser
 import ai.platon.pulsar.api.AbstractWebDriver
 import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.WebDriver
-import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.protocol.browser.DefaultWebDriverPoolManager
+import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.skeleton.common.AppSystemInfo
 import org.junit.jupiter.api.DisplayName
 import org.slf4j.LoggerFactory

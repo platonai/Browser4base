@@ -1,9 +1,9 @@
-package ai.platon.pulsar.browser
+package ai.platon.pulsar
 
-import ai.platon.pulsar.api.Browser
 import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.api.manage.BrowserFactory
+import ai.platon.pulsar.core.api.Browser
+import ai.platon.pulsar.core.api.WebDriver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.apache.commons.lang3.StringUtils
@@ -55,11 +55,11 @@ open class WebDriverService(
         }
     }
 
-    fun runEnhancedWebDriverTest(url: String, block: suspend (driver: WebDriver) -> Unit) {
+    fun runWebDriverTestAndCompute(url: String, block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
             browserFactory.launchRandomTempBrowser().use {
                 it.newDriver().use { driver ->
-                    openEnhanced(url, driver)
+                    openAndCompute(url, driver)
 
                     val pageSource = driver.pageSource()
                     val display = StringUtils.abbreviateMiddle(pageSource, "...", 100)
@@ -74,10 +74,10 @@ open class WebDriverService(
         }
     }
 
-    fun runEnhancedWebDriverTest(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) {
+    fun runWebDriverTestAndCompute(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
             browser.newDriver().use { driver ->
-                openEnhanced(url, driver)
+                openAndCompute(url, driver)
 
                 val pageSource = driver.pageSource()
                 val display = StringUtils.abbreviateMiddle(pageSource, "...", 100)
@@ -91,30 +91,10 @@ open class WebDriverService(
         }
     }
 
-    fun runEnhancedWebDriverTest(browser: Browser, block: suspend (driver: WebDriver) -> Unit) {
+    fun runWebDriverTestAndCompute(browser: Browser, block: suspend (driver: WebDriver) -> Unit) {
         runBlocking {
             browser.newDriver().use { block(it) }
         }
-    }
-
-    /**
-     * Waits for __pulsar_utils__ to be available after navigation.
-     *
-     * After frame navigation, the isolated world context is cleared and recreated asynchronously.
-     * In fast-loading environments (e.g. CI headless mode), waitForNavigation may detect the
-     * URL change before the onFrameNavigated handler has finished recreating the isolated world
-     * and re-injecting the runtime. This helper retries with a short delay to bridge that gap.
-     */
-    suspend fun waitForPulsarUtils(driver: WebDriver, maxRetries: Int = 10, delayMs: Long = 100) {
-        repeat(maxRetries) { attempt ->
-            val result = driver.evaluateValue("typeof(__pulsar_utils__)")
-            if (result?.toString() == "function") return
-            if (attempt < maxRetries - 1) {
-                delay(delayMs.milliseconds)
-            }
-        }
-        val finalResult = driver.evaluateValue("typeof(__pulsar_utils__)")
-        assertEquals("function", finalResult?.toString(), "__pulsar_utils__ is not injected properly")
     }
 
     open suspend fun open(url: String, driver: WebDriver, scrollCount: Int = 3) {
@@ -122,7 +102,8 @@ open class WebDriverService(
 
         driver.waitForNavigation()
         driver.waitForSelector("body")
-        waitForPulsarUtils(driver)
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
 
         driver.waitForNavigation()
         var n = scrollCount
@@ -133,12 +114,13 @@ open class WebDriverService(
         driver.scrollToTop()
     }
 
-    open suspend fun openEnhanced(url: String, driver: WebDriver, scrollCount: Int = 3) {
+    open suspend fun openAndCompute(url: String, driver: WebDriver, scrollCount: Int = 3) {
         driver.navigate(url)
         driver.waitForNavigation()
         driver.waitForSelector("body")
 
-        waitForPulsarUtils(driver)
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
 
         // make sure all metadata are available
         driver.evaluate("__pulsar_utils__.waitForReady()")
@@ -163,12 +145,13 @@ open class FastWebDriverService(
     browserFactory: BrowserFactory,
     requiredPageSize: Int = 1
 ) : WebDriverService(browserFactory, requiredPageSize) {
-    override suspend fun openEnhanced(url: String, driver: WebDriver, scrollCount: Int) {
+    override suspend fun openAndCompute(url: String, driver: WebDriver, scrollCount: Int) {
         driver.navigate(url)
 
         driver.waitForNavigation()
         driver.waitForSelector("body")
-        waitForPulsarUtils(driver)
+        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
+        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
 
         // make sure all metadata are available
         driver.evaluateDetail("__pulsar_utils__.waitForReady()")
