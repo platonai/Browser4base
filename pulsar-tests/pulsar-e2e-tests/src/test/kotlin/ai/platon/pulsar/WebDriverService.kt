@@ -164,8 +164,7 @@ open class WebDriverService(
 
         driver.waitForNavigation()
         driver.waitForSelector("body")
-        val result = driver.evaluateValue("typeof(__pulsar_utils__)")
-        assertEquals("function", result?.toString(), "__pulsar_utils__ is not injected properly")
+        waitForPulsarUtils(driver)
 
         driver.waitForNavigation()
         var n = scrollCount

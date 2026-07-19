@@ -5,7 +5,7 @@ import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.urls.URLUtils.splitUrlArgs
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
 import ai.platon.pulsar.skeleton.common.options.LoadOptions
-import ai.platon.pulsar.test.RealTestUrls
+import ai.platon.pulsar.test.TestUrls
 import org.apache.commons.lang3.StringUtils
 import java.io.IOException
 import java.nio.file.Files
@@ -52,7 +52,7 @@ class TestCases {
     fun testSplitUrlArgs() {
         assertTrue { LoadOptionDefaults.storeContent }
 //        val configuredUrl = "https://www.amazon.com/dp/B0E000001 -prst --expires PT1S --auto-flush --fetch-mode NATIVE --browser NONE"
-        val configuredUrl = RealTestUrls.PRODUCT_DETAIL_URL
+        val configuredUrl = TestUrls.PRODUCT_DETAIL_URL
         val (url, args) = splitUrlArgs(configuredUrl)
         assertEquals(configuredUrl, url)
         assertEquals("", args)

@@ -1,11 +1,11 @@
 package ai.platon.pulsar.heavy.ql
 
-import ai.platon.pulsar.test.RealTestUrls
+import ai.platon.pulsar.test.TestUrls
 import kotlin.test.Test
 
 class TestExtractCases : TestBase() {
-    private val newsIndexUrl = RealTestUrls.NEWS_INDEX_URL
-    private val newsDetailUrl = RealTestUrls.NEWS_DETAIL_URL
+    private val newsIndexUrl = TestUrls.NEWS_INDEX_URL
+    private val newsDetailUrl = TestUrls.NEWS_DETAIL_URL
 
     @Test
     fun testSavePages() {

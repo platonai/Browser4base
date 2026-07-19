@@ -5,7 +5,7 @@ import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.core.api.PulsarSession
 import ai.platon.pulsar.persist.WebDb
-import ai.platon.pulsar.test.RealTestUrls
+import ai.platon.pulsar.test.TestUrls
 import ai.platon.pulsar.util.server.EnableMockServerApplication
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -41,7 +41,7 @@ open class MockSiteAccess {
 
     protected val warnUpUrl = "https://www.amazon.com/"
     protected val e2eOriginUrl = "https://www.amazon.com/"
-    protected val e2eProductUrl = RealTestUrls.PRODUCT_DETAIL_URL
+    protected val e2eProductUrl = TestUrls.PRODUCT_DETAIL_URL
 
     protected val resourceUrl2 = "https://www.amazon.com/robots.txt"
 

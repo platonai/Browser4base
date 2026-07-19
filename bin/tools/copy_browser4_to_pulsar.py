@@ -74,9 +74,7 @@ CLASS_RENAMES = {
 }
 
 # Fully-qualified class references that were renamed during migration.
-# These are safer than CLASS_RENAMES for generic names like TestUrls.
 FQ_CLASS_RENAMES = {
-    "ai.platon.pulsar.test.TestUrls": "ai.platon.pulsar.test.RealTestUrls",
 }
 
 # ---------------------------------------------------------------------------
