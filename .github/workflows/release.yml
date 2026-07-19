@@ -245,18 +245,6 @@ jobs:
               print(f" - {path}")
           PY
 
-
-#      - name: Deploy to Sonatype Central
-#        shell: bash
-#        run: |
-#          set -euo pipefail
-#
-#          echo "=== Deploying to Maven Central ==="
-#          ./mvnw --batch-mode --no-transfer-progress deploy -P deploy,release -DskipTests \
-#            -Dgpg.batch=true \
-#            -Dgpg.pinentry-mode=loopback \
-#            --show-version --errors
-
       - name: Deploy to Sonatype Central
         if: success()
         run: |
@@ -265,13 +253,11 @@ jobs:
             -Dgpg.passphrase="$GPG_PASSPHRASE" \
             -Dgpg.batch=true \
             -Dgpg.pinentry-mode=loopback \
-            -Dcentral.username="$CENTRAL_USERNAME" \
-            -Dcentral.password="$CENTRAL_PASSWORD" \
             --show-version --errors
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
 
   release-summary:
     runs-on: ubuntu-latest
