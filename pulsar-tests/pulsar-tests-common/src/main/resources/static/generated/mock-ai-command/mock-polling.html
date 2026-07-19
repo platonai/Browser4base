@@ -58,7 +58,7 @@
         result.textContent = '';
 
         try {
-            const response = await fetch('http://localhost:8082/api/ai/command', {
+            const response = await fetch('http://localhost:8182/api/ai/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: input
@@ -82,7 +82,7 @@
 
         const interval = setInterval(async () => {
             try {
-                const response = await fetch(`http://localhost:8082/api/ai/command/stream/${uuid}`);
+                const response = await fetch(`http://localhost:8182/api/ai/command/stream/${uuid}`);
                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
 
                 const data = await response.json();

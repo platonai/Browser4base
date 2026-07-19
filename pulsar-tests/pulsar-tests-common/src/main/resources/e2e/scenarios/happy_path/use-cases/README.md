@@ -34,21 +34,10 @@ Each use case file contains:
 
 ## Running Tests
 
-Use `run-e2e-agents.sh` to execute these use cases:
+Run these use cases via the project's E2E test runner:
 
-```bash
-# Run all use cases
-bin/tests/test-cases/run-e2e-agents.sh
-
-# Run specific use cases by number
-bin/tests/test-cases/run-e2e-agents.sh -t "01,02,03"
-
-# Run with verbose output
-bin/tests/test-cases/run-e2e-agents.sh --verbose
-
-# Show help
-bin/tests/test-cases/run-e2e-agents.sh --help
-```
+For agent-driven scenario tests that can be run directly from the command line, see
+[`browser4-tests/real-world-scenarios/`](../../../../../../../../../browser4-tests/real-world-scenarios/README.md).
 
 ## Adding New Use Cases
 
@@ -60,4 +49,4 @@ The test runner will automatically discover and execute new use cases.
 
 ## Reference
 
-These use cases are derived from `docs-dev/agentic/use-cases.md`.
+These use cases are designed to be run by the Browser4 E2E test suite runner.

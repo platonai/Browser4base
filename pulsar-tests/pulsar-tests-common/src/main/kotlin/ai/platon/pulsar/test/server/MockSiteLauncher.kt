@@ -46,7 +46,7 @@ object MockSiteLauncher : Closeable {
      */
     @Synchronized
     fun start(
-        port: Int = 17080,
+        port: Int = 18080,
         properties: Map<String, Any> = emptyMap(),
         profiles: Array<String> = emptyArray(),
         headless: Boolean = true,
@@ -88,7 +88,7 @@ object MockSiteLauncher : Closeable {
             val args = mutableListOf<String>()
             // Always force desired port via command line arg for highest precedence (over application.properties).
             args += "--server.port=$port"
-            if (headless) args += "--java.awt.headless=true"
+            // java.awt.headless flag removed — java.desktop module no longer bundled
 
             logger.info("Starting MockSiteApplication | requestedPort=$port enforcePort=$enforcePort args=$args props(no-port)=${defaultProps - "server.port"}")
             val ctx = builder.run(*args.toTypedArray())

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
 	license agreements. See the NOTICE file distributed with this work for additional
 	information regarding copyright ownership. The ASF licenses this file to
@@ -22,6 +22,8 @@
     <name>Pulsar Tests Common</name>
 
     <build>
+        <defaultGoal>install</defaultGoal>
+
         <plugins>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
@@ -59,7 +61,18 @@
     <dependencies>
         <dependency>
             <groupId>ai.platon.pulsar</groupId>
+            <artifactId>browser4-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>ai.platon.pulsar</groupId>
             <artifactId>pulsar-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>ai.platon.pulsar</groupId>
@@ -100,4 +113,5 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
 </project>

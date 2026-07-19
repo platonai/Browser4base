@@ -32,42 +32,48 @@ class MockSiteStarter: AutoCloseable {
 
     /**
      * Ensure the mock site serving the given url is started. Extracts the explicit port from the URL; if absent uses
-     * system/env configured port or sensible fallbacks (8082, then 8080) instead of the protocol default (80).
+     * system/env configured port or sensible fallbacks (8182, then 8080) instead of the protocol default (80).
      */
     fun start(url: String) {
         logger.info("Ensure mock site is running (autoStart always enabled)")
         var ok = wait(url)
 
         if (!ok) {
-            try {
-                val u = URI(url).toURL()
-                val configuredPort = System.getProperty("mock.site.port")?.toIntOrNull()
-                    ?: System.getenv("MOCK_SITE_PORT")?.toIntOrNull()
-                val desiredPort = when {
-                    u.port > 0 -> u.port
-                    configuredPort != null -> configuredPort
-                    else -> 8082 // primary fallback
-                }
-                val fallbackPorts = listOfNotNull(configuredPort, 8082, 8080).distinct()
-                logger.info("Attempting to auto-start MockSiteApplication on port $desiredPort (candidates=$fallbackPorts) ...")
-                MockSiteLauncher.start(port = desiredPort, enforcePort = true)
-                val ready = MockSiteLauncher.awaitReady(Duration.ofSeconds(10))
-                if (!ready && desiredPort != 0 && desiredPort != u.port && configuredPort == null) {
-                    // Try next fallback if first failed
-                    for (p in fallbackPorts) {
-                        if (p == desiredPort) continue
-                        logger.warn("Retry auto-start on fallback port $p ...")
-                        MockSiteLauncher.start(port = p, enforcePort = true)
-                        if (MockSiteLauncher.awaitReady(Duration.ofSeconds(6))) break
+            val u = URI(url).toURL()
+            val configuredPort = System.getProperty("mock.site.port")?.toIntOrNull()
+                ?: System.getenv("MOCK_SITE_PORT")?.toIntOrNull()
+            val desiredPort = when {
+                u.port > 0 -> u.port
+                configuredPort != null -> configuredPort
+                else -> 8182 // primary fallback
+            }
+            val fallbackPorts = (listOfNotNull(configuredPort, 8182, 8080) + desiredPort).distinct()
+            val attemptedPorts = mutableListOf<Int>()
+            var started = false
+
+            // Try desired port first, then fallbacks, then port=0 as last resort
+            val candidates = (listOf(desiredPort) + fallbackPorts.filter { it != desiredPort } + 0).distinct()
+            for (p in candidates) {
+                attemptedPorts.add(p)
+                try {
+                    logger.info("Attempting to start MockSiteApplication on port $p ...")
+                    MockSiteLauncher.start(port = p, enforcePort = true)
+                    if (MockSiteLauncher.awaitReady(Duration.ofSeconds(10))) {
+                        logger.info("Auto-start success on port ${MockSiteLauncher.port()}: ${MockSiteLauncher.baseUrl()}")
+                        started = true
+                        break
+                    } else {
+                        logger.warn("MockSiteApplication started on port ${MockSiteLauncher.port()} but not ready within timeout")
                     }
+                } catch (e: Exception) {
+                    logger.warn("Failed to start MockSiteApplication on port $p: ${e.message}")
                 }
-                if (MockSiteLauncher.isRunning()) {
-                    logger.info("Auto-start success: ${MockSiteLauncher.baseUrl()}")
-                } else {
-                    logger.warn("Auto-start attempted but site not ready within timeout")
-                }
-            } catch (e: Exception) {
-                logger.error("Failed to auto-start mock site: ${e.message}", e)
+            }
+
+            if (!started) {
+                val msg = "Failed to start mock site on any of these ports: $attemptedPorts"
+                logger.error(msg)
+                throw IllegalStateException(msg)
             }
         }
 
@@ -80,24 +86,15 @@ class MockSiteStarter: AutoCloseable {
 
     /**
      * Wait for the site referred to by a full page URL (any path under host). Only host/port are probed.
-     * @param pageUrl Any URL within the target host (ex: http://localhost:8082/generated/tta/instructions/instructions-demo.html)
+     * @param pageUrl Any URL within the target host (ex: http://localhost:8182/generated/tta/instructions/instructions-demo.html)
      */
     fun wait(pageUrl: String, options: Options = Options()): Boolean {
         val (healthURL, rootURL) = try {
             val u = URI.create(pageUrl).toURL()
             val effectivePort = if (u.port != -1) u.port else (System.getProperty("mock.site.port")?.toIntOrNull()
-                ?: System.getenv("MOCK_SITE_PORT")?.toIntOrNull() ?: 8082)
-            // val hostPort = URL(u.protocol, u.host, effectivePort, "/")
-            val hostPort = URI(
-                u.protocol,
-                null,
-                u.host,
-                effectivePort,
-                "/",
-                null,
-                null
-            ).toURL()
-            val health = URI(u.protocol, null, u.host, effectivePort, options.healthPath, null, null).toURL()
+                ?: System.getenv("MOCK_SITE_PORT")?.toIntOrNull() ?: 8182)
+            val hostPort = URL(u.protocol, u.host, effectivePort, "/")
+            val health = URL(u.protocol, u.host, effectivePort, options.healthPath)
             health to hostPort
         } catch (e: Exception) {
             if (options.verbose) logger.error("[DemoSiteStarter] Invalid URL: $pageUrl | ${e.message}")
