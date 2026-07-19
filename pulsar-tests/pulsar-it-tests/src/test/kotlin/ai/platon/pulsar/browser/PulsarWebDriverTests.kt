@@ -53,8 +53,10 @@ class PulsarWebDriverTests : WebDriverTestBase() {
     @Test
     @DisplayName("test hover")
     fun testHover() = runEnhancedWebDriverTest(interactiveUrl2, browser) { driver ->
-        // First scroll to ensure the element is in view and page is in a stable state
-        driver.scrollToTop()
+        // Scroll the element into view first — hover() depends on the element being
+        // within the viewport, otherwise clickablePoint() filters out all quads and
+        // hover becomes a no-op.
+        driver.evaluate("document.querySelector('.hover-card').scrollIntoView({block:'center', behavior:'instant'})")
         driver.delay(300)
 
         var n = 0
