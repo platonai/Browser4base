@@ -137,5 +137,5 @@ data class H2DbConfig(
     /**
      * Port for test server
      * */
-    var port: Int = 19092
+    var port: Int = 18092
 )
