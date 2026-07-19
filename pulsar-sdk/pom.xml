@@ -18,9 +18,9 @@
         <version>4.10.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>pulsar-all</artifactId>
+    <artifactId>pulsar-sdk</artifactId>
 
-    <name>Pulsar All-in-one</name>
+    <name>Pulsar SDK</name>
 
     <build>
         <defaultGoal>verify</defaultGoal>
@@ -118,7 +118,7 @@
                 <plugins>
                     <!--
                       Central requires a -javadoc.jar for each published artifact.
-                      pulsar-all is an aggregator module with no source code;
+                      pulsar-sdk is an aggregator module with no source code;
                       we attach an empty javadoc jar to satisfy Central validation.
                     -->
                     <plugin>

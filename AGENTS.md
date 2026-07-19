@@ -93,7 +93,7 @@ browser4base/
 │   ├── pulsar-tests-common/     #   Shared test utilities
 │   ├── pulsar-it-tests/         #   Integration tests
 │   └── pulsar-e2e-tests/        #   End-to-end tests
-├── pulsar-all/                  # Aggregate/shaded JAR
+├── pulsar-sdk/                  # Curated SDK bundle
 ├── examples/                    # Usage examples
 │   └── pulsar-examples/
 ├── docs/                        # Documentation
