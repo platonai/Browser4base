@@ -47,6 +47,7 @@ jobs:
         uses: ./.github/actions/run-tests
         with:
           maven_profiles: 'tests-integration,tests-e2e'
+          excluded_groups: 'Manual,ManualOnly'
           timeout_minutes: '45'
           report_name: 'nightly-test-reports'
 

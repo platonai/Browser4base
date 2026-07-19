@@ -54,7 +54,7 @@ jobs:
         if: ${{ !inputs.skip_tests }}
         uses: ./.github/actions/run-tests
         with:
-          maven_profiles: 'tests-integration'
+          maven_profiles: 'tests-integration,tests-e2e'
           excluded_groups: 'Slow,SlowTest,Flaky,Manual,ManualOnly'
           timeout_minutes: '25'
           report_name: 'ci-test-reports'
