@@ -306,12 +306,114 @@ jobs:
             echo "⚠️ Could not sync \`main\` to \`${{ needs.ci-build.outputs.tag }}\` — this does not affect the release itself." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  bump-version:
+    runs-on: ubuntu-latest
+    needs:
+      - ci-build
+      - deploy
+      - sync-main
+    if: |
+      needs.ci-build.result == 'success' &&
+      needs.deploy.result == 'success' &&
+      !contains(needs.ci-build.outputs.version, '-rc.') &&
+      !contains(needs.ci-build.outputs.version, '-alpha') &&
+      !contains(needs.ci-build.outputs.version, '-beta')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Compute next patch version
+        id: next-version
+        env:
+          RELEASE_VERSION: ${{ needs.ci-build.outputs.version }}
+        run: |
+          IFS='.' read -r major minor patch <<< "$RELEASE_VERSION"
+          next_patch=$((patch + 1))
+          NEXT_VERSION="${major}.${minor}.${next_patch}-SNAPSHOT"
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Release was $RELEASE_VERSION → bumping to $NEXT_VERSION"
+
+      - name: Bump version in VERSION and pom.xml files
+        env:
+          RELEASE_VERSION: ${{ needs.ci-build.outputs.version }}
+          NEXT_VERSION: ${{ steps.next-version.outputs.next_version }}
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+
+          repo_root = Path(os.environ["GITHUB_WORKSPACE"])
+          release_version = os.environ["RELEASE_VERSION"].strip()
+          next_version = os.environ["NEXT_VERSION"].strip()
+
+          print(f"=== Bumping version after release ===")
+          print(f"Release version: {release_version}")
+          print(f"Next snapshot:   {next_version}")
+
+          # Update VERSION file
+          version_file = repo_root / "VERSION"
+          current = version_file.read_text(encoding="utf-8").splitlines()[0].strip()
+          if current != release_version:
+              print(f"::warning::VERSION file contains '{current}', expected '{release_version}'")
+          version_file.write_text(f"{next_version}\n", encoding="utf-8")
+          print(f"Updated VERSION: {release_version} → {next_version}")
+
+          # Update all pom.xml files
+          updated_count = 0
+          for pom_file in repo_root.rglob("pom.xml"):
+              original = pom_file.read_text(encoding="utf-8")
+              updated = original.replace(f"<version>{release_version}</version>", f"<version>{next_version}</version>")
+              if updated != original:
+                  pom_file.write_text(updated, encoding="utf-8", newline="\n")
+                  updated_count += 1
+
+          if updated_count == 0:
+              print("::warning::No pom.xml files contained the release version — nothing to bump")
+          else:
+              print(f"Updated {updated_count} pom.xml files: {release_version} → {next_version}")
+          PY
+
+      - name: Commit and push version bump
+        env:
+          NEXT_VERSION: ${{ steps.next-version.outputs.next_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add VERSION **/pom.xml
+
+          if git diff --cached --quiet; then
+            echo "::notice::No version changes to commit — version may already be bumped."
+            exit 0
+          fi
+
+          git commit -m "chore: bump version to $NEXT_VERSION after release
+
+          Post-release version bump to the next patch snapshot.
+
+          Co-Authored-By: Claude <noreply@anthropic.com>"
+
+          if git push origin main; then
+            echo "✅ Pushed version bump to main: $NEXT_VERSION"
+          else
+            echo "::warning::Failed to push version bump — branch protection may be enabled."
+          fi
+
   release-summary:
     runs-on: ubuntu-latest
     needs:
       - ci-build
       - deploy
       - sync-main
+      - bump-version
     if: always()
     permissions: {}
 
@@ -325,5 +427,6 @@ jobs:
           echo "| Build | ${{ needs.ci-build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deploy | ${{ needs.deploy.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Sync Main | ${{ needs.sync-main.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump Version | ${{ needs.bump-version.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Results | ${{ needs.ci-build.outputs.test_results || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | ${{ needs.ci-build.outputs.version || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
