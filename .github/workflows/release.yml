@@ -271,6 +271,7 @@ jobs:
       !contains(needs.ci-build.outputs.version, '-rc.') &&
       !contains(needs.ci-build.outputs.version, '-alpha') &&
       !contains(needs.ci-build.outputs.version, '-beta')
+    continue-on-error: true
     permissions:
       contents: write
 
@@ -281,19 +282,29 @@ jobs:
           fetch-depth: 0
 
       - name: Hard reset main branch to release tag
+        id: sync
         env:
           TAG: ${{ needs.ci-build.outputs.tag }}
         run: |
-          set -euo pipefail
           echo "=== Syncing main branch to $TAG ==="
-          git push origin "refs/tags/${TAG}:refs/heads/main" --force
-          echo "✅ main branch is now at $TAG"
+          if git push origin "refs/tags/${TAG}:refs/heads/main" --force 2>&1; then
+            echo "✅ main branch is now at $TAG"
+            echo "synced=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Failed to sync main branch to $TAG — branch protection may be enabled, or the token lacks permission."
+            echo "synced=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Sync Summary
+        if: always()
         run: |
-          echo "## Main Branch Sync" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ \`main\` branch has been hard reset to \`${{ needs.ci-build.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "## Main Branch Sync" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.sync.outputs.synced }}" = "true" ]; then
+            echo "✅ \`main\` branch has been hard reset to \`${{ needs.ci-build.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ Could not sync \`main\` to \`${{ needs.ci-build.outputs.tag }}\` — this does not affect the release itself." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   release-summary:
     runs-on: ubuntu-latest
