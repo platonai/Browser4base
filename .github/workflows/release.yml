@@ -39,6 +39,7 @@ jobs:
 
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
       test_results: ${{ steps.tests.outputs.test_status }}
 
     steps:
@@ -259,11 +260,47 @@ jobs:
           MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
 
+  sync-main:
+    runs-on: ubuntu-latest
+    needs:
+      - ci-build
+      - deploy
+    if: |
+      needs.ci-build.result == 'success' &&
+      needs.deploy.result == 'success' &&
+      !contains(needs.ci-build.outputs.version, '-rc.') &&
+      !contains(needs.ci-build.outputs.version, '-alpha') &&
+      !contains(needs.ci-build.outputs.version, '-beta')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Hard reset main branch to release tag
+        env:
+          TAG: ${{ needs.ci-build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          echo "=== Syncing main branch to $TAG ==="
+          git push origin "refs/tags/${TAG}:refs/heads/main" --force
+          echo "✅ main branch is now at $TAG"
+
+      - name: Sync Summary
+        run: |
+          echo "## Main Branch Sync" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ \`main\` branch has been hard reset to \`${{ needs.ci-build.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+
   release-summary:
     runs-on: ubuntu-latest
     needs:
       - ci-build
       - deploy
+      - sync-main
     if: always()
     permissions: {}
 
@@ -276,5 +313,6 @@ jobs:
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ needs.ci-build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deploy | ${{ needs.deploy.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Sync Main | ${{ needs.sync-main.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Results | ${{ needs.ci-build.outputs.test_results || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | ${{ needs.ci-build.outputs.version || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
