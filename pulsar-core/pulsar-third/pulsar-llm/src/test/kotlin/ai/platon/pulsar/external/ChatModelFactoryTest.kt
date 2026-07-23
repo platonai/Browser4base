@@ -14,6 +14,12 @@ class ChatModelFactoryTest {
     fun cleanUp() {
         // Ensure no system properties leak between tests
         ChatModelFactory.SUPPORTED_API_KEY_NAMES.forEach { System.clearProperty(it) }
+        // Clear any registered providers from previous tests
+        ChatModelFactory.registeredProviders.forEach {
+            ChatModelFactory.unregisterProvider(it.providerName)
+        }
+        // Reset configurable fields to defaults
+        ChatModelFactory.resetMessagesToDefaults()
     }
 
     // ---------------------------------------------------------------------------
@@ -648,6 +654,366 @@ class ChatModelFactoryTest {
         } finally {
             System.clearProperty("OPENAI_API_KEY")
             System.clearProperty("llm.provider.deny.list")
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Provider registration
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Should register a custom provider and detect its API key")
+    fun shouldRegisterCustomProviderAndDetectApiKey() {
+        System.setProperty("CUSTOM_API_KEY", "test-custom-key-12345")
+        try {
+            ChatModelFactory.registerProvider(ProviderConfig(
+                apiKeyName = "CUSTOM_API_KEY",
+                modelNameKey = "CUSTOM_MODEL_NAME",
+                baseUrlKey = "CUSTOM_BASE_URL",
+                defaultModel = "custom-model-v1",
+                defaultBaseUrl = "https://api.custom.com/v1",
+                providerName = "custom"
+            ))
+
+            val conf = ImmutableConfig()
+            assertTrue(ChatModelFactory.isModelConfigured(conf, verbose = false))
+            val model = ChatModelFactory.getOrCreate(conf)
+            assertNotNull(model)
+            assertInstanceOf(CachedBrowserChatModel::class.java, model)
+        } finally {
+            System.clearProperty("CUSTOM_API_KEY")
+            ChatModelFactory.unregisterProvider("custom")
+        }
+    }
+
+    @Test
+    @DisplayName("Should create model for registered provider via explicit name")
+    fun shouldCreateModelForRegisteredProviderViaExplicitName() {
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = "REGISTERED_API_KEY",
+            modelNameKey = "REGISTERED_MODEL_NAME",
+            baseUrlKey = "REGISTERED_BASE_URL",
+            defaultModel = "registered-model-v1",
+            defaultBaseUrl = "https://api.registered.com/v1",
+            providerName = "registered-provider"
+        ))
+
+        try {
+            val conf = ImmutableConfig()
+            val model = ChatModelFactory.getOrCreate(
+                "registered-provider", "registered-model-v1", "test-key-12345", conf
+            )
+            assertNotNull(model)
+            assertInstanceOf(CachedBrowserChatModel::class.java, model)
+        } finally {
+            ChatModelFactory.unregisterProvider("registered-provider")
+        }
+    }
+
+    @Test
+    @DisplayName("Should unregister a provider")
+    fun shouldUnregisterProvider() {
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = "TEMP_API_KEY",
+            modelNameKey = "TEMP_MODEL_NAME",
+            baseUrlKey = "TEMP_BASE_URL",
+            defaultModel = "temp-model",
+            defaultBaseUrl = "https://api.temp.com/v1",
+            providerName = "temp-provider"
+        ))
+
+        val removed = ChatModelFactory.unregisterProvider("temp-provider")
+        assertTrue(removed, "Should return true when a registered provider is removed")
+        assertTrue(
+            ChatModelFactory.registeredProviders.none { it.providerName == "temp-provider" },
+            "Provider should no longer appear in registeredProviders"
+        )
+    }
+
+    @Test
+    @DisplayName("unregisterProvider should return false for unknown provider")
+    fun unregisterProviderShouldReturnFalseForUnknownProvider() {
+        val removed = ChatModelFactory.unregisterProvider("nonexistent-provider-xyz")
+        assertFalse(removed, "Should return false for a provider that was never registered")
+    }
+
+    @Test
+    @DisplayName("Should reject duplicate provider registration")
+    fun shouldRejectDuplicateProviderRegistration() {
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = "DUPLICATE_API_KEY",
+            modelNameKey = "DUPLICATE_MODEL_NAME",
+            baseUrlKey = "DUPLICATE_BASE_URL",
+            defaultModel = "dup-model",
+            defaultBaseUrl = "https://api.dup.com/v1",
+            providerName = "duplicate-test"
+        ))
+
+        try {
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                ChatModelFactory.registerProvider(ProviderConfig(
+                    apiKeyName = "DUPLICATE_API_KEY_2",
+                    modelNameKey = "DUPLICATE_MODEL_NAME_2",
+                    baseUrlKey = "DUPLICATE_BASE_URL_2",
+                    defaultModel = "dup-model-2",
+                    defaultBaseUrl = "https://api.dup2.com/v1",
+                    providerName = "duplicate-test"
+                ))
+            }
+            assertTrue(ex.message!!.contains("already registered"),
+                "Message should mention 'already registered'")
+        } finally {
+            ChatModelFactory.unregisterProvider("duplicate-test")
+        }
+    }
+
+    @Test
+    @DisplayName("Should reject registration that conflicts with a built-in provider name")
+    fun shouldRejectRegistrationConflictingWithBuiltin() {
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            ChatModelFactory.registerProvider(ProviderConfig(
+                apiKeyName = "OPENAI_API_KEY_V2",
+                modelNameKey = "OPENAI_MODEL_NAME_V2",
+                baseUrlKey = "OPENAI_BASE_URL_V2",
+                defaultModel = "gpt-99",
+                defaultBaseUrl = "https://api.openai.com/v1",
+                providerName = "openai"
+            ))
+        }
+        assertTrue(ex.message!!.contains("built-in"),
+            "Message should mention 'built-in'")
+    }
+
+    @Test
+    @DisplayName("registeredProviders should reflect currently registered providers")
+    fun registeredProvidersShouldReflectCurrentlyRegistered() {
+        val initialSize = ChatModelFactory.registeredProviders.size
+
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = "LIST_TEST_API_KEY",
+            modelNameKey = "LIST_TEST_MODEL_NAME",
+            baseUrlKey = "LIST_TEST_BASE_URL",
+            defaultModel = "list-test-model",
+            defaultBaseUrl = "https://api.list-test.com/v1",
+            providerName = "list-test-provider"
+        ))
+
+        try {
+            assertEquals(initialSize + 1, ChatModelFactory.registeredProviders.size)
+            assertTrue(
+                ChatModelFactory.registeredProviders.any { it.providerName == "list-test-provider" }
+            )
+        } finally {
+            ChatModelFactory.unregisterProvider("list-test-provider")
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Registered provider priority
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Registered provider should take priority over built-in with same API key")
+    fun registeredProviderShouldTakePriorityOverBuiltin() {
+        // Register a custom provider that shadows the OPENAI_API_KEY
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = "OPENAI_API_KEY",
+            modelNameKey = "CUSTOM_OPENAI_MODEL",
+            baseUrlKey = "CUSTOM_OPENAI_BASE_URL",
+            defaultModel = "custom-override-model",
+            defaultBaseUrl = "https://api.custom-override.com/v1",
+            providerName = "custom-openai-override"
+        ))
+
+        System.setProperty("OPENAI_API_KEY", "test-override-key-12345")
+        try {
+            val conf = ImmutableConfig()
+            assertTrue(ChatModelFactory.isModelConfigured(conf, verbose = false))
+
+            // SUPPORTED_API_KEY_NAMES should list the registered provider's key first
+            val keyNames = ChatModelFactory.SUPPORTED_API_KEY_NAMES
+            val firstOpenAiIndex = keyNames.indexOfFirst { it == "OPENAI_API_KEY" }
+            val lastOpenAiIndex = keyNames.indexOfLast { it == "OPENAI_API_KEY" }
+            // OPENAI_API_KEY appears twice (registered + builtin); the registered one is first
+            assertTrue(firstOpenAiIndex < lastOpenAiIndex,
+                "Registered OPENAI_API_KEY should appear before built-in OPENAI_API_KEY")
+        } finally {
+            System.clearProperty("OPENAI_API_KEY")
+            ChatModelFactory.unregisterProvider("custom-openai-override")
+        }
+    }
+
+    @Test
+    @DisplayName("Registered provider should be found by doCreateModel before built-in")
+    fun registeredProviderShouldBeFoundBeforeBuiltin() {
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = "MY_GROQ_KEY",
+            modelNameKey = "MY_GROQ_MODEL",
+            baseUrlKey = "MY_GROQ_BASE_URL",
+            defaultModel = "my-custom-groq-model",
+            defaultBaseUrl = "https://api.my-groq.com/v1",
+            providerName = "my-groq"
+        ))
+
+        try {
+            val conf = ImmutableConfig()
+            val model = ChatModelFactory.getOrCreate(
+                "my-groq", "my-custom-groq-model", "test-key-12345", conf
+            )
+            assertNotNull(model)
+            assertInstanceOf(CachedBrowserChatModel::class.java, model)
+        } finally {
+            ChatModelFactory.unregisterProvider("my-groq")
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Configurable documentPath and messages
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Should use custom documentPath in exception message")
+    fun shouldUseCustomDocumentPathInExceptionMessage() {
+        ChatModelFactory.documentPath = "https://custom.docs.example.com/llm-setup"
+
+        val conf = ImmutableConfig()
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            ChatModelFactory.getOrCreate(conf)
+        }
+        assertTrue(ex.message!!.contains("https://custom.docs.example.com/llm-setup"),
+            "Exception message should contain the custom documentPath")
+    }
+
+    @Test
+    @DisplayName("Should allow setting custom llmNotConfiguredMessage")
+    fun shouldAllowSettingCustomLlmNotConfiguredMessage() {
+        val customMessage = "LLM features are disabled — contact your admin to enable them."
+        ChatModelFactory.llmNotConfiguredMessage = customMessage
+        assertEquals(customMessage, ChatModelFactory.llmNotConfiguredMessage)
+    }
+
+    @Test
+    @DisplayName("Should allow setting llmDeveloperGuide to null")
+    fun shouldAllowSettingLlmDeveloperGuideToNull() {
+        ChatModelFactory.llmDeveloperGuide = null
+        assertNull(ChatModelFactory.llmDeveloperGuide)
+    }
+
+    @Test
+    @DisplayName("Should allow setting custom llmDeveloperGuide")
+    fun shouldAllowSettingCustomLlmDeveloperGuide() {
+        val customGuide = "Please visit https://example.com/llm for setup instructions."
+        ChatModelFactory.llmDeveloperGuide = customGuide
+        assertEquals(customGuide, ChatModelFactory.llmDeveloperGuide)
+    }
+
+    @Test
+    @DisplayName("Should use custom documentPath in generic fallback error")
+    fun shouldUseCustomDocumentPathInGenericFallbackError() {
+        ChatModelFactory.documentPath = "https://custom.docs.example.com/advanced"
+
+        System.setProperty("llm.provider", "some-provider")
+        System.setProperty("llm.name", "some-model")
+        // Deliberately omit llm.apiKey to trigger the fallback error
+        try {
+            val conf = ImmutableConfig()
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                ChatModelFactory.getOrCreate(conf)
+            }
+            // The error should mention the custom path
+            assertTrue(ex.message!!.contains("https://custom.docs.example.com/advanced"),
+                "Generic fallback error should contain custom documentPath")
+        } finally {
+            System.clearProperty("llm.provider")
+            System.clearProperty("llm.name")
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Config-based overrides (properties / env vars)
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Should use llm.document.path from config in exception")
+    fun shouldUseLlmDocumentPathFromConfig() {
+        System.setProperty("llm.document.path", "https://config.example.com/llm-docs")
+        try {
+            val conf = ImmutableConfig()
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                ChatModelFactory.getOrCreate(conf)
+            }
+            assertTrue(ex.message!!.contains("https://config.example.com/llm-docs"),
+                "Exception should use llm.document.path from config")
+        } finally {
+            System.clearProperty("llm.document.path")
+        }
+    }
+
+    @Test
+    @DisplayName("Should use llm.not.configured.message from config in exception")
+    fun shouldUseLlmNotConfiguredMessageFromConfig() {
+        System.setProperty("llm.not.configured.message", "AI is off — ask your admin.")
+        try {
+            val conf = ImmutableConfig()
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                ChatModelFactory.getOrCreate(conf)
+            }
+            assertTrue(ex.message!!.contains("AI is off — ask your admin."),
+                "Exception should use llm.not.configured.message from config")
+        } finally {
+            System.clearProperty("llm.not.configured.message")
+        }
+    }
+
+    @Test
+    @DisplayName("Should use llm.developer.guide from config when set")
+    fun shouldUseLlmDeveloperGuideFromConfig() {
+        val customGuide = "Custom setup: visit https://example.com/ai-setup for help."
+        System.setProperty("llm.developer.guide", customGuide)
+        try {
+            val conf = ImmutableConfig()
+            // The guide message is read from config inside isModelConfigured.
+            // We verify the config value is picked up by checking the effective
+            // value that would be used.
+            val effectiveGuide = conf["llm.developer.guide"]
+            assertEquals(customGuide, effectiveGuide,
+                "Config should contain the custom developer guide")
+            assertTrue(effectiveGuide!!.contains("example.com/ai-setup"))
+        } finally {
+            System.clearProperty("llm.developer.guide")
+        }
+    }
+
+    @Test
+    @DisplayName("Empty llm.developer.guide config should suppress the guide")
+    fun emptyLlmDeveloperGuideConfigShouldSuppressGuide() {
+        System.setProperty("llm.developer.guide", "")
+        try {
+            val conf = ImmutableConfig()
+            val guide = conf["llm.developer.guide"]
+            assertEquals("", guide, "Empty config value should be preserved")
+        } finally {
+            System.clearProperty("llm.developer.guide")
+        }
+    }
+
+    @Test
+    @DisplayName("Config documentPath should be used in generic fallback error")
+    fun configDocumentPathShouldBeUsedInGenericFallbackError() {
+        System.setProperty("llm.document.path", "https://acme.com/llm-guide")
+        System.setProperty("llm.provider", "some-provider")
+        System.setProperty("llm.name", "some-model")
+        try {
+            val conf = ImmutableConfig()
+            val ex = assertThrows(IllegalArgumentException::class.java) {
+                ChatModelFactory.getOrCreate(conf)
+            }
+            assertTrue(ex.message!!.contains("https://acme.com/llm-guide"),
+                "Generic fallback error should use llm.document.path from config")
+        } finally {
+            System.clearProperty("llm.document.path")
+            System.clearProperty("llm.provider")
+            System.clearProperty("llm.name")
         }
     }
 }

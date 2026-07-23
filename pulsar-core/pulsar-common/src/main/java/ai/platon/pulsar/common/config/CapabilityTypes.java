@@ -270,6 +270,21 @@ public interface CapabilityTypes {
      * groq, together, mistral, deepseek, zhipu, moonshot, minimax, volcengine, etc.
      */
     String LLM_PROVIDER_DENY_LIST = "llm.provider.deny.list";
+    /**
+     * Override the URL pointing to LLM configuration documentation.
+     * Default: https://github.com/platonai/browser4base/blob/master/docs/config/llm/llm-config.md
+     */
+    String LLM_DOCUMENT_PATH = "llm.document.path";
+    /**
+     * Override the one-time developer guide message shown when the LLM is not configured.
+     * Set to an empty string to suppress. If not set, a built-in default guide is used.
+     */
+    String LLM_DEVELOPER_GUIDE = "llm.developer.guide";
+    /**
+     * Override the short "LLM not configured" message logged on repeated checks.
+     * Default: "The LLM is not configured, the LLM feature is disabled. See docs/config/llm/llm-config.md for more details."
+     */
+    String LLM_NOT_CONFIGURED_MESSAGE = "llm.not.configured.message";
 
     ///////////////////////////////////////////////////////////////////////////
     // Other

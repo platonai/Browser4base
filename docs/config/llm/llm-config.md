@@ -51,7 +51,12 @@ The system scans for known API keys in this order — the first one found wins:
 | — | **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` | `GEMINI_MODEL_NAME` | (native protocol) |
 | 18 | **OpenAI** | `OPENAI_API_KEY` | `OPENAI_MODEL_NAME` | `OPENAI_BASE_URL` |
 
-> **Note:** OpenAI is checked last so that dedicated provider keys win over a generic `OPENAI_API_KEY`.
+> **Notes:**
+> - OpenAI is checked last so that dedicated provider keys win over a generic `OPENAI_API_KEY`.
+> - **Custom registered providers** (via `ChatModelFactory.registerProvider()`) are checked **before** all built-in providers and take priority.
+> - Providers on the `llm.provider.deny.list` are skipped during auto-detection.
+> - Non-OpenAI-compatible providers (MiniMax, Anthropic, Gemini) are checked after the
+>   OpenAI-compatible list.
 
 ## Provider Details
 
@@ -308,6 +313,142 @@ See [`llm-config-advanced.md`](llm-config-advanced.md) for details.
 llm.provider=my-provider
 llm.name=my-model
 llm.api.key=my-api-key
+```
+
+## Advanced: Registering Custom Providers
+
+You can register custom OpenAI-compatible providers programmatically via `ChatModelFactory`.
+This is useful when embedding Browser4 as a library and you need to add a provider not in the
+built-in registry, or when you want to override a built-in provider's defaults.
+
+### Registering a Provider (Kotlin)
+
+```kotlin
+import ai.platon.pulsar.external.ChatModelFactory
+import ai.platon.pulsar.external.ProviderConfig
+
+ChatModelFactory.registerProvider(ProviderConfig(
+    apiKeyName = "MY_PROVIDER_API_KEY",
+    modelNameKey = "MY_PROVIDER_MODEL_NAME",
+    baseUrlKey = "MY_PROVIDER_BASE_URL",
+    defaultModel = "my-model",
+    defaultBaseUrl = "https://api.myprovider.com/v1",
+    providerName = "myprovider"
+))
+```
+
+### Registering a Provider (Java)
+
+```java
+import ai.platon.pulsar.external.ChatModelFactory;
+import ai.platon.pulsar.external.ProviderConfig;
+
+ChatModelFactory.registerProvider(new ProviderConfig(
+    "MY_PROVIDER_API_KEY",
+    "MY_PROVIDER_MODEL_NAME",
+    "MY_PROVIDER_BASE_URL",
+    "my-model",
+    "https://api.myprovider.com/v1",
+    "myprovider"
+));
+```
+
+Once registered, the provider participates in auto-detection (API key scanning) and
+can be used explicitly:
+
+```kotlin
+val model = ChatModelFactory.getOrCreate("myprovider", "my-model", "sk-...", conf)
+```
+
+### Provider Priority
+
+**Registered providers take priority over built-in providers.** When scanning for API keys
+in `getOrCreate(conf)`, registered providers are checked first. This means you can shadow a
+built-in provider by registering a custom provider with the same API key name.
+
+For example, if you register a custom provider with `apiKeyName = "OPENAI_API_KEY"`,
+your custom configuration (model name, base URL) will be used instead of the built-in
+OpenAI defaults whenever `OPENAI_API_KEY` is detected.
+
+### Unregistering a Provider
+
+```kotlin
+// Remove a previously registered provider (returns true if found)
+val removed = ChatModelFactory.unregisterProvider("myprovider")
+```
+
+Built-in providers cannot be unregistered — attempting to register a provider with the
+same canonical name as a built-in will throw `IllegalArgumentException`.
+
+### Listing Registered Providers
+
+```kotlin
+// Read-only list of currently registered providers
+val providers = ChatModelFactory.registeredProviders
+```
+
+## Customizing Messages and Documentation URL
+
+When embedding Browser4, you can customize the log messages and documentation
+links shown to your end users — either via configuration properties or the
+programmatic API.
+
+### Via Configuration Properties (Recommended)
+
+Set these in `application.properties`, environment variables, or system properties:
+
+```properties
+# Override the documentation URL shown in error messages
+llm.document.path=https://docs.yourcompany.com/llm-setup
+
+# Override the short "LLM not configured" message (logged on repeated checks)
+llm.not.configured.message=AI features are disabled. Contact your admin to enable them.
+
+# Override the one-time developer guide (set to empty to suppress)
+llm.developer.guide=To enable AI features, set MY_APP_API_KEY and restart. See https://docs.yourcompany.com.
+```
+
+Config values take priority over the programmatic defaults set via
+`ChatModelFactory.documentPath`, `llmNotConfiguredMessage`, and `llmDeveloperGuide`.
+
+### Via Programmatic API
+
+Alternatively, set these at runtime from code:
+
+This URL appears in exception messages when the LLM is not configured, and in the
+developer guide logged on first detection.
+
+### Custom "Not Configured" Message
+
+```kotlin
+ChatModelFactory.llmNotConfiguredMessage =
+    "AI features are disabled. Contact your admin to enable them."
+```
+
+This short message is logged (throttled) each time the LLM is checked and found
+unconfigured.
+
+### Custom Developer Guide
+
+```kotlin
+// Provide a custom one-time setup guide
+ChatModelFactory.llmDeveloperGuide = """
+    To enable AI features, set the MY_APP_API_KEY environment variable
+    and restart the application. See https://docs.yourcompany.com for details.
+""".trimIndent()
+
+// Or suppress the guide entirely
+ChatModelFactory.llmDeveloperGuide = null
+```
+
+The developer guide is shown **once** when the LLM is first detected as unconfigured.
+Set it to `null` to suppress this one-time message.
+
+### Resetting to Factory Defaults
+
+```kotlin
+// Restore the original documentPath, llmNotConfiguredMessage, and llmDeveloperGuide
+ChatModelFactory.resetMessagesToDefaults()
 ```
 
 ## Token Limit Configuration

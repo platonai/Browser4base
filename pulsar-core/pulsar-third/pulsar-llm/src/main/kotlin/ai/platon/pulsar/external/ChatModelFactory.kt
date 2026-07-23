@@ -45,48 +45,130 @@ object ChatModelFactory {
     private val models = ConcurrentHashMap<String, BrowserChatModel>()
 
     private val llmGuideReported = AtomicBoolean(false)
-    const val DOCUMENT_PATH = "https://github.com/platonai/browser4/blob/master/docs/config/llm/llm-config.md"
-    const val LLM_DEVELOPER_GUIDE =
-        $$"""
-The LLM is not configured, the LLM feature is disabled.
 
-Simple guide to configure LLM:
+    private val defaultDocumentPath = "https://github.com/platonai/browser4base/blob/master/docs/config/llm/llm-config.md"
 
-### Linux/MacOS
+    /**
+     * The URL pointing to the LLM configuration documentation.
+     *
+     * Customize this to point to your own documentation when embedding Browser4.
+     */
+    @JvmField
+    var documentPath: String = defaultDocumentPath
 
-Make sure the environment variable is set:
+    /**
+     * A short message logged when the LLM is not configured (throttled, shown on
+     * repeated checks).  Customize this for your own application's terminology.
+     */
+    @JvmField
+    var llmNotConfiguredMessage: String =
+        "The LLM is not configured, the LLM feature is disabled. " +
+                "See docs/config/llm/llm-config.md for more details."
+
+    /**
+     * The full developer guide shown **once** when the LLM is detected as
+     * unconfigured.  Set a custom value (or `null` to suppress) for your own
+     * embedding, or leave the default which includes setup instructions.
+     */
+    @JvmField
+    var llmDeveloperGuide: String? = buildDefaultDeveloperGuide(defaultDocumentPath)
+
+    /**
+     * Reset [documentPath], [llmNotConfiguredMessage], and [llmDeveloperGuide] to
+     * their factory defaults.  Useful in tests and when re-initialising the factory.
+     */
+    @JvmStatic
+    fun resetMessagesToDefaults() {
+        documentPath = defaultDocumentPath
+        llmNotConfiguredMessage =
+            "The LLM is not configured, the LLM feature is disabled. " +
+                    "See docs/config/llm/llm-config.md for more details."
+        llmDeveloperGuide = buildDefaultDeveloperGuide(defaultDocumentPath)
+    }
+
+    @PublishedApi
+    internal fun buildDefaultDeveloperGuide(path: String): String {
+        return $$"""
+The LLM is not configured — AI-powered features are disabled.
+
+To enable LLM features, set an API key for any supported provider.
+
+### Set an Environment Variable
+
+**Linux / macOS:**
 
 ```shell
-echo $OPENROUTER_API_KEY # make sure the environment variable is set. DASHSCOPE_API_KEY/OPENROUTER_API_KEY/OPENAI_API_KEY also supported.
+export OPENROUTER_API_KEY=sk-or-v1-your-key-here
 ```
 
-Run Browser4 with the environment variable:
+**Windows (PowerShell):**
+
+```powershell
+$env:OPENROUTER_API_KEY = "sk-or-v1-your-key-here"
+```
+
+**Windows (cmd.exe):**
+
+```cmd
+set OPENROUTER_API_KEY=sk-or-v1-your-key-here
+```
+
+Popular alternatives: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
+See the documentation for the full list.
+
+### Run with Java
 
 ```shell
-java -D"OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" -jar Browser4.jar
+java -DOPENROUTER_API_KEY=sk-or-v1-your-key-here -jar Browser4.jar
 ```
 
-Or run Browser4 with Docker:
+### Run with Docker
 
 ```shell
-docker run -d -p 8082:8082 -e OPENROUTER_API_KEY=${OPENROUTER_API_KEY} galaxyeye88/pulsar:latest
+docker run -d -p 8082:8082 \
+  -e OPENROUTER_API_KEY=sk-or-v1-your-key-here \
+  galaxyeye88/pulsar:latest
 ```
 
-For more details, please refer to the [LLM configuration documentation]($$DOCUMENT_PATH)
+### Use a Configuration File
+
+Place your API key in `config/application.properties`:
+
+```properties
+openrouter.api.key=sk-or-v1-your-key-here
+```
+
+For a complete list of supported providers and advanced configuration,
+see the [LLM configuration documentation]($${path}).
 """
+    }
 
     // ---------------------------------------------------------------------------
     // Provider registry — ordered by priority (first match wins)
     // ---------------------------------------------------------------------------
 
     /**
-     * OpenAI-compatible providers checked in [getOrCreate] by API key presence.
+     * User-registered OpenAI-compatible providers checked **before** built-in
+     * providers in [getOrCreate], giving custom providers higher priority.
+     *
+     * Use [registerProvider] / [unregisterProvider] to add or remove entries.
+     */
+    private val _registeredProviders: MutableList<ProviderConfig> = mutableListOf()
+
+    /** Read-only view of user-registered providers. */
+    val registeredProviders: List<ProviderConfig>
+        get() = synchronized(_registeredProviders) { _registeredProviders.toList() }
+
+    /**
+     * Built-in OpenAI-compatible providers checked in [getOrCreate] by API key
+     * presence.  These are checked **after** [_registeredProviders], so custom
+     * registered providers take precedence.
      *
      * **Order matters** — the first provider with a matching API key wins.
      * OpenRouter is checked first as the universal gateway; dedicated provider
      * keys follow. Chinese domestic providers are grouped together for clarity.
      */
-    private val OPENAI_COMPATIBLE_PROVIDERS: List<ProviderConfig> = listOf(
+    private val builtinProviders: List<ProviderConfig> = listOf(
         // ---- Global / gateway ----
         ProviderConfig(
             apiKeyName = "OPENROUTER_API_KEY",
@@ -243,57 +325,128 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     )
 
     /** All supported API key names checked in [isModelConfigured0]. */
-    val SUPPORTED_API_KEY_NAMES: List<String> = buildList {
-        addAll(OPENAI_COMPATIBLE_PROVIDERS.map { it.apiKeyName })
-        // Non-OpenAI-compatible providers
-        add("ANTHROPIC_API_KEY")
-        add("GOOGLE_GENERATIVE_AI_API_KEY")  // primary Google key name
-        add("GEMINI_API_KEY")                 // alias for Google
-        add("GOOGLE_API_KEY")                 // alias for Google
-        // MiniMax — uses Anthropic protocol (not in OPENAI_COMPATIBLE_PROVIDERS)
-        add("MINIMAX_API_KEY")
-        // Aliases for Chinese providers
-        add("KIMI_API_KEY")         // alias for MOONSHOT_API_KEY
-        add("LINGYI_API_KEY")       // alias for YI_API_KEY
-        add("TENCENT_API_KEY")      // alias for HUNYUAN_API_KEY
-        add("BAIDU_API_KEY")        // alias for QIANFAN_API_KEY
-    }
+    @JvmStatic
+    val SUPPORTED_API_KEY_NAMES: List<String>
+        get() = buildList {
+            val providers = synchronized(_registeredProviders) {
+                _registeredProviders + builtinProviders
+            }
+            addAll(providers.map { it.apiKeyName })
+            // Non-OpenAI-compatible providers
+            add("ANTHROPIC_API_KEY")
+            add("GOOGLE_GENERATIVE_AI_API_KEY")  // primary Google key name
+            add("GEMINI_API_KEY")                 // alias for Google
+            add("GOOGLE_API_KEY")                 // alias for Google
+            // MiniMax — uses Anthropic protocol (not in builtinProviders)
+            add("MINIMAX_API_KEY")
+            // Aliases for Chinese providers
+            add("KIMI_API_KEY")         // alias for MOONSHOT_API_KEY
+            add("LINGYI_API_KEY")       // alias for YI_API_KEY
+            add("TENCENT_API_KEY")      // alias for HUNYUAN_API_KEY
+            add("BAIDU_API_KEY")        // alias for QIANFAN_API_KEY
+        }
 
     /**
      * Maps API key names to canonical provider names for deny-list resolution.
-     * Built from [OPENAI_COMPATIBLE_PROVIDERS] plus non-OpenAI-compatible providers and aliases.
+     * Built from [_registeredProviders] + [builtinProviders] plus non-OpenAI-compatible providers and aliases.
      */
-    private val API_KEY_TO_PROVIDER: Map<String, String> = buildMap {
-        OPENAI_COMPATIBLE_PROVIDERS.forEach { put(it.apiKeyName, it.providerName) }
-        put("ANTHROPIC_API_KEY", "anthropic")
-        put("GOOGLE_GENERATIVE_AI_API_KEY", "gemini")
-        put("GEMINI_API_KEY", "gemini")
-        put("GOOGLE_API_KEY", "gemini")
-        put("MINIMAX_API_KEY", "minimax")
-        // Aliases
-        put("KIMI_API_KEY", "moonshot")
-        put("LINGYI_API_KEY", "yi")
-        put("TENCENT_API_KEY", "hunyuan")
-        put("BAIDU_API_KEY", "qianfan")
-    }
+    private val API_KEY_TO_PROVIDER: Map<String, String>
+        get() = buildMap {
+            val providers = synchronized(_registeredProviders) {
+                _registeredProviders + builtinProviders
+            }
+            providers.forEach { put(it.apiKeyName, it.providerName) }
+            put("ANTHROPIC_API_KEY", "anthropic")
+            put("GOOGLE_GENERATIVE_AI_API_KEY", "gemini")
+            put("GEMINI_API_KEY", "gemini")
+            put("GOOGLE_API_KEY", "gemini")
+            put("MINIMAX_API_KEY", "minimax")
+            // Aliases
+            put("KIMI_API_KEY", "moonshot")
+            put("LINGYI_API_KEY", "yi")
+            put("TENCENT_API_KEY", "hunyuan")
+            put("BAIDU_API_KEY", "qianfan")
+        }
 
     /** Canonical provider names from the registry, used for deny-list entry resolution. */
-    private val KNOWN_PROVIDER_NAMES: Set<String> = buildSet {
-        addAll(OPENAI_COMPATIBLE_PROVIDERS.map { it.providerName })
-        add("anthropic")
-        add("claude")     // alias for anthropic
-        add("gemini")
-        add("google")     // alias for gemini
-        add("minimax")
-        // Legacy aliases (matched in doCreateModel's when branch)
-        // Already in OPENAI_COMPATIBLE_PROVIDERS: deepseek, bailian, volcengine
-    }
+    private val KNOWN_PROVIDER_NAMES: Set<String>
+        get() = buildSet {
+            val providers = synchronized(_registeredProviders) {
+                _registeredProviders + builtinProviders
+            }
+            addAll(providers.map { it.providerName })
+            add("anthropic")
+            add("claude")     // alias for anthropic
+            add("gemini")
+            add("google")     // alias for gemini
+            add("minimax")
+            // Legacy aliases (matched in doCreateModel's when branch)
+            // Already in builtinProviders: deepseek, bailian, volcengine
+        }
 
     /** Maps alias names to their canonical provider name. */
     private val ALIAS_TO_CANONICAL: Map<String, String> = mapOf(
         "claude" to "anthropic",
         "google" to "gemini",
     )
+
+    // ---------------------------------------------------------------------------
+    // Provider registration
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Register a custom OpenAI-compatible LLM provider.
+     *
+     * Registered providers are checked **before** built-in providers in
+     * [getOrCreate], so they take priority over built-in providers with the
+     * same API key name.
+     *
+     * Thread-safe.
+     *
+     * @param config The [ProviderConfig] describing the custom provider.
+     * @throws IllegalArgumentException if a provider with the same canonical
+     *   name is already registered (built-in or previously registered).
+     */
+    @JvmStatic
+    fun registerProvider(config: ProviderConfig) {
+        val canonical = config.providerName.lowercase().trim()
+        synchronized(_registeredProviders) {
+            // Check against built-in names
+            val builtinNames = builtinProviders.map { it.providerName.lowercase() }.toSet()
+            require(canonical !in builtinNames) {
+                "Provider '${config.providerName}' conflicts with a built-in provider"
+            }
+            // Check against already registered names
+            val registeredNames = _registeredProviders.map { it.providerName.lowercase() }
+            require(canonical !in registeredNames) {
+                "Provider '${config.providerName}' is already registered"
+            }
+            _registeredProviders.add(config)
+            logger.info("Registered LLM provider: {} ({})", config.providerName, config.defaultModel)
+        }
+    }
+
+    /**
+     * Remove a previously registered provider by its canonical name.
+     *
+     * Built-in providers cannot be unregistered.
+     *
+     * Thread-safe.
+     *
+     * @param providerName The canonical provider name (case-insensitive).
+     * @return `true` if a registered provider was found and removed, `false` otherwise.
+     */
+    @JvmStatic
+    fun unregisterProvider(providerName: String): Boolean {
+        val canonical = providerName.lowercase().trim()
+        synchronized(_registeredProviders) {
+            val removed = _registeredProviders.removeAll { it.providerName.equals(canonical, ignoreCase = true) }
+            if (removed) {
+                logger.info("Unregistered LLM provider: {}", providerName)
+            }
+            return removed
+        }
+    }
 
     // ---------------------------------------------------------------------------
     // Public API
@@ -309,14 +462,18 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     fun isModelConfigured(conf: ImmutableConfig, verbose: Boolean = true): Boolean {
         if (!isModelConfigured0(conf)) {
             if (verbose) {
+                // Config overrides take priority over the field defaults
+                val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE]
+                    ?: llmNotConfiguredMessage
+                val effectiveGuide = conf[LLM_DEVELOPER_GUIDE]?.ifEmpty { null }
+                    ?: llmDeveloperGuide
+
                 if (llmGuideReported.get()) {
-                    val message = "The LLM is not configured, the LLM feature is disabled. " +
-                            "See docs/config/llm/llm-config.md for more details."
-                    throttlingLogger.info(message)
+                    throttlingLogger.info(effectiveShortMessage)
                 }
 
                 if (llmGuideReported.compareAndSet(false, true)) {
-                    throttlingLogger.info(LLM_DEVELOPER_GUIDE)
+                    effectiveGuide?.let { throttlingLogger.info(it) }
                 }
             }
             return false
@@ -367,7 +524,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
      * Create a default model by scanning the configuration for known API keys.
      *
      * Checks providers in this order:
-     * 1. OpenAI-compatible providers ([OPENAI_COMPATIBLE_PROVIDERS]) — by API key presence
+     * 1. OpenAI-compatible providers ([_registeredProviders] + [builtinProviders]) — by API key presence
      * 2. Anthropic (`ANTHROPIC_API_KEY`)
      * 3. Google Gemini (`GEMINI_API_KEY` or `GOOGLE_API_KEY`)
      * 4. Generic fallback via `LLM_PROVIDER` / `LLM_NAME` / `LLM_API_KEY`
@@ -378,13 +535,19 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     @Throws(IllegalArgumentException::class)
     fun getOrCreate(conf: ImmutableConfig): BrowserChatModel {
         if (!isModelConfigured(conf, verbose = false)) {
-            throw IllegalArgumentException("The LLM is not configured, see docs/config/llm/llm-config.md")
+            val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE] ?: llmNotConfiguredMessage
+            val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
+            throw IllegalArgumentException("$effectiveShortMessage — see $effectiveDocumentPath")
         }
 
         val denyList = parseDenyList(conf)
 
-        // 1. Check all OpenAI-compatible providers (data-driven)
-        for (provider in OPENAI_COMPATIBLE_PROVIDERS) {
+        // 1. Check all OpenAI-compatible providers (data-driven):
+        //    registered first (higher priority), then built-in
+        val allProviders = synchronized(_registeredProviders) {
+            _registeredProviders + builtinProviders
+        }
+        for (provider in allProviders) {
             if (provider.providerName in denyList) continue
             val apiKey = conf[provider.apiKeyName]
             if (apiKey != null) {
@@ -398,7 +561,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         if ("moonshot" !in denyList) {
             val kimiKey = conf["KIMI_API_KEY"]
             if (kimiKey != null) {
-                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "moonshot" }!!
+                val config = builtinProviders.find { it.providerName == "moonshot" }!!
                 val modelName = conf[config.modelNameKey] ?: config.defaultModel
                 val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
                 return getOrCreateOpenAICompatibleModel(modelName, kimiKey, baseURL, conf)
@@ -407,7 +570,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         if ("yi" !in denyList) {
             val lingyiKey = conf["LINGYI_API_KEY"]
             if (lingyiKey != null) {
-                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "yi" }!!
+                val config = builtinProviders.find { it.providerName == "yi" }!!
                 val modelName = conf[config.modelNameKey] ?: config.defaultModel
                 val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
                 return getOrCreateOpenAICompatibleModel(modelName, lingyiKey, baseURL, conf)
@@ -416,7 +579,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         if ("hunyuan" !in denyList) {
             val tencentKey = conf["TENCENT_API_KEY"]
             if (tencentKey != null) {
-                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "hunyuan" }!!
+                val config = builtinProviders.find { it.providerName == "hunyuan" }!!
                 val modelName = conf[config.modelNameKey] ?: config.defaultModel
                 val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
                 return getOrCreateOpenAICompatibleModel(modelName, tencentKey, baseURL, conf)
@@ -425,7 +588,7 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         if ("qianfan" !in denyList) {
             val baiduKey = conf["BAIDU_API_KEY"]
             if (baiduKey != null) {
-                val config = OPENAI_COMPATIBLE_PROVIDERS.find { it.providerName == "qianfan" }!!
+                val config = builtinProviders.find { it.providerName == "qianfan" }!!
                 val modelName = conf[config.modelNameKey] ?: config.defaultModel
                 val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
                 return getOrCreateOpenAICompatibleModel(modelName, baiduKey, baseURL, conf)
@@ -460,10 +623,16 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
         }
 
         // 5. Generic fallback via LLM_PROVIDER / LLM_NAME / LLM_API_KEY
-        val documentPath = "https://github.com/platonai/browser4/blob/master/docs/config/llm/llm-config-advanced.md"
-        val provider = requireNotNull(conf[LLM_PROVIDER]) { "$LLM_PROVIDER is not set, see $documentPath" }
-        val modelName = requireNotNull(conf[LLM_NAME]) { "$LLM_NAME is not set, see $documentPath" }
-        val apiKey = requireNotNull(conf[LLM_API_KEY]) { "$LLM_API_KEY is not set, see $documentPath" }
+        val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
+        val provider = requireNotNull(conf[LLM_PROVIDER]) {
+            "$LLM_PROVIDER is not set, see $effectiveDocumentPath"
+        }
+        val modelName = requireNotNull(conf[LLM_NAME]) {
+            "$LLM_NAME is not set, see $effectiveDocumentPath"
+        }
+        val apiKey = requireNotNull(conf[LLM_API_KEY]) {
+            "$LLM_API_KEY is not set, see $effectiveDocumentPath"
+        }
 
         return getOrCreate(provider, modelName, apiKey, conf)
     }
@@ -657,9 +826,10 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
     /**
      * Route to the appropriate model builder based on the provider name.
      *
-     * - OpenAI-compatible providers are looked up in [OPENAI_COMPATIBLE_PROVIDERS];
-     *   if found, their default base URL is used (can be overridden per call is not
-     *   exposed here — use [getOrCreateOpenAICompatibleModel] for custom base URLs).
+     * - OpenAI-compatible providers are looked up in [builtinProviders] and
+     *   [_registeredProviders]; if found, their default base URL is used
+     *   (can be overridden per call — not exposed here; use
+     *   [getOrCreateOpenAICompatibleModel] for custom base URLs).
      * - "anthropic" / "claude" uses the native [AnthropicChatModel].
      * - "gemini" / "google" uses the native [GoogleAiGeminiChatModel].
      * - Unknown providers fall back to the DeepSeek-compatible builder.
@@ -672,8 +842,11 @@ For more details, please refer to the [LLM configuration documentation]($$DOCUME
             provider, modelName, encodeSecretKey(apiKey)
         )
 
-        // Look up in the OpenAI-compatible registry
-        val config = OPENAI_COMPATIBLE_PROVIDERS.find {
+        // Look up in the OpenAI-compatible registry (registered first, then built-in)
+        val allProviders = synchronized(_registeredProviders) {
+            _registeredProviders + builtinProviders
+        }
+        val config = allProviders.find {
             it.providerName.equals(provider, ignoreCase = true)
         }
         if (config != null) {
