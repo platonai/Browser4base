@@ -39,6 +39,20 @@ public interface CapabilityTypes {
     String APP_TMP_BASE_DIR_KEY = "app.tmp.base.dir";
 
     /**
+     * The key to explicitly set the project root directory, can be specified by system
+     * environment variable or system property.
+     * <p>
+     * When set, {@link ai.platon.pulsar.common.code.ProjectUtils#findProjectRootDir()}
+     * returns this directory directly, bypassing automatic beacon-file and module-based
+     * detection. This is the primary mechanism for projects that consume Browser4 as a
+     * library dependency — point this at your own project root to enable config file
+     * loading, template resolution, and other project-relative lookups.
+     *
+     * @see ai.platon.pulsar.common.code.ProjectUtils#findProjectRootDir()
+     * */
+    String PROJECT_BASE_DIR_KEY = "project.base.dir";
+
+    /**
      * Main loop
      * */
     String MAIN_LOOP_CONCURRENCY_OVERRIDE = "main.loop.concurrency.override";

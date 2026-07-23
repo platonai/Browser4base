@@ -64,6 +64,15 @@ object AppContext {
     val USER_HOME: String get() = SystemUtils.USER_HOME
 
     /**
+     * The project base directory, can be specified by system environment
+     * variable or system property.
+     * When set, [ai.platon.pulsar.common.code.ProjectUtils.findProjectRootDir] returns
+     * this directory directly, bypassing automatic beacon-file and module-based detection.
+     * */
+    val PROJECT_BASE_DIR get() = System.getenv(PROJECT_BASE_DIR_KEY)
+        ?: System.getProperty(PROJECT_BASE_DIR_KEY)
+
+    /**
      * The application version
      * */
     val APP_VERSION_RT get() = sniffVersion()
