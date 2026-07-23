@@ -539,6 +539,67 @@ ChatModelFactory.registerProvider(
 > Attempting to register a provider with the **same canonical name** as a built-in (e.g. `"openai"`)
 > throws `IllegalArgumentException`.
 
+### Replacing the Built-in Provider List (JSON Override)
+
+For bulk changes — updating default models, adding/removing providers, or changing priority
+order — override the entire built-in provider list with an external `providers.json` file.
+This avoids recompiling when providers ship new flagship models.
+
+1. Copy the default `providers.json` from the classpath resource
+   (`/ai/platon/pulsar/external/providers.json` inside the JAR) as a starting point.
+
+2. Edit the file — change default models, add providers, reorder, or add aliases:
+
+   ```json
+   {
+     "providers": [
+       {
+         "apiKeyName": "OPENAI_API_KEY",
+         "modelNameKey": "OPENAI_MODEL_NAME",
+         "baseUrlKey": "OPENAI_BASE_URL",
+         "defaultModel": "gpt-6",
+         "defaultBaseUrl": "https://api.openai.com/v1",
+         "providerName": "openai",
+         "supportVision": true,
+         "apiProtocol": "OPENAI"
+       }
+     ],
+     "aliases": {
+       "GEMINI_API_KEY": "gemini"
+     },
+     "canonicalAliases": {
+       "claude": "anthropic"
+     }
+   }
+   ```
+
+3. Point to your custom file:
+
+   ```properties
+   # application.properties, env var, or system property
+   llm.provider.config.path=/etc/browser4/providers.json
+   ```
+
+   ```bash
+   # Or as a system property
+   java -Dllm.provider.config.path=/etc/browser4/providers.json -jar Browser4.jar
+   ```
+
+4. The external file **replaces** the built-in list entirely — include all providers
+   you need, in the priority order you want.
+
+> **Tip:** If you only need to add one or two providers without replacing the entire
+> list, use [`registerProvider()`](#registering-a-provider-programmatic) instead.
+
+At runtime, call `ChatModelFactory.resetProviders()` to force a reload after changing
+the file path or content:
+
+```kotlin
+// Switch to a different providers.json at runtime
+System.setProperty("llm.provider.config.path", "/new/path/providers.json")
+ChatModelFactory.resetProviders()  // clears cached registry; next access reloads
+```
+
 ---
 
 ## Deny List
@@ -788,22 +849,8 @@ import ai.platon.pulsar.external.BrowserChatModel
 import ai.platon.pulsar.common.config.ImmutableConfig
 
 fun getBestModel(conf: ImmutableConfig): BrowserChatModel? {
-    // Try primary provider first
-    val preferredProviders = listOf("openrouter", "deepseek", "openai")
-    for (provider in preferredProviders) {
-        val config = chatModelFactoryBuiltins.find { it.providerName == provider }
-        val apiKey = config?.apiKeyName?.let { conf[it] }
-        if (apiKey != null && apiKey.length > 5) {
-            return ChatModelFactory.getOrCreate(
-                provider,
-                conf[config.modelNameKey] ?: config.defaultModel,
-                apiKey,
-                conf
-            )
-        }
-    }
-
-    // Fall back to auto-detection
+    // Just use auto-detection — it already scans in priority order.
+    // Configure multiple API keys; the first detected provider wins.
     return ChatModelFactory.getOrCreateOrNull(conf)
 }
 ```
@@ -962,6 +1009,8 @@ println(response.content)
 | Set custom not-configured message     | `ChatModelFactory.llmNotConfiguredMessage = "..."`                                          |
 | Set custom developer guide            | `ChatModelFactory.llmDeveloperGuide = "..."`                                                |
 | Reset all messages to defaults        | `ChatModelFactory.resetMessagesToDefaults()`                                                |
+| Reset cached provider registry        | `ChatModelFactory.resetProviders()`                                                         |
+| Override provider list via JSON       | `llm.provider.config.path=/path/to/providers.json`                                          |
 | Call the model                        | `model.call(userMessage)` / `model.call(systemMessage, userMessage)`                        |
 | Call with vision                      | `model.call(systemMessage, userMessage, imageUrl = url)`                                    |
 

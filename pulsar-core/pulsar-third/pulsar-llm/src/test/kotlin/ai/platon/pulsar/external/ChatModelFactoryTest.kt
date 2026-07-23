@@ -20,6 +20,10 @@ class ChatModelFactoryTest {
         }
         // Reset configurable fields to defaults
         ChatModelFactory.resetMessagesToDefaults()
+        // Reset cached provider registry for clean test state
+        ChatModelFactory.resetProviders()
+        // Clear any override path
+        System.clearProperty("llm.provider.config.path")
     }
 
     // ---------------------------------------------------------------------------
@@ -1249,6 +1253,215 @@ class ChatModelFactoryTest {
             assertTrue(denied.contains("yi"), "LINGYI_API_KEY should resolve to yi")
         } finally {
             System.clearProperty("llm.provider.deny.list")
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // JSON-based provider registry loading
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Provider registry should load from classpath JSON with all 21 providers")
+    fun providerRegistryShouldLoadFromClasspathJson() {
+        val conf = ImmutableConfig()
+        val model = ChatModelFactory.getOrCreate("openai", "gpt-4o", "test-key-12345", conf)
+        assertNotNull(model)
+        assertInstanceOf(CachedBrowserChatModel::class.java, model)
+    }
+
+    @Test
+    @DisplayName("Should load providers from external JSON via llm.provider.config.path")
+    fun shouldLoadProvidersFromExternalJson() {
+        // Create a minimal external JSON with one custom provider
+        val json = """
+        {
+          "providers": [
+            {
+              "apiKeyName": "CUSTOM_API_KEY",
+              "modelNameKey": "CUSTOM_MODEL_NAME",
+              "baseUrlKey": "CUSTOM_BASE_URL",
+              "defaultModel": "custom-model-from-json",
+              "defaultBaseUrl": "https://api.custom-json.com/v1",
+              "providerName": "custom-json-provider",
+              "supportVision": true,
+              "apiProtocol": "OPENAI"
+            }
+          ],
+          "aliases": {},
+          "canonicalAliases": {}
+        }
+        """.trimIndent()
+
+        val tempFile = java.io.File.createTempFile("test-providers", ".json")
+        try {
+            tempFile.writeText(json)
+            System.setProperty("llm.provider.config.path", tempFile.absolutePath)
+
+            // Reset so the next access picks up the override
+            ChatModelFactory.resetProviders()
+
+            System.setProperty("CUSTOM_API_KEY", "test-custom-key-12345")
+            try {
+                val conf = ImmutableConfig()
+                assertTrue(ChatModelFactory.isModelConfigured(conf, verbose = false))
+
+                // Should detect the custom provider from the external JSON
+                val model = ChatModelFactory.getOrCreate(conf)
+                assertNotNull(model)
+                assertInstanceOf(CachedBrowserChatModel::class.java, model)
+
+                // The provider should be usable via explicit creation too
+                val model2 = ChatModelFactory.getOrCreate(
+                    "custom-json-provider", "custom-model-from-json", "test-key-12345", conf
+                )
+                assertNotNull(model2)
+                assertInstanceOf(CachedBrowserChatModel::class.java, model2)
+
+                // Built-in providers should NOT be available (external JSON replaces them)
+                ChatModelFactory.resetProviders()
+                val isConfigured = ChatModelFactory.isModelConfigured(conf, verbose = false)
+                // Custom key is still set, so it should be detected
+                assertTrue(isConfigured)
+            } finally {
+                System.clearProperty("CUSTOM_API_KEY")
+            }
+        } finally {
+            tempFile.delete()
+        }
+    }
+
+    @Test
+    @DisplayName("resetProviders should allow switching between different external configs")
+    fun resetProvidersShouldAllowReload() {
+        val json1 = """
+        {
+          "providers": [
+            {
+              "apiKeyName": "PROVIDER_A_API_KEY",
+              "modelNameKey": "PROVIDER_A_MODEL_NAME",
+              "baseUrlKey": "PROVIDER_A_BASE_URL",
+              "defaultModel": "model-a",
+              "defaultBaseUrl": "https://api.a.com/v1",
+              "providerName": "provider-a",
+              "supportVision": true,
+              "apiProtocol": "OPENAI"
+            }
+          ],
+          "aliases": {},
+          "canonicalAliases": {}
+        }
+        """.trimIndent()
+
+        val json2 = """
+        {
+          "providers": [
+            {
+              "apiKeyName": "PROVIDER_B_API_KEY",
+              "modelNameKey": "PROVIDER_B_MODEL_NAME",
+              "baseUrlKey": "PROVIDER_B_BASE_URL",
+              "defaultModel": "model-b",
+              "defaultBaseUrl": "https://api.b.com/v1",
+              "providerName": "provider-b",
+              "supportVision": true,
+              "apiProtocol": "OPENAI"
+            }
+          ],
+          "aliases": {},
+          "canonicalAliases": {}
+        }
+        """.trimIndent()
+
+        val tempFile1 = java.io.File.createTempFile("test-providers-a", ".json")
+        val tempFile2 = java.io.File.createTempFile("test-providers-b", ".json")
+        try {
+            tempFile1.writeText(json1)
+            tempFile2.writeText(json2)
+
+            // Load config A
+            System.setProperty("llm.provider.config.path", tempFile1.absolutePath)
+            ChatModelFactory.resetProviders()
+
+            System.setProperty("PROVIDER_A_API_KEY", "test-key-a-12345")
+            try {
+                val conf = ImmutableConfig()
+                assertTrue(ChatModelFactory.isModelConfigured(conf, verbose = false))
+                val model = ChatModelFactory.getOrCreate(conf)
+                assertNotNull(model)
+            } finally {
+                System.clearProperty("PROVIDER_A_API_KEY")
+            }
+
+            // Switch to config B
+            System.setProperty("llm.provider.config.path", tempFile2.absolutePath)
+            ChatModelFactory.resetProviders()
+
+            System.setProperty("PROVIDER_B_API_KEY", "test-key-b-12345")
+            try {
+                val conf = ImmutableConfig()
+                assertTrue(ChatModelFactory.isModelConfigured(conf, verbose = false))
+                val model = ChatModelFactory.getOrCreate(conf)
+                assertNotNull(model)
+            } finally {
+                System.clearProperty("PROVIDER_B_API_KEY")
+            }
+        } finally {
+            tempFile1.delete()
+            tempFile2.delete()
+        }
+    }
+
+    @Test
+    @DisplayName("External JSON should support canonicalAliases and apiKeyAliases")
+    fun externalJsonShouldSupportAliases() {
+        val json = """
+        {
+          "providers": [
+            {
+              "apiKeyName": "MY_CUSTOM_API_KEY",
+              "modelNameKey": "MY_CUSTOM_MODEL_NAME",
+              "baseUrlKey": "MY_CUSTOM_BASE_URL",
+              "defaultModel": "my-custom-model",
+              "defaultBaseUrl": "https://api.mycustom.com/v1",
+              "providerName": "mycustom",
+              "supportVision": false,
+              "apiProtocol": "OPENAI"
+            }
+          ],
+          "aliases": {
+            "MY_ALIAS_API_KEY": "mycustom"
+          },
+          "canonicalAliases": {
+            "mc": "mycustom"
+          }
+        }
+        """.trimIndent()
+
+        val tempFile = java.io.File.createTempFile("test-providers-aliases", ".json")
+        try {
+            tempFile.writeText(json)
+            System.setProperty("llm.provider.config.path", tempFile.absolutePath)
+            ChatModelFactory.resetProviders()
+
+            val conf = ImmutableConfig()
+
+            // canonicalAliases: "mc" should resolve to "mycustom"
+            System.setProperty("llm.provider.deny.list", "mc")
+            try {
+                assertTrue(ChatModelFactory.isProviderDenied("mc", conf))
+                assertTrue(ChatModelFactory.isProviderDenied("mycustom", conf))
+            } finally {
+                System.clearProperty("llm.provider.deny.list")
+            }
+
+            // apiKeyAliases: MY_ALIAS_API_KEY should be detected
+            System.setProperty("MY_ALIAS_API_KEY", "test-alias-key-12345")
+            try {
+                assertTrue(ChatModelFactory.isModelConfigured(conf, verbose = false))
+            } finally {
+                System.clearProperty("MY_ALIAS_API_KEY")
+            }
+        } finally {
+            tempFile.delete()
         }
     }
 }

@@ -125,17 +125,57 @@ on each `ProviderConfig` entry:
 ### Adding a Custom Provider
 
 For one-off use, the generic `llm.provider` / `llm.name` / `llm.api.key` format works.
-For permanent additions to the built-in registry, add an entry to `ChatModelFactory.builtinProviders`:
+For permanent additions to the built-in registry, override the default provider list by
+creating a custom `providers.json` and pointing to it via `llm.provider.config.path`:
+
+```json
+{
+  "providers": [
+    {
+      "apiKeyName": "MY_PROVIDER_API_KEY",
+      "modelNameKey": "MY_PROVIDER_MODEL_NAME",
+      "baseUrlKey": "MY_PROVIDER_BASE_URL",
+      "defaultModel": "my-default-model",
+      "defaultBaseUrl": "https://api.my-provider.com/v1",
+      "providerName": "my-provider",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    }
+  ],
+  "aliases": {},
+  "canonicalAliases": {}
+}
+```
+
+```properties
+# Point to your custom providers.json
+llm.provider.config.path=/etc/browser4/providers.json
+```
+
+The default `providers.json` is bundled as a classpath resource
+(`/ai/platon/pulsar/external/providers.json`).  Your external file **replaces**
+(rather than merges with) the built-in list, so include all providers you need.
+
+To switch provider lists at runtime, call `resetProviders()` after updating the path:
 
 ```kotlin
-ProviderConfig(
-    apiKeyName = "MY_PROVIDER_API_KEY",
-    modelNameKey = "MY_PROVIDER_MODEL_NAME",
-    baseUrlKey = "MY_PROVIDER_BASE_URL",
-    defaultModel = "my-default-model",
-    defaultBaseUrl = "https://api.my-provider.com/v1",
-    providerName = "my-provider",
-    apiProtocol = ApiProtocol.OPENAI  // or ANTHROPIC / GEMINI
+System.setProperty("llm.provider.config.path", "/new/path/providers.json")
+ChatModelFactory.resetProviders()
+```
+
+For runtime-only additions (no file needed), use the programmatic API:
+
+```kotlin
+ChatModelFactory.registerProvider(
+    ProviderConfig(
+        apiKeyName = "MY_PROVIDER_API_KEY",
+        modelNameKey = "MY_PROVIDER_MODEL_NAME",
+        baseUrlKey = "MY_PROVIDER_BASE_URL",
+        defaultModel = "my-default-model",
+        defaultBaseUrl = "https://api.my-provider.com/v1",
+        providerName = "my-provider",
+        apiProtocol = ApiProtocol.OPENAI
+    )
 )
 ```
 

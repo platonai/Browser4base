@@ -285,6 +285,13 @@ public interface CapabilityTypes {
      * Default: "The LLM is not configured, the LLM feature is disabled. See docs/config/llm/llm-config.md for more details."
      */
     String LLM_NOT_CONFIGURED_MESSAGE = "llm.not.configured.message";
+    /**
+     * Path to an external providers.json file that overrides the built-in provider list.
+     * When set and pointing to a valid JSON file, this file is used instead of the
+     * classpath resource ({@code /ai/platon/pulsar/external/providers.json}).
+     * Useful for updating default models without recompiling.
+     */
+    String LLM_PROVIDER_CONFIG_PATH = "llm.provider.config.path";
 
     ///////////////////////////////////////////////////////////////////////////
     // Other

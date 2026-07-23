@@ -110,6 +110,22 @@ object ChatModelFactory {
         llmDeveloperGuide = buildDefaultDeveloperGuide(defaultDocumentPath)
     }
 
+    /**
+     * Reset the cached provider registry so the next access reloads from
+     * the classpath resource (or external override).  Also clears all
+     * cached derived collections.
+     *
+     * Useful in tests and when the external [LLM_PROVIDER_CONFIG_PATH] has
+     * changed at runtime.
+     */
+    @JvmStatic
+    fun resetProviders() {
+        defaultRegistry = null
+        cachedSupportedApiKeyNames = null
+        cachedApiKeyToProvider = null
+        cachedKnownProviderNames = null
+    }
+
     @PublishedApi
     internal fun buildDefaultDeveloperGuide(path: String): String {
         return $$"""
@@ -184,219 +200,33 @@ see the [LLM configuration documentation]($${path}).
         get() = synchronized(_registeredProviders) { _registeredProviders.toList() }
 
     /**
-     * Built-in providers checked in [getOrCreate] by API key presence.
-     * These are checked **after** [_registeredProviders], so custom registered
-     * providers take precedence.
+     * The default provider registry, loaded lazily from the built-in classpath
+     * resource (`providers.json`) on first access.  Cached indefinitely unless
+     * [resetProviders] is called.
      *
-     * **Order matters** — the first provider with a matching API key wins.
-     * OpenRouter is checked first as the universal gateway; dedicated provider
-     * keys follow.  Chinese domestic providers are grouped together for clarity.
-     * Non-OpenAI-compatible providers (Anthropic, Gemini, MiniMax) are checked
-     * last so dedicated API keys take priority over generic fallbacks.
+     * Use [getRegistry] for conf-aware loading that supports external overrides
+     * via [LLM_PROVIDER_CONFIG_PATH].
      */
-    private val builtinProviders: List<ProviderConfig> = listOf(
-        // ---- Global / gateway ----
-        ProviderConfig(
-            apiKeyName = "OPENROUTER_API_KEY",
-            modelNameKey = "OPENROUTER_MODEL_NAME",
-            baseUrlKey = "OPENROUTER_BASE_URL",
-            defaultModel = "bytedance-seed/seed-1.6",
-            defaultBaseUrl = "https://openrouter.ai/api/v1",
-            providerName = "openrouter"
-        ),
+    @Volatile
+    private var defaultRegistry: ProviderConfigLoader.Registry? = null
 
-        // ---- Global OpenAI-compatible providers ----
-        ProviderConfig(
-            apiKeyName = "GROQ_API_KEY",
-            modelNameKey = "GROQ_MODEL_NAME",
-            baseUrlKey = "GROQ_BASE_URL",
-            defaultModel = "llama-3.3-70b-versatile",
-            defaultBaseUrl = "https://api.groq.com/openai/v1",
-            providerName = "groq",
-            supportVision = false,  // Llama 3.3 70B is text-only
-        ),
-        ProviderConfig(
-            apiKeyName = "TOGETHER_API_KEY",
-            modelNameKey = "TOGETHER_MODEL_NAME",
-            baseUrlKey = "TOGETHER_BASE_URL",
-            defaultModel = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-            defaultBaseUrl = "https://api.together.xyz/v1",
-            providerName = "together",
-            supportVision = false,  // Llama 3.3 70B is text-only
-        ),
-        ProviderConfig(
-            apiKeyName = "MISTRAL_API_KEY",
-            modelNameKey = "MISTRAL_MODEL_NAME",
-            baseUrlKey = "MISTRAL_BASE_URL",
-            defaultModel = "mistral-large-latest",
-            defaultBaseUrl = "https://api.mistral.ai/v1",
-            providerName = "mistral"
-        ),
-        ProviderConfig(
-            apiKeyName = "XAI_API_KEY",
-            modelNameKey = "XAI_MODEL_NAME",
-            baseUrlKey = "XAI_BASE_URL",
-            defaultModel = "grok-4.5",
-            defaultBaseUrl = "https://api.x.ai/v1",
-            providerName = "xai"
-        ),
-        ProviderConfig(
-            apiKeyName = "PERPLEXITY_API_KEY",
-            modelNameKey = "PERPLEXITY_MODEL_NAME",
-            baseUrlKey = "PERPLEXITY_BASE_URL",
-            defaultModel = "llama-3.1-sonar-large-128k-online",
-            defaultBaseUrl = "https://api.perplexity.ai",
-            providerName = "perplexity",
-            supportVision = false,  // online/search-grounded models are text-only
-        ),
-        ProviderConfig(
-            apiKeyName = "FIREWORKS_API_KEY",
-            modelNameKey = "FIREWORKS_MODEL_NAME",
-            baseUrlKey = "FIREWORKS_BASE_URL",
-            defaultModel = "accounts/fireworks/models/llama-v3p3-70b-instruct",
-            defaultBaseUrl = "https://api.fireworks.ai/inference/v1",
-            providerName = "fireworks",
-            supportVision = false,  // Llama 3.3 70B is text-only
-        ),
-
-        // ---- Chinese domestic providers ----
-        ProviderConfig(
-            apiKeyName = "DEEPSEEK_API_KEY",
-            modelNameKey = "DEEPSEEK_MODEL_NAME",
-            baseUrlKey = "DEEPSEEK_BASE_URL",
-            defaultModel = "deepseek-v4-flash",
-            defaultBaseUrl = "https://api.deepseek.com/v1",
-            providerName = "deepseek",
-            supportVision = false,  // cloud API is text-only
-        ),
-        ProviderConfig(
-            apiKeyName = "DASHSCOPE_API_KEY",
-            modelNameKey = "DASHSCOPE_MODEL_NAME",
-            baseUrlKey = "DASHSCOPE_BASE_URL",
-            defaultModel = "qwen3.6-plus",
-            defaultBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            providerName = "bailian"
-        ),
-        ProviderConfig(
-            apiKeyName = "VOLCENGINE_API_KEY",
-            modelNameKey = "VOLCENGINE_MODEL_NAME",
-            baseUrlKey = "VOLCENGINE_BASE_URL",
-            defaultModel = "doubao-seed-2-0-pro-260215",
-            defaultBaseUrl = "https://ark.cn-beijing.volces.com/api/v3",
-            providerName = "volcengine"
-        ),
-        ProviderConfig(
-            apiKeyName = "ZHIPU_API_KEY",
-            modelNameKey = "ZHIPU_MODEL_NAME",
-            baseUrlKey = "ZHIPU_BASE_URL",
-            defaultModel = "glm-5.1",
-            defaultBaseUrl = "https://open.bigmodel.cn/api/paas/v4/",
-            providerName = "zhipu"
-        ),
-        ProviderConfig(
-            apiKeyName = "MOONSHOT_API_KEY",
-            modelNameKey = "MOONSHOT_MODEL_NAME",
-            baseUrlKey = "MOONSHOT_BASE_URL",
-            defaultModel = "kimi-k2.6",
-            defaultBaseUrl = "https://api.moonshot.cn/v1",
-            providerName = "moonshot"
-        ),
-        ProviderConfig(
-            apiKeyName = "BAICHUAN_API_KEY",
-            modelNameKey = "BAICHUAN_MODEL_NAME",
-            baseUrlKey = "BAICHUAN_BASE_URL",
-            defaultModel = "Baichuan4",
-            defaultBaseUrl = "https://api.baichuan-ai.com/v1",
-            providerName = "baichuan"
-        ),
-        ProviderConfig(
-            apiKeyName = "YI_API_KEY",
-            modelNameKey = "YI_MODEL_NAME",
-            baseUrlKey = "YI_BASE_URL",
-            defaultModel = "yi-large",
-            defaultBaseUrl = "https://api.lingyiwanwu.com/v1",
-            providerName = "yi",
-            supportVision = false,  // yi-large is text-only; use yi-vision for images
-        ),
-        ProviderConfig(
-            apiKeyName = "STEPFUN_API_KEY",
-            modelNameKey = "STEPFUN_MODEL_NAME",
-            baseUrlKey = "STEPFUN_BASE_URL",
-            defaultModel = "step-3.5-flash",
-            defaultBaseUrl = "https://api.stepfun.com/v1",
-            providerName = "stepfun"
-        ),
-        ProviderConfig(
-            apiKeyName = "HUNYUAN_API_KEY",
-            modelNameKey = "HUNYUAN_MODEL_NAME",
-            baseUrlKey = "HUNYUAN_BASE_URL",
-            defaultModel = "hunyuan-pro",
-            defaultBaseUrl = "https://api.lkeap.cloud.tencent.com/v1",
-            providerName = "hunyuan"
-        ),
-        ProviderConfig(
-            apiKeyName = "QIANFAN_API_KEY",
-            modelNameKey = "QIANFAN_MODEL_NAME",
-            baseUrlKey = "QIANFAN_BASE_URL",
-            defaultModel = "ernie-4.0-8k",
-            defaultBaseUrl = "https://qianfan.baidubce.com/v2",
-            providerName = "qianfan"
-        ),
-
-        // ---- Global (checked last so dedicated keys win) ----
-        ProviderConfig(
-            apiKeyName = "OPENAI_API_KEY",
-            modelNameKey = "OPENAI_MODEL_NAME",
-            baseUrlKey = "OPENAI_BASE_URL",
-            defaultModel = "gpt-5.6-sol",
-            defaultBaseUrl = "https://api.openai.com/v1",
-            providerName = "openai"
-        ),
-
-        // ---- Non-OpenAI-compatible providers ----
-        ProviderConfig(
-            apiKeyName = "ANTHROPIC_API_KEY",
-            modelNameKey = "ANTHROPIC_MODEL_NAME",
-            baseUrlKey = "ANTHROPIC_BASE_URL",
-            defaultModel = "claude-sonnet-4-6",
-            defaultBaseUrl = "https://api.anthropic.com",
-            providerName = "anthropic",
-            apiProtocol = ApiProtocol.ANTHROPIC,
-        ),
-        ProviderConfig(
-            apiKeyName = "GOOGLE_GENERATIVE_AI_API_KEY",
-            modelNameKey = "GEMINI_MODEL_NAME",
-            baseUrlKey = "GEMINI_BASE_URL",
-            defaultModel = "gemini-3.1-flash-lite",
-            defaultBaseUrl = "https://generativelanguage.googleapis.com",
-            providerName = "gemini",
-            apiProtocol = ApiProtocol.GEMINI,
-        ),
-        // MiniMax uses Anthropic Messages protocol (not OpenAI-compatible).
-        ProviderConfig(
-            apiKeyName = "MINIMAX_API_KEY",
-            modelNameKey = "MINIMAX_MODEL_NAME",
-            baseUrlKey = "MINIMAX_BASE_URL",
-            defaultModel = "MiniMax-M3",
-            defaultBaseUrl = "https://api.minimaxi.com/anthropic",
-            providerName = "minimax",
-            apiProtocol = ApiProtocol.ANTHROPIC,
-        ),
-    )
+    /** @see ProviderConfigLoader.loadDefault */
+    private fun getDefaultRegistry(): ProviderConfigLoader.Registry {
+        defaultRegistry?.let { return it }
+        return ProviderConfigLoader.loadDefault().also { defaultRegistry = it }
+    }
 
     /**
-     * Maps alias API key names to the canonical provider name whose config
-     * (default model / base URL) should be used.  Used in [getOrCreate] to
-     * resolve alternate key names without duplicating ProviderConfig entries.
+     * Load the provider registry, preferring an external override file when
+     * [LLM_PROVIDER_CONFIG_PATH] is configured.
      */
-    private val ALIAS_KEY_TO_PROVIDER: Map<String, String> = mapOf(
-        "KIMI_API_KEY" to "moonshot",
-        "LINGYI_API_KEY" to "yi",
-        "TENCENT_API_KEY" to "hunyuan",
-        "BAIDU_API_KEY" to "qianfan",
-        "GEMINI_API_KEY" to "gemini",
-        "GOOGLE_API_KEY" to "gemini",
-    )
+    private fun getRegistry(conf: ImmutableConfig): ProviderConfigLoader.Registry {
+        val overridePath = conf[LLM_PROVIDER_CONFIG_PATH]
+        if (!overridePath.isNullOrBlank()) {
+            return ProviderConfigLoader.load(conf)
+        }
+        return getDefaultRegistry()
+    }
 
     // ---------------------------------------------------------------------------
     // Cached derived collections (invalidated on provider register/unregister)
@@ -414,51 +244,46 @@ see the [LLM configuration documentation]($${path}).
     val SUPPORTED_API_KEY_NAMES: List<String>
         get() {
             cachedSupportedApiKeyNames?.let { return it }
+            val registry = getDefaultRegistry()
             return buildList {
                 val providers = synchronized(_registeredProviders) {
-                    _registeredProviders + builtinProviders
+                    _registeredProviders + registry.providers
                 }
                 addAll(providers.map { it.apiKeyName })
-                // Aliases (Chinese providers + Gemini) — these keys resolve to
-                // a canonical provider via ALIAS_KEY_TO_PROVIDER but are not
-                // themselves apiKeyNames of any ProviderConfig entry.
-                ALIAS_KEY_TO_PROVIDER.keys.forEach { add(it) }
+                // Aliases — these keys resolve to a canonical provider via the
+                // alias map but are not themselves apiKeyNames of any ProviderConfig.
+                registry.aliases.keys.forEach { add(it) }
             }.also { cachedSupportedApiKeyNames = it }
         }
 
     /**
      * Maps API key names to canonical provider names for deny-list resolution.
-     * Built from [_registeredProviders] + [builtinProviders] plus non-OpenAI-compatible providers and aliases.
+     * Built from registered + built-in providers plus alias map entries.
      */
     private fun getApiKeyToProvider(): Map<String, String> {
         cachedApiKeyToProvider?.let { return it }
+        val registry = getDefaultRegistry()
         return buildMap {
             val providers = synchronized(_registeredProviders) {
-                _registeredProviders + builtinProviders
+                _registeredProviders + registry.providers
             }
             providers.forEach { put(it.apiKeyName, it.providerName) }
-            ALIAS_KEY_TO_PROVIDER.forEach { (aliasKey, canonical) -> put(aliasKey, canonical) }
+            registry.aliases.forEach { (aliasKey, canonical) -> put(aliasKey, canonical) }
         }.also { cachedApiKeyToProvider = it }
     }
 
     /** Canonical provider names from the registry, used for deny-list entry resolution. */
     private fun getKnownProviderNames(): Set<String> {
         cachedKnownProviderNames?.let { return it }
+        val registry = getDefaultRegistry()
         return buildSet {
             val providers = synchronized(_registeredProviders) {
-                _registeredProviders + builtinProviders
+                _registeredProviders + registry.providers
             }
             addAll(providers.map { it.providerName })
-            add("claude")     // alias for anthropic
-            add("google")     // alias for gemini
+            addAll(registry.canonicalAliases.keys)
         }.also { cachedKnownProviderNames = it }
     }
-
-    /** Maps alias names to their canonical provider name. */
-    private val ALIAS_TO_CANONICAL: Map<String, String> = mapOf(
-        "claude" to "anthropic",
-        "google" to "gemini",
-    )
 
     /** Invalidate the cached derived collections when the provider set changes. */
     private fun invalidateCaches() {
@@ -490,7 +315,7 @@ see the [LLM configuration documentation]($${path}).
         val canonical = config.providerName.lowercase().trim()
         synchronized(_registeredProviders) {
             // Check against built-in names
-            val builtinNames = builtinProviders.map { it.providerName.lowercase() }.toSet()
+            val builtinNames = getDefaultRegistry().providers.map { it.providerName.lowercase() }.toSet()
             require(canonical !in builtinNames) {
                 "Provider '${config.providerName}' conflicts with a built-in provider"
             }
@@ -586,7 +411,7 @@ see the [LLM configuration documentation]($${path}).
     fun isProviderDenied(provider: String, conf: ImmutableConfig): Boolean {
         val denyList = parseDenyList(conf)
         if (denyList.isEmpty()) return false
-        val canonical = resolveCanonicalProviderName(provider) ?: provider.lowercase()
+        val canonical = resolveCanonicalProviderName(provider, conf) ?: provider.lowercase()
         return canonical in denyList
     }
 
@@ -626,8 +451,9 @@ see the [LLM configuration documentation]($${path}).
 
         // 1. Check all providers (data-driven, all protocols):
         //    registered first (higher priority), then built-in
+        val registry = getRegistry(conf)
         val allProviders = synchronized(_registeredProviders) {
-            _registeredProviders + builtinProviders
+            _registeredProviders + registry.providers
         }
         for (provider in allProviders) {
             if (provider.providerName in denyList) continue
@@ -642,10 +468,10 @@ see the [LLM configuration documentation]($${path}).
         }
 
         // 1b. Alias resolution (check alternate key names)
-        for ((aliasKey, canonicalName) in ALIAS_KEY_TO_PROVIDER) {
+        for ((aliasKey, canonicalName) in registry.aliases) {
             if (canonicalName in denyList) continue
             val key = conf[aliasKey] ?: continue
-            val config = builtinProviders.find { it.providerName == canonicalName }!!
+            val config = registry.providers.find { it.providerName == canonicalName }!!
             val modelName = conf[config.modelNameKey] ?: config.defaultModel
             val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
             return when (config.apiProtocol) {
@@ -794,7 +620,7 @@ see the [LLM configuration documentation]($${path}).
         return raw.split(",")
             .map { it.trim().lowercase() }
             .filter { it.isNotEmpty() }
-            .mapNotNull { resolveCanonicalProviderName(it) }
+            .mapNotNull { resolveCanonicalProviderName(it, conf) }
             .toSet()
     }
 
@@ -803,22 +629,27 @@ see the [LLM configuration documentation]($${path}).
      * canonical provider name.
      *
      * Resolution order:
-     * 1. Direct alias → canonical mapping (e.g. "claude" → "anthropic")
-     * 2. Direct match in [KNOWN_PROVIDER_NAMES] (e.g. "openai", "zhipu")
+     * 1. Direct alias → canonical mapping from the registry (e.g. "claude" → "anthropic")
+     * 2. Direct match in known provider names (e.g. "openai", "zhipu")
      * 3. Case-insensitive API key name lookup (e.g. "OPENAI_API_KEY" → "openai")
      *
+     * Uses [getRegistry] for conf-aware alias resolution, falling back
+     * to [getDefaultRegistry] for the API-key-to-provider index.
+     *
+     * @param name The provider name, alias, or API key name to resolve.
+     * @param conf The configuration, used to select the active registry.
      * @return The canonical provider name, or null if unrecognized.
      */
-    private fun resolveCanonicalProviderName(name: String): String? {
+    private fun resolveCanonicalProviderName(name: String, conf: ImmutableConfig): String? {
         val lower = name.lowercase().trim()
 
-        // 1. Alias → canonical (e.g. "claude" → "anthropic")
-        ALIAS_TO_CANONICAL[lower]?.let { return it }
+        // 1. Alias → canonical from the active registry (supports external overrides)
+        getRegistry(conf).canonicalAliases[lower]?.let { return it }
 
-        // 2. Direct match: known provider name
+        // 2. Direct match: known provider name (from default registry)
         if (lower in getKnownProviderNames()) return lower
 
-        // 3. Case-insensitive API key name lookup (e.g. "zhipu_api_key" → "zhipu")
+        // 3. Case-insensitive API key name lookup (from default registry)
         getApiKeyToProvider().entries.find { it.key.equals(lower, ignoreCase = true) }?.let {
             return it.value
         }
@@ -832,18 +663,23 @@ see the [LLM configuration documentation]($${path}).
 
     private fun isModelConfigured0(conf: ImmutableConfig, denyList: Set<String>): Boolean {
         val minKeyLen = 5
+        val registry = getRegistry(conf)
 
-        // Check all supported API key names (both OpenAI-compatible and native)
-        SUPPORTED_API_KEY_NAMES.forEach { keyName ->
-            val apiKey = conf[keyName] ?: ""
-            if (apiKey.length > minKeyLen) {
-                // Skip if the corresponding provider is denied
-                val providerName = getApiKeyToProvider()[keyName]
-                if (providerName != null && providerName in denyList) {
-                    return@forEach
-                }
-                return true
-            }
+        // Check registered + built-in provider API keys
+        val allProviders = synchronized(_registeredProviders) {
+            _registeredProviders + registry.providers
+        }
+        for (provider in allProviders) {
+            if (provider.providerName in denyList) continue
+            val apiKey = conf[provider.apiKeyName] ?: ""
+            if (apiKey.length > minKeyLen) return true
+        }
+
+        // Check alias keys (e.g. KIMI_API_KEY → moonshot)
+        for ((aliasKey, canonicalName) in registry.aliases) {
+            if (canonicalName in denyList) continue
+            val apiKey = conf[aliasKey] ?: ""
+            if (apiKey.length > minKeyLen) return true
         }
 
         // Check legacy configuration
@@ -852,7 +688,7 @@ see the [LLM configuration documentation]($${path}).
         val apiKey = conf[LLM_API_KEY] ?: ""
 
         if (provider != null && llm != null && apiKey.length > minKeyLen) {
-            val canonicalProvider = resolveCanonicalProviderName(provider) ?: provider.lowercase()
+            val canonicalProvider = resolveCanonicalProviderName(provider, conf) ?: provider.lowercase()
             if (canonicalProvider !in denyList) {
                 return true
             }
@@ -865,7 +701,7 @@ see the [LLM configuration documentation]($${path}).
         provider: String, modelName: String, apiKey: String, conf: ImmutableConfig, denyList: Set<String>
     ): BrowserChatModel {
         // Block denied providers at the earliest entry point for explicit creation
-        val canonical = resolveCanonicalProviderName(provider) ?: provider.lowercase()
+        val canonical = resolveCanonicalProviderName(provider, conf) ?: provider.lowercase()
         if (canonical in denyList) {
             throw IllegalArgumentException(
                 "Provider '$provider' is on the deny list (${LLM_PROVIDER_DENY_LIST}). " +
@@ -898,7 +734,7 @@ see the [LLM configuration documentation]($${path}).
 
         // Look up in the combined registry (registered first, then built-in)
         val allProviders = synchronized(_registeredProviders) {
-            _registeredProviders + builtinProviders
+            _registeredProviders + getRegistry(conf).providers
         }
         val config = allProviders.find {
             it.providerName.equals(provider, ignoreCase = true)

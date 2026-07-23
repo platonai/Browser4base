@@ -322,6 +322,55 @@ llm.name=my-model
 llm.api.key=my-api-key
 ```
 
+## Advanced: Overriding the Built-in Provider List (JSON)
+
+The built-in provider registry ships as `providers.json` inside the JAR
+(`/ai/platon/pulsar/external/providers.json`).  You can override it with an
+external file — useful for updating default models or adding providers without
+recompiling:
+
+```properties
+# Point to your custom providers.json
+llm.provider.config.path=/etc/browser4/providers.json
+```
+
+The external file **replaces** the built-in list.  Copy the default JSON as a
+starting point, then edit it — update `defaultModel` values, add providers,
+reorder them, or add custom aliases.
+
+```json
+{
+  "providers": [
+    {
+      "apiKeyName": "OPENAI_API_KEY",
+      "modelNameKey": "OPENAI_MODEL_NAME",
+      "baseUrlKey": "OPENAI_BASE_URL",
+      "defaultModel": "gpt-6",
+      "defaultBaseUrl": "https://api.openai.com/v1",
+      "providerName": "openai",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    }
+  ],
+  "aliases": {
+    "GEMINI_API_KEY": "gemini"
+  },
+  "canonicalAliases": {
+    "claude": "anthropic"
+  }
+}
+```
+
+At runtime, call `ChatModelFactory.resetProviders()` after changing the path:
+
+```kotlin
+System.setProperty("llm.provider.config.path", "/new/path/providers.json")
+ChatModelFactory.resetProviders()
+```
+
+> **Tip:** To add providers without replacing the entire list, use
+> [`ChatModelFactory.registerProvider()`](#registering-a-provider-kotlin) instead.
+
 ## Advanced: Registering Custom Providers
 
 You can register custom providers programmatically via `ChatModelFactory`.
@@ -472,6 +521,10 @@ Set it to `null` to suppress this one-time message.
 ```kotlin
 // Restore the original documentPath, llmNotConfiguredMessage, and llmDeveloperGuide
 ChatModelFactory.resetMessagesToDefaults()
+
+// Reload the provider registry from the classpath resource
+// (discards any llm.provider.config.path override until next access)
+ChatModelFactory.resetProviders()
 ```
 
 ## Token Limit Configuration
