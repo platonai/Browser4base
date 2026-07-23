@@ -320,34 +320,58 @@ see the [LLM configuration documentation]($${path}).
         ),
     )
 
+    /**
+     * Maps alias API key names to the canonical provider name whose config
+     * (default model / base URL) should be used.  Used in [getOrCreate] to
+     * resolve alternate key names without duplicating ProviderConfig entries.
+     */
+    private val ALIAS_KEY_TO_PROVIDER: Map<String, String> = mapOf(
+        "KIMI_API_KEY" to "moonshot",
+        "LINGYI_API_KEY" to "yi",
+        "TENCENT_API_KEY" to "hunyuan",
+        "BAIDU_API_KEY" to "qianfan",
+    )
+
+    // ---------------------------------------------------------------------------
+    // Cached derived collections (invalidated on provider register/unregister)
+    // ---------------------------------------------------------------------------
+
+    @Volatile
+    private var cachedSupportedApiKeyNames: List<String>? = null
+    @Volatile
+    private var cachedApiKeyToProvider: Map<String, String>? = null
+    @Volatile
+    private var cachedKnownProviderNames: Set<String>? = null
+
     /** All supported API key names checked in [isModelConfigured0]. */
     @JvmStatic
     val SUPPORTED_API_KEY_NAMES: List<String>
-        get() = buildList {
-            val providers = synchronized(_registeredProviders) {
-                _registeredProviders + builtinProviders
-            }
-            addAll(providers.map { it.apiKeyName })
-            // Non-OpenAI-compatible providers
-            add("ANTHROPIC_API_KEY")
-            add("GOOGLE_GENERATIVE_AI_API_KEY")  // primary Google key name
-            add("GEMINI_API_KEY")                 // alias for Google
-            add("GOOGLE_API_KEY")                 // alias for Google
-            // MiniMax — uses Anthropic protocol (not in builtinProviders)
-            add("MINIMAX_API_KEY")
-            // Aliases for Chinese providers
-            add("KIMI_API_KEY")         // alias for MOONSHOT_API_KEY
-            add("LINGYI_API_KEY")       // alias for YI_API_KEY
-            add("TENCENT_API_KEY")      // alias for HUNYUAN_API_KEY
-            add("BAIDU_API_KEY")        // alias for QIANFAN_API_KEY
+        get() {
+            cachedSupportedApiKeyNames?.let { return it }
+            return buildList {
+                val providers = synchronized(_registeredProviders) {
+                    _registeredProviders + builtinProviders
+                }
+                addAll(providers.map { it.apiKeyName })
+                // Non-OpenAI-compatible providers
+                add("ANTHROPIC_API_KEY")
+                add("GOOGLE_GENERATIVE_AI_API_KEY")  // primary Google key name
+                add("GEMINI_API_KEY")                 // alias for Google
+                add("GOOGLE_API_KEY")                 // alias for Google
+                // MiniMax — uses Anthropic protocol (not in builtinProviders)
+                add("MINIMAX_API_KEY")
+                // Aliases for Chinese providers
+                ALIAS_KEY_TO_PROVIDER.keys.forEach { add(it) }
+            }.also { cachedSupportedApiKeyNames = it }
         }
 
     /**
      * Maps API key names to canonical provider names for deny-list resolution.
      * Built from [_registeredProviders] + [builtinProviders] plus non-OpenAI-compatible providers and aliases.
      */
-    private val API_KEY_TO_PROVIDER: Map<String, String>
-        get() = buildMap {
+    private fun getApiKeyToProvider(): Map<String, String> {
+        cachedApiKeyToProvider?.let { return it }
+        return buildMap {
             val providers = synchronized(_registeredProviders) {
                 _registeredProviders + builtinProviders
             }
@@ -357,16 +381,14 @@ see the [LLM configuration documentation]($${path}).
             put("GEMINI_API_KEY", "gemini")
             put("GOOGLE_API_KEY", "gemini")
             put("MINIMAX_API_KEY", "minimax")
-            // Aliases
-            put("KIMI_API_KEY", "moonshot")
-            put("LINGYI_API_KEY", "yi")
-            put("TENCENT_API_KEY", "hunyuan")
-            put("BAIDU_API_KEY", "qianfan")
-        }
+            ALIAS_KEY_TO_PROVIDER.forEach { (aliasKey, canonical) -> put(aliasKey, canonical) }
+        }.also { cachedApiKeyToProvider = it }
+    }
 
     /** Canonical provider names from the registry, used for deny-list entry resolution. */
-    private val KNOWN_PROVIDER_NAMES: Set<String>
-        get() = buildSet {
+    private fun getKnownProviderNames(): Set<String> {
+        cachedKnownProviderNames?.let { return it }
+        return buildSet {
             val providers = synchronized(_registeredProviders) {
                 _registeredProviders + builtinProviders
             }
@@ -376,15 +398,21 @@ see the [LLM configuration documentation]($${path}).
             add("gemini")
             add("google")     // alias for gemini
             add("minimax")
-            // Legacy aliases (matched in doCreateModel's when branch)
-            // Already in builtinProviders: deepseek, bailian, volcengine
-        }
+        }.also { cachedKnownProviderNames = it }
+    }
 
     /** Maps alias names to their canonical provider name. */
     private val ALIAS_TO_CANONICAL: Map<String, String> = mapOf(
         "claude" to "anthropic",
         "google" to "gemini",
     )
+
+    /** Invalidate the cached derived collections when the provider set changes. */
+    private fun invalidateCaches() {
+        cachedSupportedApiKeyNames = null
+        cachedApiKeyToProvider = null
+        cachedKnownProviderNames = null
+    }
 
     // ---------------------------------------------------------------------------
     // Provider registration
@@ -418,6 +446,7 @@ see the [LLM configuration documentation]($${path}).
                 "Provider '${config.providerName}' is already registered"
             }
             _registeredProviders.add(config)
+            invalidateCaches()
             logger.info("Registered LLM provider: {} ({})", config.providerName, config.defaultModel)
         }
     }
@@ -438,6 +467,7 @@ see the [LLM configuration documentation]($${path}).
         synchronized(_registeredProviders) {
             val removed = _registeredProviders.removeAll { it.providerName.equals(canonical, ignoreCase = true) }
             if (removed) {
+                invalidateCaches()
                 logger.info("Unregistered LLM provider: {}", providerName)
             }
             return removed
@@ -528,15 +558,17 @@ see the [LLM configuration documentation]($${path}).
      * @return The created model.
      * @throws IllegalArgumentException If the configuration is not configured.
      */
+    @JvmStatic
     @Throws(IllegalArgumentException::class)
     fun getOrCreate(conf: ImmutableConfig): BrowserChatModel {
-        if (!isModelConfigured(conf, verbose = false)) {
+        // Parse deny list once; thread through to avoid redundant re-parsing
+        val denyList = parseDenyList(conf)
+
+        if (!isModelConfigured0(conf, denyList)) {
             val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE] ?: llmNotConfiguredMessage
             val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
             throw IllegalArgumentException("$effectiveShortMessage — see $effectiveDocumentPath")
         }
-
-        val denyList = parseDenyList(conf)
 
         // 1. Check all OpenAI-compatible providers (data-driven):
         //    registered first (higher priority), then built-in
@@ -554,41 +586,13 @@ see the [LLM configuration documentation]($${path}).
         }
 
         // 1b. Alias resolution for Chinese providers (check alternate key names)
-        if ("moonshot" !in denyList) {
-            val kimiKey = conf["KIMI_API_KEY"]
-            if (kimiKey != null) {
-                val config = builtinProviders.find { it.providerName == "moonshot" }!!
-                val modelName = conf[config.modelNameKey] ?: config.defaultModel
-                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-                return getOrCreateOpenAICompatibleModel(modelName, kimiKey, baseURL, conf)
-            }
-        }
-        if ("yi" !in denyList) {
-            val lingyiKey = conf["LINGYI_API_KEY"]
-            if (lingyiKey != null) {
-                val config = builtinProviders.find { it.providerName == "yi" }!!
-                val modelName = conf[config.modelNameKey] ?: config.defaultModel
-                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-                return getOrCreateOpenAICompatibleModel(modelName, lingyiKey, baseURL, conf)
-            }
-        }
-        if ("hunyuan" !in denyList) {
-            val tencentKey = conf["TENCENT_API_KEY"]
-            if (tencentKey != null) {
-                val config = builtinProviders.find { it.providerName == "hunyuan" }!!
-                val modelName = conf[config.modelNameKey] ?: config.defaultModel
-                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-                return getOrCreateOpenAICompatibleModel(modelName, tencentKey, baseURL, conf)
-            }
-        }
-        if ("qianfan" !in denyList) {
-            val baiduKey = conf["BAIDU_API_KEY"]
-            if (baiduKey != null) {
-                val config = builtinProviders.find { it.providerName == "qianfan" }!!
-                val modelName = conf[config.modelNameKey] ?: config.defaultModel
-                val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-                return getOrCreateOpenAICompatibleModel(modelName, baiduKey, baseURL, conf)
-            }
+        for ((aliasKey, canonicalName) in ALIAS_KEY_TO_PROVIDER) {
+            if (canonicalName in denyList) continue
+            val key = conf[aliasKey] ?: continue
+            val config = builtinProviders.find { it.providerName == canonicalName }!!
+            val modelName = conf[config.modelNameKey] ?: config.defaultModel
+            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
+            return getOrCreateOpenAICompatibleModel(modelName, key, baseURL, conf)
         }
 
         // 2. MiniMax (Anthropic Messages protocol — uses AnthropicChatModel)
@@ -630,7 +634,7 @@ see the [LLM configuration documentation]($${path}).
             "$LLM_API_KEY is not set, see $effectiveDocumentPath"
         }
 
-        return getOrCreate(provider, modelName, apiKey, conf)
+        return getOrCreateModel0(provider, modelName, apiKey, conf, denyList)
     }
 
     /**
@@ -641,9 +645,10 @@ see the [LLM configuration documentation]($${path}).
      * @param apiKey The API key to use.
      * @return The created model.
      */
+    @JvmStatic
     @Throws(IllegalArgumentException::class)
     fun getOrCreate(provider: String, modelName: String, apiKey: String, conf: ImmutableConfig) =
-        getOrCreateModel0(provider, modelName, apiKey, conf)
+        getOrCreateModel0(provider, modelName, apiKey, conf, parseDenyList(conf))
 
     /**
      * Create a default model, returning null on failure.
@@ -760,10 +765,10 @@ see the [LLM configuration documentation]($${path}).
         ALIAS_TO_CANONICAL[lower]?.let { return it }
 
         // 2. Direct match: known provider name
-        if (lower in KNOWN_PROVIDER_NAMES) return lower
+        if (lower in getKnownProviderNames()) return lower
 
         // 3. Case-insensitive API key name lookup (e.g. "zhipu_api_key" → "zhipu")
-        API_KEY_TO_PROVIDER.entries.find { it.key.equals(lower, ignoreCase = true) }?.let {
+        getApiKeyToProvider().entries.find { it.key.equals(lower, ignoreCase = true) }?.let {
             return it.value
         }
 
@@ -771,15 +776,18 @@ see the [LLM configuration documentation]($${path}).
     }
 
     private fun isModelConfigured0(conf: ImmutableConfig): Boolean {
+        return isModelConfigured0(conf, parseDenyList(conf))
+    }
+
+    private fun isModelConfigured0(conf: ImmutableConfig, denyList: Set<String>): Boolean {
         val minKeyLen = 5
-        val denyList = parseDenyList(conf)
 
         // Check all supported API key names (both OpenAI-compatible and native)
         SUPPORTED_API_KEY_NAMES.forEach { keyName ->
             val apiKey = conf[keyName] ?: ""
             if (apiKey.length > minKeyLen) {
                 // Skip if the corresponding provider is denied
-                val providerName = API_KEY_TO_PROVIDER[keyName]
+                val providerName = getApiKeyToProvider()[keyName]
                 if (providerName != null && providerName in denyList) {
                     return@forEach
                 }
@@ -803,11 +811,10 @@ see the [LLM configuration documentation]($${path}).
     }
 
     private fun getOrCreateModel0(
-        provider: String, modelName: String, apiKey: String, conf: ImmutableConfig
+        provider: String, modelName: String, apiKey: String, conf: ImmutableConfig, denyList: Set<String>
     ): BrowserChatModel {
         // Block denied providers at the earliest entry point for explicit creation
         val canonical = resolveCanonicalProviderName(provider) ?: provider.lowercase()
-        val denyList = parseDenyList(conf)
         if (canonical in denyList) {
             throw IllegalArgumentException(
                 "Provider '$provider' is on the deny list (${LLM_PROVIDER_DENY_LIST}). " +
@@ -854,20 +861,6 @@ see the [LLM configuration documentation]($${path}).
             "anthropic", "claude" -> createAnthropicChatModel(modelName, apiKey, conf)
             "gemini", "google" -> createGeminiChatModel(modelName, apiKey, conf)
             "minimax" -> createMinimaxChatModel(modelName, apiKey, conf)
-
-            // Legacy aliases for backward compatibility
-            "bailian" -> createOpenAICompatibleModel0(
-                modelName, apiKey,
-                "https://dashscope.aliyuncs.com/compatible-mode/v1", conf
-            )
-            "volcengine" -> createOpenAICompatibleModel0(
-                modelName, apiKey,
-                "https://ark.cn-beijing.volces.com/api/v3", conf
-            )
-            "deepseek" -> createOpenAICompatibleModel0(
-                modelName, apiKey,
-                "https://api.deepseek.com/v1", conf
-            )
 
             // Unknown provider — best-effort: treat as OpenAI-compatible with a
             // generic base URL; the caller is responsible for ensuring correctness.
