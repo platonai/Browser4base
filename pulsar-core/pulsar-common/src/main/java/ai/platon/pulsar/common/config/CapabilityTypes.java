@@ -25,6 +25,11 @@ public interface CapabilityTypes {
      * */
     String APP_NAME_KEY = "app.name";
     /**
+     * The key to retrieve the application version, can be specified by system environment variable or system property.
+     * If not set, the version is resolved from the VERSION file.
+     * */
+    String APP_VERSION_KEY = "app.version";
+    /**
      * The key to retrieve the profile, can be specified by system environment variable or system property.
      * */
     String PROFILE_KEY = "profile";

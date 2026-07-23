@@ -73,11 +73,24 @@ object AppContext {
         ?: System.getProperty(PROJECT_BASE_DIR_KEY)
 
     /**
-     * The application version
+     * The application version (real-time, checks system property/env each call).
+     * Falls back to [APP_VERSION] for file-based resolution.
+     *
+     * Use [APP_VERSION] for most purposes; this variant exists for tests that
+     * override the version via system property at runtime.
      * */
-    val APP_VERSION_RT get() = sniffVersion()
+    val APP_VERSION_RT get() = System.getProperty(APP_VERSION_KEY)
+        ?: System.getenv(APP_VERSION_KEY)
+        ?: APP_VERSION
     /**
-     * The application version
+     * The application version (lazily resolved and cached).
+     *
+     * Resolution order:
+     * 1. System property `app.version`
+     * 2. Environment variable `app.version`
+     * 3. VERSION file in [PROJECT_BASE_DIR] (if configured)
+     * 4. VERSION file in [USER_DIR]
+     * 5. Fallback to `"unknown"`
      * */
     val APP_VERSION by lazy { sniffVersion() }
     /**
@@ -181,11 +194,23 @@ object AppContext {
     fun endTermination() = state.set(State.TERMINATED)
 
     private fun sniffVersion(): String {
-        var version = System.getProperty("app.version")
-        if (version == null) {
-            version = Paths.get(USER_DIR).resolve("VERSION").takeIf { Files.exists(it) }
-                ?.let { Files.readAllLines(it).firstOrNull() }
-        }
+        // 1. System property / env var (fast path)
+        System.getProperty(APP_VERSION_KEY)?.let { return it }
+        System.getenv(APP_VERSION_KEY)?.let { return it }
+
+        // 2. VERSION file resolution
+        val version = readVersionFromFile()
         return version ?: "unknown"
+    }
+
+    private fun readVersionFromFile(): String? {
+        val searchDirs = listOfNotNull(
+            PROJECT_BASE_DIR?.let { Paths.get(it) },
+            Paths.get(USER_DIR)
+        )
+        return searchDirs.asSequence()
+            .map { it.resolve("VERSION") }
+            .firstOrNull { Files.isRegularFile(it) }
+            ?.let { Files.newBufferedReader(it).use { reader -> reader.readLine()?.trim() } }
     }
 }
