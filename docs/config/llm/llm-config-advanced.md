@@ -2,6 +2,10 @@
 
 For providers not in the [built-in registry](llm-config.md), use the generic configuration format.
 
+> **How-To Guide:** See [`llm-chat-model-factory-howto.md`](llm-chat-model-factory-howto.md) for
+> a comprehensive walkthrough of `ChatModelFactory` — auto-detection, explicit provider selection,
+> protocol-specific methods, custom providers, deny lists, error handling, and complete examples.
+
 ## Generic Provider Configuration
 
 ```properties
