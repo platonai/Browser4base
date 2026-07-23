@@ -77,6 +77,14 @@ val claudeModel = ChatModelFactory.getOrCreateAnthropicModel(
     conf = ImmutableConfig()
 )
 
+// Anthropic-compatible with custom base URL (e.g. MiniMax, Bedrock proxy)
+val anthropicCompatModel = ChatModelFactory.getOrCreateAnthropicCompatibleModel(
+    modelName = "claude-sonnet-4-6",
+    apiKey = "your-key",
+    baseUrl = "https://my-anthropic-gateway.example.com",
+    conf = ImmutableConfig()
+)
+
 // Google Gemini
 val geminiModel = ChatModelFactory.getOrCreateGeminiModel(
     modelName = "gemini-3.1-flash-lite",
@@ -96,23 +104,24 @@ val minimaxModel = ChatModelFactory.getOrCreateMinimaxModel(
 
 ### Protocol Types
 
-The `ChatModelFactory` supports three protocol types:
+The `ChatModelFactory` supports three protocol types, declared via the `ApiProtocol` enum
+on each `ProviderConfig` entry:
 
-1. **OpenAI-compatible** — Most providers (Groq, Together, Mistral, xAI, Chinese providers, etc.)
+1. **`ApiProtocol.OPENAI`** — Most providers (Groq, Together, Mistral, xAI, Chinese providers, etc.)
    - Uses LangChain4j `OpenAiChatModel` with provider-specific base URLs
-   - Data-driven via the `ProviderConfig` registry
+   - Default protocol for all `ProviderConfig` entries
 
-2. **Anthropic Messages** — Anthropic Claude, MiniMax
+2. **`ApiProtocol.ANTHROPIC`** — Anthropic Claude, MiniMax, and custom Anthropic-compatible gateways
    - Uses LangChain4j `AnthropicChatModel` natively
    - MiniMax uses this protocol with a custom endpoint
 
-3. **Google Gemini** — Google Gemini
+3. **`ApiProtocol.GEMINI`** — Google Gemini
    - Uses LangChain4j `GoogleAiGeminiChatModel` natively
 
 ### Adding a Custom Provider
 
 For one-off use, the generic `llm.provider` / `llm.name` / `llm.api.key` format works.
-For permanent additions to the built-in registry, edit `ChatModelFactory.OPENAI_COMPATIBLE_PROVIDERS`:
+For permanent additions to the built-in registry, add an entry to `ChatModelFactory.builtinProviders`:
 
 ```kotlin
 ProviderConfig(
@@ -121,7 +130,8 @@ ProviderConfig(
     baseUrlKey = "MY_PROVIDER_BASE_URL",
     defaultModel = "my-default-model",
     defaultBaseUrl = "https://api.my-provider.com/v1",
-    providerName = "my-provider"
+    providerName = "my-provider",
+    apiProtocol = ApiProtocol.OPENAI  // or ANTHROPIC / GEMINI
 )
 ```
 
@@ -129,6 +139,7 @@ This automatically enables:
 - Auto-detection via `MY_PROVIDER_API_KEY` env var
 - Explicit creation via `ChatModelFactory.getOrCreate("my-provider", modelName, apiKey, conf)`
 - Configuration via `my-provider.model.name` and `my-provider.base.url` properties
+- Correct protocol dispatch (OpenAI / Anthropic / Gemini) based on `apiProtocol`
 
 ## Response Caching
 

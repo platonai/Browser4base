@@ -46,17 +46,19 @@ The system scans for known API keys in this order — the first one found wins:
 | 15 | **StepFun** | `STEPFUN_API_KEY` | `STEPFUN_MODEL_NAME` | `STEPFUN_BASE_URL` |
 | 16 | **Tencent Hunyuan** | `HUNYUAN_API_KEY`, `TENCENT_API_KEY` | `HUNYUAN_MODEL_NAME` | `HUNYUAN_BASE_URL` |
 | 17 | **Baidu Qianfan** (Ernie) | `QIANFAN_API_KEY`, `BAIDU_API_KEY` | `QIANFAN_MODEL_NAME` | `QIANFAN_BASE_URL` |
-| — | **MiniMax** | `MINIMAX_API_KEY` | `MINIMAX_MODEL_NAME` | (native protocol) |
-| — | **Anthropic Claude** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL_NAME` | (native protocol) |
-| — | **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` | `GEMINI_MODEL_NAME` | (native protocol) |
 | 18 | **OpenAI** | `OPENAI_API_KEY` | `OPENAI_MODEL_NAME` | `OPENAI_BASE_URL` |
+| 19 | **Anthropic Claude** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL_NAME` | `ANTHROPIC_BASE_URL` |
+| 20 | **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` | `GEMINI_MODEL_NAME` | `GEMINI_BASE_URL` |
+| 21 | **MiniMax** | `MINIMAX_API_KEY` | `MINIMAX_MODEL_NAME` | `MINIMAX_BASE_URL` |
 
 > **Notes:**
-> - OpenAI is checked last so that dedicated provider keys win over a generic `OPENAI_API_KEY`.
-> - **Custom registered providers** (via `ChatModelFactory.registerProvider()`) are checked **before** all built-in providers and take priority.
+> - OpenAI is checked after dedicated provider keys so that a generic `OPENAI_API_KEY`
+>   doesn't shadow providers like Groq or Together.
+> - **Custom registered providers** (via `ChatModelFactory.registerProvider()`) are checked
+>   **before** all built-in providers and take priority.
 > - Providers on the `llm.provider.deny.list` are skipped during auto-detection.
-> - Non-OpenAI-compatible providers (MiniMax, Anthropic, Gemini) are checked after the
->   OpenAI-compatible list.
+> - Anthropic, Gemini, and MiniMax are checked last — they use their own API protocols
+>   (not OpenAI-compatible) and are dispatched accordingly via `ApiProtocol`.
 
 ## Provider Details
 
@@ -225,7 +227,8 @@ Uses the **Anthropic Messages protocol** (not OpenAI-compatible). Configured via
 
 ```properties
 minimax.api.key=your-key
-minimax.model.name=MiniMax-M2.5
+minimax.model.name=MiniMax-M3
+minimax.base.url=https://api.minimaxi.com/anthropic
 ```
 
 Default model: `MiniMax-M3`
@@ -274,10 +277,12 @@ These providers use LangChain4j's native model builders rather than the OpenAI-c
 #### Anthropic Claude
 ```properties
 anthropic.api.key=sk-ant-your-key
-anthropic.model.name=claude-sonnet-4-5-20250901
+anthropic.model.name=claude-sonnet-4-6
+anthropic.base.url=https://api.anthropic.com
 ```
 
-Default model: `claude-sonnet-4-5-20250901`
+Default model: `claude-sonnet-4-6`
+Base URL: `https://api.anthropic.com`
 Context window: 200K tokens
 
 #### Google Gemini
@@ -287,10 +292,12 @@ google.generative.ai.api.key=your-key
 # Aliases also supported:
 # gemini.api.key=your-key
 # google.api.key=your-key
-gemini.model.name=gemini-2.0-flash
+gemini.model.name=gemini-3.1-flash-lite
+gemini.base.url=https://generativelanguage.googleapis.com
 ```
 
-Default model: `gemini-2.0-flash`
+Default model: `gemini-3.1-flash-lite`
+Base URL: `https://generativelanguage.googleapis.com`
 Context window: 1M tokens
 
 ## Configuration Format
@@ -317,7 +324,7 @@ llm.api.key=my-api-key
 
 ## Advanced: Registering Custom Providers
 
-You can register custom OpenAI-compatible providers programmatically via `ChatModelFactory`.
+You can register custom providers programmatically via `ChatModelFactory`.
 This is useful when embedding Browser4 as a library and you need to add a provider not in the
 built-in registry, or when you want to override a built-in provider's defaults.
 
@@ -326,7 +333,9 @@ built-in registry, or when you want to override a built-in provider's defaults.
 ```kotlin
 import ai.platon.pulsar.external.ChatModelFactory
 import ai.platon.pulsar.external.ProviderConfig
+import ai.platon.pulsar.external.ApiProtocol
 
+// OpenAI-compatible provider (default)
 ChatModelFactory.registerProvider(ProviderConfig(
     apiKeyName = "MY_PROVIDER_API_KEY",
     modelNameKey = "MY_PROVIDER_MODEL_NAME",
@@ -335,6 +344,17 @@ ChatModelFactory.registerProvider(ProviderConfig(
     defaultBaseUrl = "https://api.myprovider.com/v1",
     providerName = "myprovider"
 ))
+
+// Anthropic-compatible provider (e.g. custom gateway)
+ChatModelFactory.registerProvider(ProviderConfig(
+    apiKeyName = "MY_ANTHROPIC_GATEWAY_KEY",
+    modelNameKey = "MY_ANTHROPIC_GATEWAY_MODEL",
+    baseUrlKey = "MY_ANTHROPIC_GATEWAY_URL",
+    defaultModel = "claude-sonnet-4-6",
+    defaultBaseUrl = "https://my-anthropic-gateway.example.com",
+    providerName = "my-anthropic-gateway",
+    apiProtocol = ApiProtocol.ANTHROPIC
+))
 ```
 
 ### Registering a Provider (Java)
@@ -342,6 +362,7 @@ ChatModelFactory.registerProvider(ProviderConfig(
 ```java
 import ai.platon.pulsar.external.ChatModelFactory;
 import ai.platon.pulsar.external.ProviderConfig;
+import ai.platon.pulsar.external.ApiProtocol;
 
 ChatModelFactory.registerProvider(new ProviderConfig(
     "MY_PROVIDER_API_KEY",
@@ -349,7 +370,9 @@ ChatModelFactory.registerProvider(new ProviderConfig(
     "MY_PROVIDER_BASE_URL",
     "my-model",
     "https://api.myprovider.com/v1",
-    "myprovider"
+    "myprovider",
+    true,                    // supportVision
+    ApiProtocol.OPENAI       // apiProtocol
 ));
 ```
 
