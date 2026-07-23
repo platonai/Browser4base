@@ -275,6 +275,6 @@
         <ktor.version>3.2.3</ktor.version>
         <springmockk.version>4.0.2</springmockk.version>
 
-        <langchain4j.version>1.15.0</langchain4j.version>
+        <langchain4j.version>1.18.0</langchain4j.version>
     </properties>
 </project>
