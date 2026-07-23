@@ -13,14 +13,20 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Configuration for an OpenAI-compatible LLM provider.
+ * Configuration for an LLM provider.
  *
- * @param apiKeyName The config key for the API key (e.g. "OPENAI_API_KEY").
- * @param modelNameKey The config key for the model name override (e.g. "OPENAI_MODEL_NAME").
- * @param baseUrlKey The config key for the base URL override (e.g. "OPENAI_BASE_URL").
- * @param defaultModel The default model name when none is configured.
- * @param defaultBaseUrl The default API base URL.
- * @param providerName The canonical provider name for use with [getOrCreate] (provider, modelName, apiKey, conf).
+ * Used to register both built-in and custom providers in the data-driven
+ * provider registry.  Each entry declares the configuration keys, default
+ * model/base URL, and capabilities of a provider.
+ *
+ * @property apiKeyName     The config key for the API key (e.g. `"OPENAI_API_KEY"`).
+ * @property modelNameKey   The config key for the model name override (e.g. `"OPENAI_MODEL_NAME"`).
+ * @property baseUrlKey     The config key for the base URL override (e.g. `"OPENAI_BASE_URL"`).
+ * @property defaultModel   The default model name when none is configured.
+ * @property defaultBaseUrl The default API base URL for the chat-completions endpoint.
+ * @property providerName   The canonical provider name for use with [getOrCreate] (provider, modelName, apiKey, conf).
+ * @property supportVision  Whether the provider's default model supports vision (image input).
+ *                          Defaults to `true`; set to `false` for text-only providers.
  */
 data class ProviderConfig(
     val apiKeyName: String,
@@ -28,7 +34,8 @@ data class ProviderConfig(
     val baseUrlKey: String,
     val defaultModel: String,
     val defaultBaseUrl: String,
-    val providerName: String
+    val providerName: String,
+    val supportVision: Boolean = true,
 )
 
 /**
@@ -182,7 +189,8 @@ see the [LLM configuration documentation]($${path}).
             baseUrlKey = "GROQ_BASE_URL",
             defaultModel = "llama-3.3-70b-versatile",
             defaultBaseUrl = "https://api.groq.com/openai/v1",
-            providerName = "groq"
+            providerName = "groq",
+            supportVision = false,  // Llama 3.3 70B is text-only
         ),
         ProviderConfig(
             apiKeyName = "TOGETHER_API_KEY",
@@ -190,7 +198,8 @@ see the [LLM configuration documentation]($${path}).
             baseUrlKey = "TOGETHER_BASE_URL",
             defaultModel = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
             defaultBaseUrl = "https://api.together.xyz/v1",
-            providerName = "together"
+            providerName = "together",
+            supportVision = false,  // Llama 3.3 70B is text-only
         ),
         ProviderConfig(
             apiKeyName = "MISTRAL_API_KEY",
@@ -214,7 +223,8 @@ see the [LLM configuration documentation]($${path}).
             baseUrlKey = "PERPLEXITY_BASE_URL",
             defaultModel = "llama-3.1-sonar-large-128k-online",
             defaultBaseUrl = "https://api.perplexity.ai",
-            providerName = "perplexity"
+            providerName = "perplexity",
+            supportVision = false,  // online/search-grounded models are text-only
         ),
         ProviderConfig(
             apiKeyName = "FIREWORKS_API_KEY",
@@ -222,7 +232,8 @@ see the [LLM configuration documentation]($${path}).
             baseUrlKey = "FIREWORKS_BASE_URL",
             defaultModel = "accounts/fireworks/models/llama-v3p3-70b-instruct",
             defaultBaseUrl = "https://api.fireworks.ai/inference/v1",
-            providerName = "fireworks"
+            providerName = "fireworks",
+            supportVision = false,  // Llama 3.3 70B is text-only
         ),
 
         // ---- Chinese domestic providers ----
@@ -232,7 +243,8 @@ see the [LLM configuration documentation]($${path}).
             baseUrlKey = "DEEPSEEK_BASE_URL",
             defaultModel = "deepseek-v4-flash",
             defaultBaseUrl = "https://api.deepseek.com/v1",
-            providerName = "deepseek"
+            providerName = "deepseek",
+            supportVision = false,  // cloud API is text-only
         ),
         ProviderConfig(
             apiKeyName = "DASHSCOPE_API_KEY",
@@ -280,7 +292,8 @@ see the [LLM configuration documentation]($${path}).
             baseUrlKey = "YI_BASE_URL",
             defaultModel = "yi-large",
             defaultBaseUrl = "https://api.lingyiwanwu.com/v1",
-            providerName = "yi"
+            providerName = "yi",
+            supportVision = false,  // yi-large is text-only; use yi-vision for images
         ),
         // MiniMax uses Anthropic Messages protocol (not OpenAI-compatible).
         // See dedicated handling in getOrCreate() → createMinimaxChatModel().
