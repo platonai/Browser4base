@@ -36,10 +36,6 @@ open class CachedBrowserChatModel(
 
     override suspend fun call(userMessage: String, category: String?) = callUmSm(userMessage, "")
 
-    override suspend fun call(document: FeaturedDocument, prompt: String, category: String?) = call(document.document, prompt)
-
-    override suspend fun call(ele: Element, prompt: String, category: String?) = callUmSm(ele.text(), prompt)
-
     override suspend fun callSmUm(
         systemMessage: String, userMessage: String,
         imageUrl: String?, b64Image: String?, mediaType: String?, category: String?
