@@ -61,9 +61,7 @@ object ChatModelFactory {
      * repeated checks).  Customize this for your own application's terminology.
      */
     @JvmField
-    var llmNotConfiguredMessage: String =
-        "The LLM is not configured, the LLM feature is disabled. " +
-                "See docs/config/llm/llm-config.md for more details."
+    var llmNotConfiguredMessage: String = "No LLM configured. AI features turned off."
 
     /**
      * The full developer guide shown **once** when the LLM is detected as
@@ -80,9 +78,7 @@ object ChatModelFactory {
     @JvmStatic
     fun resetMessagesToDefaults() {
         documentPath = defaultDocumentPath
-        llmNotConfiguredMessage =
-            "The LLM is not configured, the LLM feature is disabled. " +
-                    "See docs/config/llm/llm-config.md for more details."
+        llmNotConfiguredMessage = "No LLM configured. AI features turned off."
         llmDeveloperGuide = buildDefaultDeveloperGuide(defaultDocumentPath)
     }
 
