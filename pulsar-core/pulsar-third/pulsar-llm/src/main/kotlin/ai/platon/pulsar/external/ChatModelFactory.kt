@@ -13,20 +13,39 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
+ * Which API protocol a provider speaks.
+ *
+ * Determines the underlying LangChain4j model builder used in
+ * [ChatModelFactory].  Most providers speak the OpenAI chat-completions
+ * protocol; a growing number also implement Anthropic Messages.
+ */
+enum class ApiProtocol {
+    /** OpenAI-compatible chat completions protocol (most providers). */
+    OPENAI,
+
+    /** Anthropic Messages protocol (Claude, MiniMax, etc.). */
+    ANTHROPIC,
+
+    /** Google Gemini protocol. */
+    GEMINI,
+}
+
+/**
  * Configuration for an LLM provider.
  *
  * Used to register both built-in and custom providers in the data-driven
  * provider registry.  Each entry declares the configuration keys, default
- * model/base URL, and capabilities of a provider.
+ * model/base URL, capabilities, and API protocol of a provider.
  *
  * @property apiKeyName     The config key for the API key (e.g. `"OPENAI_API_KEY"`).
  * @property modelNameKey   The config key for the model name override (e.g. `"OPENAI_MODEL_NAME"`).
  * @property baseUrlKey     The config key for the base URL override (e.g. `"OPENAI_BASE_URL"`).
  * @property defaultModel   The default model name when none is configured.
- * @property defaultBaseUrl The default API base URL for the chat-completions endpoint.
+ * @property defaultBaseUrl The default API base URL endpoint.
  * @property providerName   The canonical provider name for use with [getOrCreate] (provider, modelName, apiKey, conf).
  * @property supportVision  Whether the provider's default model supports vision (image input).
  *                          Defaults to `true`; set to `false` for text-only providers.
+ * @property apiProtocol    The API protocol the provider speaks (defaults to [ApiProtocol.OPENAI]).
  */
 data class ProviderConfig(
     val apiKeyName: String,
@@ -36,15 +55,17 @@ data class ProviderConfig(
     val defaultBaseUrl: String,
     val providerName: String,
     val supportVision: Boolean = true,
+    val apiProtocol: ApiProtocol = ApiProtocol.OPENAI,
 )
 
 /**
  * The factory to create models.
  *
- * Supports all major LLM providers through a data-driven registry.
- * OpenAI-compatible providers are handled via [OpenAiChatModel] with the
- * appropriate base URL. Anthropic and Google Gemini use their native
- * LangChain4j modules ([AnthropicChatModel] / [GoogleAiGeminiChatModel]).
+ * Supports all major LLM providers through a data-driven registry keyed by
+ * [ProviderConfig.apiProtocol].  OpenAI-compatible providers are handled via
+ * [OpenAiChatModel], Anthropic-compatible via [AnthropicChatModel], and
+ * Google Gemini via [GoogleAiGeminiChatModel] — each with the appropriate
+ * base URL taken from the provider's configuration.
  */
 object ChatModelFactory {
     private val logger = getLogger(this::class)
@@ -151,8 +172,8 @@ see the [LLM configuration documentation]($${path}).
     // ---------------------------------------------------------------------------
 
     /**
-     * User-registered OpenAI-compatible providers checked **before** built-in
-     * providers in [getOrCreate], giving custom providers higher priority.
+     * User-registered providers checked **before** built-in providers in
+     * [getOrCreate], giving custom providers higher priority.
      *
      * Use [registerProvider] / [unregisterProvider] to add or remove entries.
      */
@@ -163,13 +184,15 @@ see the [LLM configuration documentation]($${path}).
         get() = synchronized(_registeredProviders) { _registeredProviders.toList() }
 
     /**
-     * Built-in OpenAI-compatible providers checked in [getOrCreate] by API key
-     * presence.  These are checked **after** [_registeredProviders], so custom
-     * registered providers take precedence.
+     * Built-in providers checked in [getOrCreate] by API key presence.
+     * These are checked **after** [_registeredProviders], so custom registered
+     * providers take precedence.
      *
      * **Order matters** — the first provider with a matching API key wins.
      * OpenRouter is checked first as the universal gateway; dedicated provider
-     * keys follow. Chinese domestic providers are grouped together for clarity.
+     * keys follow.  Chinese domestic providers are grouped together for clarity.
+     * Non-OpenAI-compatible providers (Anthropic, Gemini, MiniMax) are checked
+     * last so dedicated API keys take priority over generic fallbacks.
      */
     private val builtinProviders: List<ProviderConfig> = listOf(
         // ---- Global / gateway ----
@@ -295,8 +318,6 @@ see the [LLM configuration documentation]($${path}).
             providerName = "yi",
             supportVision = false,  // yi-large is text-only; use yi-vision for images
         ),
-        // MiniMax uses Anthropic Messages protocol (not OpenAI-compatible).
-        // See dedicated handling in getOrCreate() → createMinimaxChatModel().
         ProviderConfig(
             apiKeyName = "STEPFUN_API_KEY",
             modelNameKey = "STEPFUN_MODEL_NAME",
@@ -331,6 +352,36 @@ see the [LLM configuration documentation]($${path}).
             defaultBaseUrl = "https://api.openai.com/v1",
             providerName = "openai"
         ),
+
+        // ---- Non-OpenAI-compatible providers ----
+        ProviderConfig(
+            apiKeyName = "ANTHROPIC_API_KEY",
+            modelNameKey = "ANTHROPIC_MODEL_NAME",
+            baseUrlKey = "ANTHROPIC_BASE_URL",
+            defaultModel = "claude-sonnet-4-6",
+            defaultBaseUrl = "https://api.anthropic.com",
+            providerName = "anthropic",
+            apiProtocol = ApiProtocol.ANTHROPIC,
+        ),
+        ProviderConfig(
+            apiKeyName = "GOOGLE_GENERATIVE_AI_API_KEY",
+            modelNameKey = "GEMINI_MODEL_NAME",
+            baseUrlKey = "GEMINI_BASE_URL",
+            defaultModel = "gemini-3.1-flash-lite",
+            defaultBaseUrl = "https://generativelanguage.googleapis.com",
+            providerName = "gemini",
+            apiProtocol = ApiProtocol.GEMINI,
+        ),
+        // MiniMax uses Anthropic Messages protocol (not OpenAI-compatible).
+        ProviderConfig(
+            apiKeyName = "MINIMAX_API_KEY",
+            modelNameKey = "MINIMAX_MODEL_NAME",
+            baseUrlKey = "MINIMAX_BASE_URL",
+            defaultModel = "MiniMax-M3",
+            defaultBaseUrl = "https://api.minimaxi.com/anthropic",
+            providerName = "minimax",
+            apiProtocol = ApiProtocol.ANTHROPIC,
+        ),
     )
 
     /**
@@ -343,6 +394,8 @@ see the [LLM configuration documentation]($${path}).
         "LINGYI_API_KEY" to "yi",
         "TENCENT_API_KEY" to "hunyuan",
         "BAIDU_API_KEY" to "qianfan",
+        "GEMINI_API_KEY" to "gemini",
+        "GOOGLE_API_KEY" to "gemini",
     )
 
     // ---------------------------------------------------------------------------
@@ -366,14 +419,9 @@ see the [LLM configuration documentation]($${path}).
                     _registeredProviders + builtinProviders
                 }
                 addAll(providers.map { it.apiKeyName })
-                // Non-OpenAI-compatible providers
-                add("ANTHROPIC_API_KEY")
-                add("GOOGLE_GENERATIVE_AI_API_KEY")  // primary Google key name
-                add("GEMINI_API_KEY")                 // alias for Google
-                add("GOOGLE_API_KEY")                 // alias for Google
-                // MiniMax — uses Anthropic protocol (not in builtinProviders)
-                add("MINIMAX_API_KEY")
-                // Aliases for Chinese providers
+                // Aliases (Chinese providers + Gemini) — these keys resolve to
+                // a canonical provider via ALIAS_KEY_TO_PROVIDER but are not
+                // themselves apiKeyNames of any ProviderConfig entry.
                 ALIAS_KEY_TO_PROVIDER.keys.forEach { add(it) }
             }.also { cachedSupportedApiKeyNames = it }
         }
@@ -389,11 +437,6 @@ see the [LLM configuration documentation]($${path}).
                 _registeredProviders + builtinProviders
             }
             providers.forEach { put(it.apiKeyName, it.providerName) }
-            put("ANTHROPIC_API_KEY", "anthropic")
-            put("GOOGLE_GENERATIVE_AI_API_KEY", "gemini")
-            put("GEMINI_API_KEY", "gemini")
-            put("GOOGLE_API_KEY", "gemini")
-            put("MINIMAX_API_KEY", "minimax")
             ALIAS_KEY_TO_PROVIDER.forEach { (aliasKey, canonical) -> put(aliasKey, canonical) }
         }.also { cachedApiKeyToProvider = it }
     }
@@ -406,11 +449,8 @@ see the [LLM configuration documentation]($${path}).
                 _registeredProviders + builtinProviders
             }
             addAll(providers.map { it.providerName })
-            add("anthropic")
             add("claude")     // alias for anthropic
-            add("gemini")
             add("google")     // alias for gemini
-            add("minimax")
         }.also { cachedKnownProviderNames = it }
     }
 
@@ -432,11 +472,12 @@ see the [LLM configuration documentation]($${path}).
     // ---------------------------------------------------------------------------
 
     /**
-     * Register a custom OpenAI-compatible LLM provider.
+     * Register a custom LLM provider.
      *
      * Registered providers are checked **before** built-in providers in
      * [getOrCreate], so they take priority over built-in providers with the
-     * same API key name.
+     * same API key name.  The provider's [ProviderConfig.apiProtocol] determines
+     * which model builder is used (OpenAI, Anthropic, or Gemini).
      *
      * Thread-safe.
      *
@@ -563,10 +604,10 @@ see the [LLM configuration documentation]($${path}).
      * Create a default model by scanning the configuration for known API keys.
      *
      * Checks providers in this order:
-     * 1. OpenAI-compatible providers ([_registeredProviders] + [builtinProviders]) — by API key presence
-     * 2. Anthropic (`ANTHROPIC_API_KEY`)
-     * 3. Google Gemini (`GEMINI_API_KEY` or `GOOGLE_API_KEY`)
-     * 4. Generic fallback via `LLM_PROVIDER` / `LLM_NAME` / `LLM_API_KEY`
+     * 1. Registered + built-in providers — by API key presence, dispatched by
+     *    [ProviderConfig.apiProtocol] (OpenAI, Anthropic, or Gemini)
+     * 2. Alias key resolution (e.g. `GEMINI_API_KEY` → gemini, `KIMI_API_KEY` → moonshot)
+     * 3. Generic fallback via `LLM_PROVIDER` / `LLM_NAME` / `LLM_API_KEY`
      *
      * @return The created model.
      * @throws IllegalArgumentException If the configuration is not configured.
@@ -583,59 +624,38 @@ see the [LLM configuration documentation]($${path}).
             throw IllegalArgumentException("$effectiveShortMessage — see $effectiveDocumentPath")
         }
 
-        // 1. Check all OpenAI-compatible providers (data-driven):
+        // 1. Check all providers (data-driven, all protocols):
         //    registered first (higher priority), then built-in
         val allProviders = synchronized(_registeredProviders) {
             _registeredProviders + builtinProviders
         }
         for (provider in allProviders) {
             if (provider.providerName in denyList) continue
-            val apiKey = conf[provider.apiKeyName]
-            if (apiKey != null) {
-                val modelName = conf[provider.modelNameKey] ?: provider.defaultModel
-                val baseURL = conf[provider.baseUrlKey] ?: provider.defaultBaseUrl
-                return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+            val apiKey = conf[provider.apiKeyName] ?: continue
+            val modelName = conf[provider.modelNameKey] ?: provider.defaultModel
+            val baseURL = conf[provider.baseUrlKey] ?: provider.defaultBaseUrl
+            return when (provider.apiProtocol) {
+                ApiProtocol.OPENAI -> getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
+                ApiProtocol.ANTHROPIC -> getOrCreateAnthropicCompatibleModel(modelName, apiKey, baseURL, conf)
+                ApiProtocol.GEMINI -> getOrCreateGeminiModel(modelName, apiKey, conf)
             }
         }
 
-        // 1b. Alias resolution for Chinese providers (check alternate key names)
+        // 1b. Alias resolution (check alternate key names)
         for ((aliasKey, canonicalName) in ALIAS_KEY_TO_PROVIDER) {
             if (canonicalName in denyList) continue
             val key = conf[aliasKey] ?: continue
             val config = builtinProviders.find { it.providerName == canonicalName }!!
             val modelName = conf[config.modelNameKey] ?: config.defaultModel
             val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-            return getOrCreateOpenAICompatibleModel(modelName, key, baseURL, conf)
-        }
-
-        // 2. MiniMax (Anthropic Messages protocol — uses AnthropicChatModel)
-        if ("minimax" !in denyList) {
-            val minimaxApiKey = conf["MINIMAX_API_KEY"]
-            if (minimaxApiKey != null) {
-                val modelName = conf["MINIMAX_MODEL_NAME"] ?: "MiniMax-M3"
-                return getOrCreateMinimaxModel(modelName, minimaxApiKey, conf)
+            return when (config.apiProtocol) {
+                ApiProtocol.OPENAI -> getOrCreateOpenAICompatibleModel(modelName, key, baseURL, conf)
+                ApiProtocol.ANTHROPIC -> getOrCreateAnthropicCompatibleModel(modelName, key, baseURL, conf)
+                ApiProtocol.GEMINI -> getOrCreateGeminiModel(modelName, key, conf)
             }
         }
 
-        // 3. Anthropic (native AnthropicChatModel)
-        if ("anthropic" !in denyList && "claude" !in denyList) {
-            val anthropicApiKey = conf["ANTHROPIC_API_KEY"]
-            if (anthropicApiKey != null) {
-                val modelName = conf["ANTHROPIC_MODEL_NAME"] ?: "claude-sonnet-4-6"
-                return getOrCreateAnthropicModel(modelName, anthropicApiKey, conf)
-            }
-        }
-
-        // 4. Google Gemini (non-OpenAI-compatible — uses native GoogleAiGeminiChatModel)
-        if ("gemini" !in denyList && "google" !in denyList) {
-            val geminiApiKey = conf["GOOGLE_GENERATIVE_AI_API_KEY"] ?: conf["GEMINI_API_KEY"] ?: conf["GOOGLE_API_KEY"]
-            if (geminiApiKey != null) {
-                val modelName = conf["GEMINI_MODEL_NAME"] ?: "gemini-3.1-flash-lite"
-                return getOrCreateGeminiModel(modelName, geminiApiKey, conf)
-            }
-        }
-
-        // 5. Generic fallback via LLM_PROVIDER / LLM_NAME / LLM_API_KEY
+        // 2. Generic fallback via LLM_PROVIDER / LLM_NAME / LLM_API_KEY
         val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
         val provider = requireNotNull(conf[LLM_PROVIDER]) {
             "$LLM_PROVIDER is not set, see $effectiveDocumentPath"
@@ -738,6 +758,24 @@ see the [LLM configuration documentation]($${path}).
         return models.computeIfAbsent(key) { createMinimaxChatModel(modelName, apiKey, conf) }
     }
 
+    /**
+     * Create or retrieve a cached [BrowserChatModel] for an Anthropic-compatible provider.
+     *
+     * Any provider that implements the Anthropic Messages protocol can use this
+     * generic factory.  Built on [AnthropicChatModel] with a customisable base URL.
+     *
+     * @param modelName The model name (e.g. "claude-sonnet-4-6").
+     * @param apiKey The API key for the provider.
+     * @param baseUrl The base URL of the Anthropic-compatible API endpoint.
+     * @param conf The immutable configuration.
+     */
+    fun getOrCreateAnthropicCompatibleModel(
+        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val key = "$modelName:$apiKey:$baseUrl"
+        return models.computeIfAbsent(key) { createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf) }
+    }
+
     // ---------------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------------
@@ -835,20 +873,20 @@ see the [LLM configuration documentation]($${path}).
             )
         }
 
-        val key = "$provider:$modelName:$apiKey"
-        return models.computeIfAbsent(key) { doCreateModel(provider, modelName, apiKey, conf) }
+        val key = "$canonical:$modelName:$apiKey"
+        return models.computeIfAbsent(key) { doCreateModel(canonical, modelName, apiKey, conf) }
     }
 
     /**
-     * Route to the appropriate model builder based on the provider name.
+     * Route to the appropriate model builder based on the provider's [ApiProtocol].
      *
-     * - OpenAI-compatible providers are looked up in [builtinProviders] and
-     *   [_registeredProviders]; if found, their default base URL is used
-     *   (can be overridden per call — not exposed here; use
-     *   [getOrCreateOpenAICompatibleModel] for custom base URLs).
-     * - "anthropic" / "claude" uses the native [AnthropicChatModel].
-     * - "gemini" / "google" uses the native [GoogleAiGeminiChatModel].
-     * - Unknown providers fall back to the DeepSeek-compatible builder.
+     * The provider name is expected to be canonical at this point (aliases like
+     * "claude" / "google" are resolved by [getOrCreateModel0] via
+     * [resolveCanonicalProviderName]).
+     *
+     * - Known providers are looked up in the combined registry and dispatched
+     *   according to their [ProviderConfig.apiProtocol].
+     * - Unknown providers fall back to OpenAI-compatible as a best-effort default.
      */
     private fun doCreateModel(
         provider: String, modelName: String, apiKey: String, conf: ImmutableConfig
@@ -858,7 +896,7 @@ see the [LLM configuration documentation]($${path}).
             provider, modelName, encodeSecretKey(apiKey)
         )
 
-        // Look up in the OpenAI-compatible registry (registered first, then built-in)
+        // Look up in the combined registry (registered first, then built-in)
         val allProviders = synchronized(_registeredProviders) {
             _registeredProviders + builtinProviders
         }
@@ -866,25 +904,33 @@ see the [LLM configuration documentation]($${path}).
             it.providerName.equals(provider, ignoreCase = true)
         }
         if (config != null) {
-            return createOpenAICompatibleModel0(modelName, apiKey, config.defaultBaseUrl, conf)
+            return dispatchProtocol(config.apiProtocol, modelName, apiKey, config.defaultBaseUrl, conf)
         }
 
-        return when (provider.lowercase()) {
-            // Native LangChain4j providers (non-OpenAI-compatible)
-            "anthropic", "claude" -> createAnthropicChatModel(modelName, apiKey, conf)
-            "gemini", "google" -> createGeminiChatModel(modelName, apiKey, conf)
-            "minimax" -> createMinimaxChatModel(modelName, apiKey, conf)
+        // Unknown provider — best-effort: treat as OpenAI-compatible with a
+        // generic base URL; the caller is responsible for ensuring correctness.
+        logger.warn(
+            "Unknown provider '{}', treating as OpenAI-compatible. " +
+                    "Set the base URL via configuration or use getOrCreateOpenAICompatibleModel().",
+            provider
+        )
+        return createOpenAICompatibleModel0(modelName, apiKey, "https://api.openai.com/v1", conf)
+    }
 
-            // Unknown provider — best-effort: treat as OpenAI-compatible with a
-            // generic base URL; the caller is responsible for ensuring correctness.
-            else -> {
-                logger.warn(
-                    "Unknown provider '{}', treating as OpenAI-compatible. " +
-                            "Set the base URL via configuration or use getOrCreateOpenAICompatibleModel().",
-                    provider
-                )
-                createOpenAICompatibleModel0(modelName, apiKey, "https://api.openai.com/v1", conf)
-            }
+    /**
+     * Dispatch model creation to the correct builder based on [ApiProtocol].
+     *
+     * Bypasses the public [models] cache — callers are responsible for caching.
+     * This is intentional because [doCreateModel] is called inside
+     * [ConcurrentHashMap.computeIfAbsent], which forbids recursive updates.
+     */
+    private fun dispatchProtocol(
+        protocol: ApiProtocol, modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        return when (protocol) {
+            ApiProtocol.OPENAI -> createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf)
+            ApiProtocol.ANTHROPIC -> createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf)
+            ApiProtocol.GEMINI -> createGeminiChatModel(modelName, apiKey, conf)
         }
     }
 
@@ -902,6 +948,26 @@ see the [LLM configuration documentation]($${path}).
     ): BrowserChatModel {
         val lm = AnthropicChatModel.builder()
             .apiKey(apiKey)
+            .modelName(modelName)
+            .maxRetries(2)
+            .timeout(Duration.ofSeconds(90))
+            .build()
+        return CachedBrowserChatModel(lm, conf)
+    }
+
+    /**
+     * Generic Anthropic-compatible model builder.
+     *
+     * Any provider that implements the Anthropic Messages protocol (e.g.
+     * MiniMax, Bedrock proxy, custom gateways) can be accessed through this
+     * builder by supplying the appropriate [baseUrl].
+     */
+    private fun createAnthropicCompatibleModel0(
+        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
+    ): BrowserChatModel {
+        val lm = AnthropicChatModel.builder()
+            .apiKey(apiKey)
+            .baseUrl(baseUrl)
             .modelName(modelName)
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
@@ -929,24 +995,18 @@ see the [LLM configuration documentation]($${path}).
     /**
      * MiniMax via [AnthropicChatModel].
      *
-     * MiniMax uses the Anthropic Messages protocol, so the [AnthropicChatModel]
-     * builder is pointed at MiniMax's endpoint. International endpoint is
+     * MiniMax uses the Anthropic Messages protocol.  International endpoint is
      * `https://api.minimax.io/anthropic/v1`; China endpoint is
-     * `https://api.minimaxi.com/anthropic/v1`. The China endpoint is the default.
+     * `https://api.minimaxi.com/anthropic/v1`.  The China endpoint is the default.
      *
      * @see <a href="https://platform.minimax.io/docs">MiniMax API</a>
      */
     private fun createMinimaxChatModel(
         modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
-        val lm = AnthropicChatModel.builder()
-            .apiKey(apiKey)
-            .baseUrl("https://api.minimaxi.com/anthropic")
-            .modelName(modelName)
-            .maxRetries(2)
-            .timeout(Duration.ofSeconds(90))
-            .build()
-        return CachedBrowserChatModel(lm, conf)
+        return createAnthropicCompatibleModel0(
+            modelName, apiKey, "https://api.minimaxi.com/anthropic", conf
+        )
     }
 
     /**
