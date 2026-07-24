@@ -56,6 +56,9 @@ DEST_BASE = Path(r"D:\workspace\Browser4\browser4base")
 OLD_NS = "ai.platon.browser4"
 NEW_NS = "ai.platon.pulsar"
 
+OLD_PORT = "8182"
+NEW_PORT = "8082"
+
 TEXT_EXTENSIONS = {
     ".kt", ".kts", ".java", ".xml", ".properties", ".yaml", ".yml",
     ".json", ".txt", ".gradle", ".cfg", ".conf",
@@ -286,6 +289,11 @@ def transform_content(content, filepath):
     if OLD_NS in content:
         count = content.count(OLD_NS)
         content = content.replace(OLD_NS, NEW_NS)
+        changed += count
+
+    if OLD_PORT in content:
+        count = content.count(OLD_PORT)
+        content = content.replace(OLD_PORT, NEW_PORT)
         changed += count
 
     for old_class, new_class in CLASS_RENAMES.items():
