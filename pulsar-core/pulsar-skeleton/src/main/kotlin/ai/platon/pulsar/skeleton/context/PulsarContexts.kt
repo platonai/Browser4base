@@ -24,7 +24,7 @@ import org.springframework.context.support.StaticApplicationContext
  *
  * Additional context types:
  * - `SQLContexts`: enables X‑SQL for advanced web page modeling
- * - `PulsarContexts`: enables agentic/browser‑based agents (`AgenticSession`)
+ * - `PulsarContexts`: enables agentic/browser‑based agents (`PulsarSession`)
  *
  * This object coordinates the active context, shutdown hooks, and session creation.
  *

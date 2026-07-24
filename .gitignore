@@ -22,6 +22,7 @@ hs_err_pid*
 .idea
 .idea/*
 *.iml
+*.b4src
 out
 gen### Eclipse template
 
