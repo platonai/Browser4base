@@ -24,14 +24,17 @@ Sync modes (configured per-job in COPY_JOBS):
                       A merge report is printed at the end.
                     For files that only exist in source: copied normally.
                     Used for test modules (it-tests, e2e-tests).
+                    IMPORTANT: Test files in browser4base are manually adapted
+                    (e.g. AgenticSession→PulsarSession migration). merge_report
+                    prevents blind overwrite of these manual fixes.
 
 Jobs:
     browser     browser4-browser/src -> pulsar-browser/src      [overwrite]
     protocol    browser4-protocol/src -> pulsar-protocol/src    [overwrite]
     skeleton    browser4-skeleton/src -> pulsar-skeleton/src    [overwrite]
     rest        browser4-rest/src/main -> pulsar-it-tests/src/main  [keep_existing]
-    it-tests    pulsar-it-tests/src/test (browser-relevant only)    [overwrite]
-    e2e-tests   pulsar-e2e-tests/src/test (browser-relevant only)   [overwrite]
+    it-tests    pulsar-it-tests/src/test (browser-relevant only)    [merge_report]
+    e2e-tests   pulsar-e2e-tests/src/test (browser-relevant only)   [merge_report]
 """
 
 import argparse
@@ -71,10 +74,22 @@ CLASS_RENAMES = {
     "Browser4AutoConfiguration": "PulsarAutoConfiguration",
     # B4ResourceLoader was renamed to ResourceLoader
     "B4ResourceLoader": "ResourceLoader",
+    # AgenticSession was replaced by PulsarSession (also see FQ_CLASS_RENAMES
+    # for the full package migration: ai.platon.pulsar.agentic.* → core.api)
+    "AgenticSession": "PulsarSession",
+    # AgenticContexts was replaced by PulsarContexts (package also changed:
+    # ai.platon.pulsar.agentic.context → ai.platon.pulsar.skeleton.context)
+    "AgenticContexts": "PulsarContexts",
 }
 
 # Fully-qualified class references that were renamed during migration.
+# These are applied AFTER namespace replacement (ai.platon.browser4 → ai.platon.pulsar),
+# so the keys use the NEW_NS (ai.platon.pulsar).
 FQ_CLASS_RENAMES = {
+    # AgenticSession was moved from agentic package to core.api package
+    "ai.platon.pulsar.agentic.AgenticSession": "ai.platon.pulsar.core.api.PulsarSession",
+    # AgenticContexts was moved from agentic.context to skeleton.context
+    "ai.platon.pulsar.agentic.context.AgenticContexts": "ai.platon.pulsar.skeleton.context.PulsarContexts",
 }
 
 # ---------------------------------------------------------------------------
@@ -126,16 +141,21 @@ COPY_JOBS = {
         "name": "pulsar-it-tests (src/test)",
         "source_root": SOURCE_BASE / "browser4-tests" / "pulsar-it-tests" / "src" / "test",
         "dest_root": DEST_BASE / "pulsar-tests" / "pulsar-it-tests" / "src" / "test",
-        "sync_mode": "overwrite",
-        "skip_paths": [],
+        "sync_mode": "merge_report",
+        "skip_paths": [
+            # agentic package no longer exists in browser4base — it was
+            # refactored into PulsarSession (core.api) and PulsarContexts
+            # (skeleton.context). Skip to avoid re-introducing dead code.
+            "kotlin/ai/platon/pulsar/agentic",
+        ],
     },
     "e2e-tests": {
         "name": "pulsar-e2e-tests (src/test)",
         "source_root": SOURCE_BASE / "browser4-tests" / "pulsar-e2e-tests" / "src" / "test",
         "dest_root": DEST_BASE / "pulsar-tests" / "pulsar-e2e-tests" / "src" / "test",
-        "sync_mode": "overwrite",
+        "sync_mode": "merge_report",
         "skip_paths": [
-            # Not supported in browser4base
+            # Not supported in browser4base — refactored into PulsarSession
             "kotlin/ai/platon/pulsar/agentic",
         ],
     },
@@ -163,6 +183,7 @@ CLEANUP_PATHS = [
     DEST_BASE / "pulsar-tests" / "pulsar-it-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "pulsar" / "basic",
     DEST_BASE / "pulsar-tests" / "pulsar-it-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "pulsar" / "heavy" / "rest",
     DEST_BASE / "pulsar-tests" / "pulsar-it-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "pulsar" / "ql",
+    DEST_BASE / "pulsar-tests" / "pulsar-it-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "pulsar" / "agentic",
     DEST_BASE / "pulsar-tests" / "pulsar-it-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "browser4",
     DEST_BASE / "pulsar-tests" / "pulsar-e2e-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "pulsar" / "agentic",
     DEST_BASE / "pulsar-tests" / "pulsar-e2e-tests" / "src" / "test" / "kotlin" / "ai" / "platon" / "browser4",

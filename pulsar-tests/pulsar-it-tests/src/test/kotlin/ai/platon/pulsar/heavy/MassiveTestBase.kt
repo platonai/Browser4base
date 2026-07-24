@@ -1,6 +1,6 @@
 package ai.platon.pulsar.heavy
 
-import ai.platon.pulsar.agentic.context.AgenticContexts
+import ai.platon.pulsar.skeleton.context.PulsarContexts
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.printlnPro
 import org.junit.jupiter.api.Assumptions
@@ -17,7 +17,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.assertTrue
 
 open class MassiveTestBase {
-    protected val session = AgenticContexts.createSession()
+    protected val session = PulsarContexts.createSession()
 
     protected val testFileCount: Int
         get() {
