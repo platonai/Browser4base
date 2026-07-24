@@ -1,10 +1,10 @@
 package ai.platon.pulsar
 
 import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
-import ai.platon.pulsar.core.api.PulsarSession
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.persist.WebDb
+import ai.platon.pulsar.skeleton.session.PulsarSession
 import ai.platon.pulsar.test.TestUrls
 import ai.platon.pulsar.util.server.EnableMockServerApplication
 import org.springframework.beans.factory.annotation.Autowired

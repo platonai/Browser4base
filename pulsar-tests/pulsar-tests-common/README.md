@@ -45,12 +45,12 @@ System properties:
 Reusable utility (`MockSiteStarter`) extracted from `SessionInstructionsExample` to wait for a mock/demo site to become available. Features:
 - Tries a health endpoint first (default `/actuator/health`) then falls back to root `/`
 - Configurable timeouts, intervals, connect/read timeouts
-- Auto-starts `MockSiteApplication` if the site is unreachable, trying multiple ports (configured → 8182 → 8080 → 0)
+- Auto-starts `MockSiteApplication` if the site is unreachable, trying multiple ports (configured → 8082 → 8080 → 0)
 - Reports success once any probe returns 2xx/3xx
 
 ```kotlin
 val starter = MockSiteStarter()
-starter.start("http://localhost:8182/ec/b?node=1292115012")
+starter.start("http://localhost:8082/ec/b?node=1292115012")
 // ... run test actions ...
 starter.stop()
 ```

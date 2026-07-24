@@ -1,8 +1,6 @@
 package ai.platon.pulsar
 
-import ai.platon.pulsar.api.Browser
 import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.api.manage.BrowserFactory
 import ai.platon.pulsar.api.model.BrowserSettings
 import ai.platon.pulsar.api.model.MergedDOMTreeNode
@@ -13,18 +11,13 @@ import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.dom.util.DomDebug
 import ai.platon.pulsar.common.printlnPro
-import ai.platon.pulsar.protocol.browser.impl.DefaultBrowserFactory
-import ai.platon.pulsar.util.server.EnableMockServerApplication
+import ai.platon.pulsar.core.api.Browser
+import ai.platon.pulsar.core.api.WebDriver
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import java.util.concurrent.atomic.AtomicBoolean
 
-@SpringBootTest(
-    classes = [EnableMockServerApplication::class],
-    webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT
-)
 @Import(PulsarAutoConfiguration::class)
 open class WebDriverTestBase : MockSiteAccess() {
 
@@ -51,8 +44,13 @@ open class WebDriverTestBase : MockSiteAccess() {
         }
     }
 
-    val browserFactory
-        get() = context.getBeanOrNull(BrowserFactory::class) ?: DefaultBrowserFactory(session.configuration)
+    /**
+     * The browser factory used for browser provisioning.
+     * Tries to resolve from Spring context first, falls back to the one from BrowserManager.
+     */
+    open val browserFactory: BrowserFactory
+        get() = context.getBeanOrNull(BrowserFactory::class)
+            ?: context.browserManager.browserFactory
 
     open val webDriverService get() = FastWebDriverService(browserFactory)
 
@@ -62,27 +60,27 @@ open class WebDriverTestBase : MockSiteAccess() {
     /**
      * Run webdriver test with the default browser.
      * */
-    protected fun runEnhancedWebDriverTest(
+    protected fun runWebDriverTestAndCompute(
         url: String, block: suspend (driver: WebDriver) -> Unit
-    ) = webDriverService.runEnhancedWebDriverTest(url, browser, block)
+    ) = webDriverService.runWebDriverTestAndCompute(url, browser, block)
 
     /**
      * Run webdriver test with the default browser.
      * */
-    protected fun runEnhancedWebDriverTest(block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runEnhancedWebDriverTest(browser, block)
+    protected fun runWebDriverTestAndCompute(block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(browser, block)
 
     /**
      * Run webdriver test with a specified browser.
      * */
-    protected fun runEnhancedWebDriverTest(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runEnhancedWebDriverTest(url, browser, block)
+    protected fun runWebDriverTestAndCompute(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(url, browser, block)
 
     /**
      * Run webdriver test with a specified browser.
      * */
-    protected fun runEnhancedWebDriverTest(browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runEnhancedWebDriverTest(browser, block)
+    protected fun runWebDriverTestAndCompute(browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
+        webDriverService.runWebDriverTestAndCompute(browser, block)
 
     /**
      * Run webdriver test with a newly created browser with the given browser profile.
@@ -96,26 +94,8 @@ open class WebDriverTestBase : MockSiteAccess() {
     protected fun runWebDriverTest(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
         webDriverService.runWebDriverTest(url, browser, block)
 
-    /**
-     * Run webdriver test with compute (page source verification + scroll).
-     * */
-    protected fun runWebDriverTestAndCompute(url: String, block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runWebDriverTestAndCompute(url, browser, block)
-
-    protected fun runWebDriverTestAndCompute(block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runWebDriverTestAndCompute(browser, block)
-
-    protected fun runWebDriverTestAndCompute(url: String, browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runWebDriverTestAndCompute(url, browser, block)
-
-    protected fun runWebDriverTestAndCompute(browser: Browser, block: suspend (driver: WebDriver) -> Unit) =
-        webDriverService.runWebDriverTestAndCompute(browser, block)
-
     protected suspend fun openAndCompute(url: String, driver: WebDriver, scrollCount: Int = 3) =
         webDriverService.openAndCompute(url, driver, scrollCount)
-
-    protected suspend fun openEnhanced(url: String, driver: WebDriver, scrollCount: Int = 3) =
-        webDriverService.openEnhanced(url, driver, scrollCount)
 
     protected suspend fun open(url: String, driver: WebDriver, scrollCount: Int = 1) =
         webDriverService.open(url, driver, scrollCount)

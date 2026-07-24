@@ -32,7 +32,7 @@ class MockSiteStarter: AutoCloseable {
 
     /**
      * Ensure the mock site serving the given url is started. Extracts the explicit port from the URL; if absent uses
-     * system/env configured port or sensible fallbacks (8182, then 8080) instead of the protocol default (80).
+     * system/env configured port or sensible fallbacks (8082, then 8080) instead of the protocol default (80).
      */
     fun start(url: String) {
         logger.info("Ensure mock site is running (autoStart always enabled)")
@@ -45,9 +45,9 @@ class MockSiteStarter: AutoCloseable {
             val desiredPort = when {
                 u.port > 0 -> u.port
                 configuredPort != null -> configuredPort
-                else -> 8182 // primary fallback
+                else -> 8082 // primary fallback
             }
-            val fallbackPorts = (listOfNotNull(configuredPort, 8182, 8080) + desiredPort).distinct()
+            val fallbackPorts = (listOfNotNull(configuredPort, 8082, 8080) + desiredPort).distinct()
             val attemptedPorts = mutableListOf<Int>()
             var started = false
 
@@ -86,13 +86,13 @@ class MockSiteStarter: AutoCloseable {
 
     /**
      * Wait for the site referred to by a full page URL (any path under host). Only host/port are probed.
-     * @param pageUrl Any URL within the target host (ex: http://localhost:8182/generated/tta/instructions/instructions-demo.html)
+     * @param pageUrl Any URL within the target host (ex: http://localhost:8082/generated/tta/instructions/instructions-demo.html)
      */
     fun wait(pageUrl: String, options: Options = Options()): Boolean {
         val (healthURL, rootURL) = try {
             val u = URI.create(pageUrl).toURL()
             val effectivePort = if (u.port != -1) u.port else (System.getProperty("mock.site.port")?.toIntOrNull()
-                ?: System.getenv("MOCK_SITE_PORT")?.toIntOrNull() ?: 8182)
+                ?: System.getenv("MOCK_SITE_PORT")?.toIntOrNull() ?: 8082)
             val hostPort = URL(u.protocol, u.host, effectivePort, "/")
             val health = URL(u.protocol, u.host, effectivePort, options.healthPath)
             health to hostPort
