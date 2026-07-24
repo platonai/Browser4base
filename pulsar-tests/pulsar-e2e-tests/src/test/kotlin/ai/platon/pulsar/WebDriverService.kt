@@ -166,6 +166,12 @@ open class WebDriverService(
         driver.waitForSelector("body")
         waitForPulsarUtils(driver)
 
+        // make sure all metadata are available
+        driver.evaluate("__pulsar_utils__.waitForReady()")
+        // compute visual information so getAnnotatedHTML/getAnnotatedOuterHTML
+        // can inject vi attributes during serialization
+        driver.evaluate("__pulsar_utils__.compute()")
+
         driver.waitForNavigation()
         var n = scrollCount
         while (n-- > 0) {
