@@ -8,6 +8,7 @@ import ai.platon.pulsar.chrome.protocol.EmulationHandler
 import ai.platon.pulsar.chrome.protocol.PageHandler
 import ai.platon.pulsar.chrome.protocol.ScreenshotHandler
 import ai.platon.pulsar.chrome.protocol.transport.ChromeImpl
+import ai.platon.pulsar.chrome.protocol.transport.ExtensionChromeService
 import ai.platon.pulsar.chrome.protocol.util.CheckableElementJs
 import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
 import ai.platon.pulsar.chrome.util.ChromeDriverException
@@ -127,7 +128,7 @@ open class PulsarWebDriver constructor(
     private val emulator get() = EmulationHandler(browserProtocol, keyboard, mouse)
 
     private val rpc = RobustRPC(this)
-    private val networkManager by lazy { NetworkManager(rpc, browserProtocol) }
+    private val networkManager by lazy { NetworkManager(rpc, browserProtocol, browser.chrome is ExtensionChromeService) }
     private val messageWriter = MultiSinkMessageWriter()
 
     private val driverHelper get() = WebDriverHelper(this, rpc, page, browserProtocol)
@@ -179,9 +180,23 @@ open class PulsarWebDriver constructor(
             return state
         }
 
-        if (!browserProtocol.isTargetAlive()) {
+        // Extension-attached drivers use chrome.debugger.sendCommand (per-tab
+        // CDP) through the Chrome Extension relay.  Browser-level commands
+        // like Target.getTargets are not available — they fail even when the
+        // tab is perfectly healthy.  Use isPageAlive() (→ Page.getFrameTree)
+        // instead: a page-level command that works on every page type
+        // (about:blank, images, normal pages, etc.) without requiring a
+        // JavaScript execution context.
+        val alive = if (browser.chrome is ExtensionChromeService) {
+            browserProtocol.isPageAlive()
+        } else {
+            browserProtocol.isTargetAlive()
+        }
+
+        if (!alive) {
             return CheckState(
-                ResourceStatus.SC_SERVICE_UNAVAILABLE, "WebDriver service unavailable - the target page is not alive"
+                ResourceStatus.SC_SERVICE_UNAVAILABLE,
+                "WebDriver service unavailable - the target page is not alive"
             )
         }
 
