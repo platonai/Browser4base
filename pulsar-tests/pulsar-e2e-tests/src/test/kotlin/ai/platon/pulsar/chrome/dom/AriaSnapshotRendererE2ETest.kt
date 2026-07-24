@@ -5,6 +5,7 @@ import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.PageTarget
 import ai.platon.pulsar.api.model.SnapshotOptions
+import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import kotlinx.coroutines.delay
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName

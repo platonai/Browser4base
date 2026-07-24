@@ -4,6 +4,7 @@ import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import ai.platon.pulsar.api.model.SnapshotOptions
+import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName

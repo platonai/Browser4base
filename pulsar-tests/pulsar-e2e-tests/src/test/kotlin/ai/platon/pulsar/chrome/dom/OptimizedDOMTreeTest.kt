@@ -8,6 +8,7 @@ import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import ai.platon.pulsar.api.model.NodeType
 import ai.platon.pulsar.api.model.OptimizedDOMTreeNode
 import ai.platon.pulsar.api.model.SnapshotOptions
+import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.common.printlnPro
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName

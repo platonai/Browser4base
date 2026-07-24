@@ -5,6 +5,7 @@ import ai.platon.pulsar.WebDriverTestBase
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.ElementRefCriteria
 import ai.platon.pulsar.api.model.SnapshotOptions
+import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test

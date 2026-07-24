@@ -1,9 +1,9 @@
 package ai.platon.pulsar
 
 import ai.platon.pulsar.boot.autoconfigure.PulsarAutoConfiguration
+import ai.platon.pulsar.agentic.AgenticSession
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.getLogger
-import ai.platon.pulsar.core.api.PulsarSession
 import ai.platon.pulsar.persist.WebDb
 import ai.platon.pulsar.test.TestUrls
 import ai.platon.pulsar.util.server.EnableMockServerApplication
@@ -23,10 +23,10 @@ open class MockSiteAccess {
     lateinit var conf: ImmutableConfig
 
     @Autowired
-    lateinit var session: PulsarSession
+    lateinit var session: AgenticSession
 
     @Value("\${server.port}")
-    var port: Int = 17080
+    var port: Int = 18080
 
     val context get() = session.context
 

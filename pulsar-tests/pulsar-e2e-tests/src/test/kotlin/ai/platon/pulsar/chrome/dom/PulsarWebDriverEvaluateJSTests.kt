@@ -8,6 +8,7 @@ import ai.platon.pulsar.common.js.JsUtils
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.api.WebDriver
 import org.junit.jupiter.api.assertNull
+import kotlin.collections.get
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
