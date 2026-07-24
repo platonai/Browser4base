@@ -47,7 +47,7 @@ from pathlib import Path
 # Configuration
 # ---------------------------------------------------------------------------
 
-SOURCE_BASE = Path(r"D:\workspace\Browser4Team2\submodules\Browser4")
+SOURCE_BASE = Path(r"D:\workspace\Browser4\Browser4")
 DEST_BASE = Path(r"D:\workspace\Browser4\browser4base")
 
 OLD_NS = "ai.platon.browser4"
