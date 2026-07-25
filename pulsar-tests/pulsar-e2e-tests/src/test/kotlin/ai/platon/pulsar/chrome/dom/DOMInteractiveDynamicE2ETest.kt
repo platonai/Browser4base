@@ -96,6 +96,11 @@ class DOMInteractiveDynamicE2ETest : WebDriverTestBase() {
                     ?: 0
             count == 0
         }
+        // Wait for the async status update (clearAllItems uses setTimeout to update status)
+        driver.waitUntil(2000) {
+            val txt = driver.selectFirstTextOrNull("#listStatus span")
+            txt?.contains("0 items in list") == true
+        }
         listStatus = driver.selectFirstTextOrNull("#listStatus span")
         assertTrue(listStatus?.contains("0 items in list") == true)
     }
@@ -177,7 +182,8 @@ class DOMInteractiveDynamicE2ETest : WebDriverTestBase() {
         driver.waitUntil(2000) { driver.exists("#virtualScrollContent [data-testid^='tta-virtual-']") }
 
         assertTrue(driver.exists("#virtualScrollContent [data-testid='tta-virtual-1']"))
-        driver.click("[data-testid='tta-virtual-btn-1']")
+        // Use evaluate to click to avoid CDP node ID staleness from virtual scrolling re-renders
+        driver.evaluate("""document.querySelector('[data-testid="tta-virtual-btn-1"]').click()""")
         driver.waitUntil(2000) {
             val txt = driver.selectFirstTextOrNull("#testStatus span")
             txt?.contains("Virtual item 1 clicked") == true
@@ -208,7 +214,8 @@ class DOMInteractiveDynamicE2ETest : WebDriverTestBase() {
             else -> 998
         }
         driver.bringToFront()
-        driver.click("[data-testid='tta-virtual-btn-$targetId']")
+        // Use evaluate to click to avoid CDP node ID staleness from virtual scrolling re-renders
+        driver.evaluate("""document.querySelector('[data-testid="tta-virtual-btn-$targetId"]').click()""")
         driver.waitUntil(2000) {
             val txt = driver.selectFirstTextOrNull("#testStatus span")
             txt?.contains("Virtual item $targetId clicked") == true
