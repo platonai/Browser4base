@@ -59,6 +59,9 @@ NEW_NS = "ai.platon.pulsar"
 OLD_PORT = "8182"
 NEW_PORT = "8082"
 
+OLD_MOCK_PORT = "18080"
+NEW_MOCK_PORT = "17080"
+
 TEXT_EXTENSIONS = {
     ".kt", ".kts", ".java", ".xml", ".properties", ".yaml", ".yml",
     ".json", ".txt", ".gradle", ".cfg", ".conf",
@@ -294,6 +297,11 @@ def transform_content(content, filepath):
     if OLD_PORT in content:
         count = content.count(OLD_PORT)
         content = content.replace(OLD_PORT, NEW_PORT)
+        changed += count
+
+    if OLD_MOCK_PORT in content:
+        count = content.count(OLD_MOCK_PORT)
+        content = content.replace(OLD_MOCK_PORT, NEW_MOCK_PORT)
         changed += count
 
     for old_class, new_class in CLASS_RENAMES.items():

@@ -9,7 +9,7 @@ A lightweight Spring Boot application that serves static deterministic pages und
 ```
 Key demo page:
 ```
-http://localhost:18080/generated/interactive-1.html
+http://localhost:17080/generated/interactive-1.html
 ```
 Pages emulate: search box, link list, infinite scroll, comment threads, and predictable anchors for agent action instructions.
 
