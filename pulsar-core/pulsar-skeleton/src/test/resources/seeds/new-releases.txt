@@ -3990,7 +3990,7 @@
  4014 |  4004 |   5 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Earrings > Hoop             | https://www.amazon.com/gp/new-releases/fashion/3881731
  4015 |  4004 |   5 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Earrings > Stud             | https://www.amazon.com/gp/new-releases/fashion/3881791
  4005 |  3907 |   4 |   3 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Necklaces & Pendants        | https://www.amazon.com/gp/new-releases/fashion/3881811
- 4016 |  4005 |   5 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Necklaces & Pendants > Chains | https://www.amazon.com/gp/new-releases/fashion/3881821
+ 4016 |  4005 |   5 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Necklaces & Pendants > Chains | https://www.amazon.com/gp/new-releases/fashion/3880821
  4017 |  4005 |   5 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Necklaces & Pendants > Lockets | https://www.amazon.com/gp/new-releases/fashion/3881831
  4018 |  4005 |   5 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Necklaces & Pendants > Pendants | https://www.amazon.com/gp/new-releases/fashion/3881851
  4006 |  3907 |   4 |   0 | Root > Clothing, Shoes & Jewelry > Girls > Jewelry > Rings                       | https://www.amazon.com/gp/new-releases/fashion/3881961
@@ -8173,7 +8173,7 @@
  8200 |  8173 |   4 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Jelly Beans & Gummy Candy > Jelly Beans | https://www.amazon.com/gp/new-releases/grocery/16322511
  8201 |  8173 |   4 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Jelly Beans & Gummy Candy > Licorice | https://www.amazon.com/gp/new-releases/grocery/16322521
  8202 |  8173 |   4 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Jelly Beans & Gummy Candy > Taffy | https://www.amazon.com/gp/new-releases/grocery/16322571
- 8182 |  7907 |   3 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Marshmallows                 | https://www.amazon.com/gp/new-releases/grocery/724726011
+ 8082 |  7907 |   3 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Marshmallows                 | https://www.amazon.com/gp/new-releases/grocery/724726011
  8171 |  7907 |   3 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Mints                        | https://www.amazon.com/gp/new-releases/grocery/16322531
  8181 |  7907 |   3 |   0 | Root > Grocery & Gourmet Food > Candy & Chocolate > Sour Candy                   | https://www.amazon.com/gp/new-releases/grocery/6558939011
  8176 |  7907 |   3 |   2 | Root > Grocery & Gourmet Food > Candy & Chocolate > Traditional & International Sweets | https://www.amazon.com/gp/new-releases/grocery/17369017011
@@ -8474,7 +8474,7 @@
  8505 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Porterhouse     | https://www.amazon.com/gp/new-releases/grocery/6518179011
  8506 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Ribeye          | https://www.amazon.com/gp/new-releases/grocery/6518180011
  8507 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Shoulder        | https://www.amazon.com/gp/new-releases/grocery/6518181011
- 8508 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Sirloin         | https://www.amazon.com/gp/new-releases/grocery/6518182011
+ 8508 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Sirloin         | https://www.amazon.com/gp/new-releases/grocery/6518082011
  8509 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Skirt           | https://www.amazon.com/gp/new-releases/grocery/6518183011
  8500 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > Strip           | https://www.amazon.com/gp/new-releases/grocery/16850763011
  8510 |  8488 |   5 |   0 | Root > Grocery & Gourmet Food > Meat & Seafood > Beef > Steaks > T-Bone          | https://www.amazon.com/gp/new-releases/grocery/6518184011
@@ -11359,7 +11359,7 @@
 11388 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Honey Dippers | https://www.amazon.com/gp/new-releases/home-garden/3118181011
 11390 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Matcha Bowls & Whisks | https://www.amazon.com/gp/new-releases/home-garden/3177020011
 11383 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Tea Bag Coasters | https://www.amazon.com/gp/new-releases/home-garden/3118173011
-11389 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Tea Cozies | https://www.amazon.com/gp/new-releases/home-garden/3118182011
+11389 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Tea Cozies | https://www.amazon.com/gp/new-releases/home-garden/3118082011
 11384 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Tea Scoops | https://www.amazon.com/gp/new-releases/home-garden/3118174011
 11385 | 11330 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Tea Storage Chests | https://www.amazon.com/gp/new-releases/home-garden/3118175011
 11391 | 11330 |   5 |   3 | Root > Home & Kitchen > Kitchen & Dining > Coffee, Tea & Espresso > Tea Accessories > Tea Strainers & Filters | https://www.amazon.com/gp/new-releases/home-garden/3737181
@@ -11446,7 +11446,7 @@
 11466 | 11459 |   6 |   2 | Root > Home & Kitchen > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Potholders & Oven Mitts | https://www.amazon.com/gp/new-releases/home-garden/3742011
 11470 | 11466 |   7 |   0 | Root > Home & Kitchen > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Potholders & Oven Mitts > Oven Mitts | https://www.amazon.com/gp/new-releases/kitchen/678536011
 11471 | 11466 |   7 |   0 | Root > Home & Kitchen > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Potholders & Oven Mitts > Potholders | https://www.amazon.com/gp/new-releases/kitchen/678537011
-11461 | 11459 |   6 |   0 | Root > Home & Kitchen > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Tea Cozies | https://www.amazon.com/gp/new-releases/home-garden/3118182011
+11461 | 11459 |   6 |   0 | Root > Home & Kitchen > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Tea Cozies | https://www.amazon.com/gp/new-releases/home-garden/3118082011
 11241 | 10216 |   3 |   7 | Root > Home & Kitchen > Kitchen & Dining > Home Brewing & Wine Making            | https://www.amazon.com/gp/new-releases/home-garden/979832011
 11473 | 11241 |   4 |   9 | Root > Home & Kitchen > Kitchen & Dining > Home Brewing & Wine Making > Beer Brewing | https://www.amazon.com/gp/new-releases/home-garden/979833011
 11480 | 11473 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Home Brewing & Wine Making > Beer Brewing > Bottles & Bottling | https://www.amazon.com/gp/new-releases/kitchen/979834011
@@ -11486,7 +11486,7 @@
 11504 | 11229 |   4 |   2 | Root > Home & Kitchen > Kitchen & Dining > Kitchen & Table Linens > Potholders & Oven Mitts | https://www.amazon.com/gp/new-releases/home-garden/3742011
 11508 | 11504 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Kitchen & Table Linens > Potholders & Oven Mitts > Oven Mitts | https://www.amazon.com/gp/new-releases/kitchen/678536011
 11509 | 11504 |   5 |   0 | Root > Home & Kitchen > Kitchen & Dining > Kitchen & Table Linens > Potholders & Oven Mitts > Potholders | https://www.amazon.com/gp/new-releases/kitchen/678537011
-11499 | 11229 |   4 |   0 | Root > Home & Kitchen > Kitchen & Dining > Kitchen & Table Linens > Tea Cozies   | https://www.amazon.com/gp/new-releases/home-garden/3118182011
+11499 | 11229 |   4 |   0 | Root > Home & Kitchen > Kitchen & Dining > Kitchen & Table Linens > Tea Cozies   | https://www.amazon.com/gp/new-releases/home-garden/3118082011
 11234 | 10216 |   3 |  20 | Root > Home & Kitchen > Kitchen & Dining > Kitchen Utensils & Gadgets            | https://www.amazon.com/gp/new-releases/home-garden/289754
 11516 | 11234 |   4 |  14 | Root > Home & Kitchen > Kitchen & Dining > Kitchen Utensils & Gadgets > Baking Tools | https://www.amazon.com/gp/new-releases/home-garden/289719
 11533 | 11516 |   5 |   4 | Root > Home & Kitchen > Kitchen & Dining > Kitchen Utensils & Gadgets > Baking Tools > Baking & Pastry Utensils | https://www.amazon.com/gp/new-releases/kitchen/289720
@@ -12292,7 +12292,7 @@
 12304 | 12297 |   5 |   2 | Root > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Potholders & Oven Mitts | https://www.amazon.com/gp/new-releases/home-garden/3742011
 12308 | 12304 |   6 |   0 | Root > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Potholders & Oven Mitts > Oven Mitts | https://www.amazon.com/gp/new-releases/kitchen/678536011
 12309 | 12304 |   6 |   0 | Root > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Potholders & Oven Mitts > Potholders | https://www.amazon.com/gp/new-releases/kitchen/678537011
-12299 | 12297 |   5 |   0 | Root > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Tea Cozies | https://www.amazon.com/gp/new-releases/home-garden/3118182011
+12299 | 12297 |   5 |   0 | Root > Kitchen & Dining > Dining & Entertaining > Tabletop Accessories > Linens > Tea Cozies | https://www.amazon.com/gp/new-releases/home-garden/3118082011
 12127 |    13 |   2 |   7 | Root > Kitchen & Dining > Home Brewing & Wine Making                             | https://www.amazon.com/gp/new-releases/kitchen/979832011
 12311 | 12127 |   3 |   9 | Root > Kitchen & Dining > Home Brewing & Wine Making > Beer Brewing              | https://www.amazon.com/gp/new-releases/home-garden/979833011
 12318 | 12311 |   4 |   0 | Root > Kitchen & Dining > Home Brewing & Wine Making > Beer Brewing > Bottles & Bottling | https://www.amazon.com/gp/new-releases/kitchen/979834011
@@ -12332,7 +12332,7 @@
 12342 | 12117 |   3 |   2 | Root > Kitchen & Dining > Kitchen & Table Linens > Potholders & Oven Mitts       | https://www.amazon.com/gp/new-releases/home-garden/3742011
 12346 | 12342 |   4 |   0 | Root > Kitchen & Dining > Kitchen & Table Linens > Potholders & Oven Mitts > Oven Mitts | https://www.amazon.com/gp/new-releases/kitchen/678536011
 12347 | 12342 |   4 |   0 | Root > Kitchen & Dining > Kitchen & Table Linens > Potholders & Oven Mitts > Potholders | https://www.amazon.com/gp/new-releases/kitchen/678537011
-12337 | 12117 |   3 |   0 | Root > Kitchen & Dining > Kitchen & Table Linens > Tea Cozies                    | https://www.amazon.com/gp/new-releases/home-garden/3118182011
+12337 | 12117 |   3 |   0 | Root > Kitchen & Dining > Kitchen & Table Linens > Tea Cozies                    | https://www.amazon.com/gp/new-releases/home-garden/3118082011
 12123 |    13 |   2 |  20 | Root > Kitchen & Dining > Kitchen Utensils & Gadgets                             | https://www.amazon.com/gp/new-releases/kitchen/289754
 12354 | 12123 |   3 |  14 | Root > Kitchen & Dining > Kitchen Utensils & Gadgets > Baking Tools              | https://www.amazon.com/gp/new-releases/home-garden/289719
 12371 | 12354 |   4 |   4 | Root > Kitchen & Dining > Kitchen Utensils & Gadgets > Baking Tools > Baking & Pastry Utensils | https://www.amazon.com/gp/new-releases/kitchen/289720
@@ -15663,7 +15663,7 @@
 15675 | 15667 |   4 |   0 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Anti-Chafing Products | https://www.amazon.com/gp/new-releases/sporting-goods/19609244011
 15685 | 15667 |   4 |   6 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers | https://www.amazon.com/gp/new-releases/sporting-goods/491437011
 15691 | 15685 |   5 |   0 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers > Bike Racks | https://www.amazon.com/gp/new-releases/sporting-goods/491440011
-15688 | 15685 |   5 |   0 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers > Car Rack Parts & Accessories | https://www.amazon.com/gp/new-releases/sporting-goods/10208182011
+15688 | 15685 |   5 |   0 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers > Car Rack Parts & Accessories | https://www.amazon.com/gp/new-releases/sporting-goods/10208082011
 15689 | 15685 |   5 |   3 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers > Cargo Carriers | https://www.amazon.com/gp/new-releases/sporting-goods/15735311
 15695 | 15689 |   6 |   0 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers > Cargo Carriers > Cargo Baskets | https://www.amazon.com/gp/new-releases/automotive/491447011
 15693 | 15689 |   6 |   0 | Root > Sports & Outdoors > Outdoor Recreation > Accessories > Car Racks & Carriers > Cargo Carriers > Hard-Shell Carriers | https://www.amazon.com/gp/new-releases/automotive/491445011
@@ -16841,7 +16841,7 @@
 16858 | 16843 |   4 |   0 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Ball Storage         | https://www.amazon.com/gp/new-releases/sporting-goods/12118748011
 16872 | 16843 |   4 |   6 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers | https://www.amazon.com/gp/new-releases/sporting-goods/491437011
 16878 | 16872 |   5 |   0 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers > Bike Racks | https://www.amazon.com/gp/new-releases/sporting-goods/491440011
-16875 | 16872 |   5 |   0 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers > Car Rack Parts & Accessories | https://www.amazon.com/gp/new-releases/sporting-goods/10208182011
+16875 | 16872 |   5 |   0 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers > Car Rack Parts & Accessories | https://www.amazon.com/gp/new-releases/sporting-goods/10208082011
 16876 | 16872 |   5 |   3 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers > Cargo Carriers | https://www.amazon.com/gp/new-releases/sporting-goods/15735311
 16882 | 16876 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers > Cargo Carriers > Cargo Baskets | https://www.amazon.com/gp/new-releases/automotive/491447011
 16880 | 16876 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Accessories > Car Racks & Carriers > Cargo Carriers > Hard-Shell Carriers | https://www.amazon.com/gp/new-releases/automotive/491445011
@@ -18053,7 +18053,7 @@
 18078 | 18051 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Eyewear & Hearing Protection > Safety Glasses | https://www.amazon.com/gp/new-releases/sporting-goods/3413661
 18049 | 17750 |   5 |   3 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Footwear | https://www.amazon.com/gp/new-releases/sporting-goods/19562671011
 18079 | 18049 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Footwear > Gaiters | https://www.amazon.com/gp/new-releases/sporting-goods/10208170011
-18080 | 18049 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Footwear > Men's | https://www.amazon.com/gp/new-releases/sporting-goods/679283011
+17080 | 18049 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Footwear > Men's | https://www.amazon.com/gp/new-releases/sporting-goods/679283011
 18081 | 18049 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Footwear > Women's | https://www.amazon.com/gp/new-releases/sporting-goods/679358011
 18055 | 17750 |   5 |   7 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Game Calls | https://www.amazon.com/gp/new-releases/sporting-goods/3413111
 18083 | 18055 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Game Calls > Deer | https://www.amazon.com/gp/new-releases/sporting-goods/3413151
@@ -18161,7 +18161,7 @@
 18171 | 18154 |   7 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Accessories > Two-Way Radios > Marine Two-Way Radios | https://www.amazon.com/gp/new-releases/electronics/2623486011
 18172 | 18154 |   7 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Accessories > Two-Way Radios > Two-Way Radios | https://www.amazon.com/gp/new-releases/electronics/912322
 18048 | 17750 |   5 |   2 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Bags & Belts | https://www.amazon.com/gp/new-releases/sporting-goods/13364372011
-18182 | 18048 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Bags & Belts > Game Bags & Belts | https://www.amazon.com/gp/new-releases/sporting-goods/3413541
+18082 | 18048 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Bags & Belts > Game Bags & Belts | https://www.amazon.com/gp/new-releases/sporting-goods/3413541
 18181 | 18048 |   6 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Bags & Belts > Hunting Bags | https://www.amazon.com/gp/new-releases/sporting-goods/13364373011
 18043 | 17750 |   5 |   0 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Hunting Dog Equipment | https://www.amazon.com/gp/new-releases/sporting-goods/13280261
 18050 | 17750 |   5 |   2 | Root > Sports & Outdoors > Sports & Fitness > Hunting & Fishing > Hunting > Knives & Tools | https://www.amazon.com/gp/new-releases/sporting-goods/3226379011
@@ -20643,7 +20643,7 @@
 20651 | 20611 |   4 |   0 | Root > Tools & Home Improvement > Paint, Wall Treatments & Supplies > Wallpaper & Wallpapering Supplies > Wallpaper Borders | https://www.amazon.com/gp/new-releases/hi/2242315011
 20648 | 20611 |   4 |   0 | Root > Tools & Home Improvement > Paint, Wall Treatments & Supplies > Wallpaper & Wallpapering Supplies > Wallpaper Removers | https://www.amazon.com/gp/new-releases/hi/164705011
 20647 | 20611 |   4 |   0 | Root > Tools & Home Improvement > Paint, Wall Treatments & Supplies > Wallpaper & Wallpapering Supplies > Wallpaper Tools | https://www.amazon.com/gp/new-releases/hi/164701011
-19867 |    11 |   2 |   5 | Root > Tools & Home Improvement > Power & Hand Tools                             | https://www.amazon.com/gp/new-releases/hi/328182011
+19867 |    11 |   2 |   5 | Root > Tools & Home Improvement > Power & Hand Tools                             | https://www.amazon.com/gp/new-releases/hi/328082011
 20652 | 19867 |   3 |  20 | Root > Tools & Home Improvement > Power & Hand Tools > Gardening Tools           | https://www.amazon.com/gp/new-releases/hi/128061011
 20673 | 20652 |   4 |   0 | Root > Tools & Home Improvement > Power & Hand Tools > Gardening Tools > Axes    | https://www.amazon.com/gp/new-releases/lawn-garden/554566
 20657 | 20652 |   4 |   3 | Root > Tools & Home Improvement > Power & Hand Tools > Gardening Tools > Bonsai Tools | https://www.amazon.com/gp/new-releases/lawn-garden/10802761
