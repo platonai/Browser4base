@@ -99,10 +99,13 @@ class PageHandler constructor(
         val serializableTree = buState.domState.serializableTree
 
         val sortedIndices = viewportIndices.distinct().sorted()
+        val scrollY = scrollState.y
+        // Viewport indices are scroll-relative: index 0 = current visible area,
+        // index 1 = one viewport below current, index -1 = one viewport above.
         // Merge contiguous viewport ranges into Y-axis ranges and build a combined NanoTree
         val nanoTrees = mergeViewportRanges(sortedIndices).map { (startIdx, endIdx) ->
-            val startY = (startIdx * viewportHeight).coerceAtLeast(0.0)
-            val endY = (endIdx + 1) * viewportHeight
+            val startY = (scrollY + startIdx * viewportHeight).coerceAtLeast(0.0)
+            val endY = scrollY + (endIdx + 1) * viewportHeight
             serializableTree.toNanoTreeInRange(startY, endY)
         }
 
@@ -148,9 +151,11 @@ class PageHandler constructor(
             val serializableTree = buState.domState.serializableTree
 
             val sortedIndices = viewportIndices.distinct().sorted()
+            val scrollY = scrollState.y
+            // Viewport indices are scroll-relative: index 0 = current visible area.
             val nanoTrees = mergeViewportRanges(sortedIndices).map { (startIdx, endIdx) ->
-                val startY = (startIdx * viewportHeight).coerceAtLeast(0.0)
-                val endY = (endIdx + 1) * viewportHeight
+                val startY = (scrollY + startIdx * viewportHeight).coerceAtLeast(0.0)
+                val endY = scrollY + (endIdx + 1) * viewportHeight
                 serializableTree.toNanoTreeInRange(startY, endY)
             }
             nanoTrees.joinToString("\n---\n") { NanoAriaSnapshotRenderer.render(it, resolvedOptions) }
@@ -216,28 +221,29 @@ class PageHandler constructor(
         val s = buState.browserState.scrollState
         if (s.viewportsTotal <= 1) return ""
 
-        // When viewports are specified, use the first requested viewport index as
-        // the "current" viewport for navigation hints. Otherwise use the scroll position.
-        val currentViewport: Int = options.viewports?.let { spec ->
-            ViewportSpec.parse(spec)?.firstOrNull()
-        } ?: s.processingViewport
-
+        // Viewport indices are now scroll-relative: -v 0 = current visible area,
+        // -v 1 = next viewport below, -v -1 = previous viewport above.
+        // The footer always uses scroll-relative hints regardless of whether an
+        // explicit viewport spec was provided or we're showing the default view.
         val viewportLabel = if (options.viewports != null) {
             "You are viewing viewport(s) ${options.viewports}"
         } else {
-            "You are currently viewing viewport $currentViewport"
+            "You are currently viewing viewport ${s.processingViewport} (absolute)"
         }
+
+        val hasSpaceAbove = s.processingViewport > 0
+        val hasSpaceBelow = s.processingViewport < s.viewportsTotal - 1
 
         return buildString {
             appendLine("# ---")
             appendLine("# This page has ${s.viewportsTotal} viewports (page chunks split by viewport height). $viewportLabel.")
             appendLine("# To read the page viewport by viewport (like a human scrolling):")
-            if (currentViewport > 0) {
-                appendLine("#   snapshot -v 0          # view the top of the page")
+            appendLine("#   snapshot -v 0          # current visible area")
+            if (hasSpaceAbove) {
+                appendLine("#   snapshot -v -1         # scroll up one viewport")
             }
-            if (currentViewport < s.viewportsTotal - 1) {
-                val next = currentViewport + 1
-                appendLine("#   snapshot -v $next          # scroll down to viewport $next")
+            if (hasSpaceBelow) {
+                appendLine("#   snapshot -v 1          # scroll down one viewport")
             }
             appendLine("#   snapshot -v 0-${s.viewportsTotal - 1}    # capture all viewports at once")
             appendLine("#   snapshot -v all       # capture all viewports (same as above)")

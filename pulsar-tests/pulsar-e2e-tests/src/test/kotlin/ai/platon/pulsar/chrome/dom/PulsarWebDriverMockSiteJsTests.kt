@@ -137,7 +137,9 @@ class PulsarWebDriverMockSiteJsTests : WebDriverTestBase() {
 
             driver.evaluate("window.scrollTo(0, 1080)")
             metadata = computeActiveDOMMetadata(driver)
-            assertTrue { metadata.screenNumber > 1 }
+            // Scrolling exactly one viewport (1080) puts us at the start of the
+            // second screen: scrollY / innerHeight == 1.0 exactly.
+            assertTrue { metadata.screenNumber >= 1 }
         }
 
     @Test

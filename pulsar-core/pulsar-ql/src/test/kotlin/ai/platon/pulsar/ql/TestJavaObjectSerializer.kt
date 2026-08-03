@@ -55,15 +55,20 @@ class TestJavaObjectSerializer : TestBase() {
         TestBase.logger.info("Initializing database")
 
         val config = remoteDB.conf
-        val args = if (config.ssl) mutableListOf("-tcpSSL", "-tcpPort", config.port.toString())
-        else mutableListOf("-tcpPort", config.port.toString())
+        // Let the OS allocate a free port instead of relying on the fixed default
+        // (18092), which falls inside Windows' excluded TCP port range on some
+        // machines and makes bind() fail with "Address already in use".
+        val args = if (config.ssl) mutableListOf("-tcpSSL", "-tcpPort", "0")
+        else mutableListOf("-tcpPort", "0")
 
         args.add("-trace")
 
         server = Server.createTcpServer(*args.toTypedArray())
         try {
             server?.start()
-            server?.let { TestBase.logger.info("H2 Server status: {}", it.status) }
+            // Point the database config at the port the OS actually assigned.
+            config.port = server?.port ?: error("H2 TCP server did not bind any port")
+            server?.let { TestBase.logger.info("H2 Server status: {}, port: {}", it.status, it.port) }
         } catch (e: SQLException) {
             e.printStackTrace()
         }
@@ -74,8 +79,13 @@ class TestJavaObjectSerializer : TestBase() {
      * TODO: database destroy causes the SQLContext closing, which is required by other DB connections
      */
     private fun destroyDatabase() {
-        server?.stop()
-        server?.let { logger.info("[Destroy database] H2 Server status: {}", it.status) }
+        // A server that never bound a port has no session factory; stopping it
+        // would NPE inside PulsarExtension.shutdownSessionFactory.
+        server?.let {
+            logger.info("[Destroy database] H2 Server status: {}", it.status)
+            if (it.isRunning(false)) it.stop()
+        }
+        server = null
 
         FileUtils.deleteDirectory(remoteDB.conf.baseDir.toFile())
 
