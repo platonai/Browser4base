@@ -124,6 +124,9 @@ settings.local.json
 /release_notes.md
 /node_modules/
 /**/node_modules/**
+
+# Jest coverage output for the browser-side JS unit tests
+**/src/test/js/coverage/
 */**/py/dom/
 */**/human-private/
 */**/.browser4-cli/
