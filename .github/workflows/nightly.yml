@@ -85,3 +85,33 @@ jobs:
           echo "| Build | $BUILD_RESULT |" >> $GITHUB_STEP_SUMMARY
           echo "| Test Results | $TEST_DISPLAY |" >> $GITHUB_STEP_SUMMARY
           echo "| Version | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+
+  coverage-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          java_version: ${{ env.JAVA_VERSION }}
+
+      - name: Maven Build with Tests and Aggregate Coverage
+        id: build
+        uses: ./.github/actions/maven-build
+        with:
+          skip_tests: 'false'
+          maven_profiles: 'coverage-report'
+          maven_args: '-DrunITs=true -DrunE2Es=true -DrunJsTests=true -Dmaven.test.redirectTestOutputToFile=true'
+          timeout_minutes: '90'
+
+      - name: Upload Aggregate Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: jacoco-aggregate-report
+          path: pulsar-coverage-report/target/site/jacoco-aggregate
+          if-no-files-found: warn

@@ -112,28 +112,39 @@
             <scope>test</scope>
         </dependency>
 
-        <!--
-        Integration & E2E test modules are NOT included by default since they
-        are only in the reactor when -DrunITs=true or -DrunE2Es=true.
-        To include them, add the appropriate profile:
-          mvn clean verify -Pcoverage-report,tests-integration,tests-e2e
-        and uncomment the dependencies below.
-        -->
-        <!--
-        <dependency>
-            <groupId>ai.platon.pulsar</groupId>
-            <artifactId>pulsar-it-tests</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>ai.platon.pulsar</groupId>
-            <artifactId>pulsar-e2e-tests</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        -->
     </dependencies>
+
+    <!--
+    Integration & E2E test modules are only in the reactor when -DrunITs=true
+    and -DrunE2Es=true are set, so their coverage data is only included when
+    the integration profile is active (run both flags together):
+      mvn clean verify -Pcoverage-report -DrunITs=true -DrunE2Es=true
+    -->
+    <profiles>
+        <profile>
+            <id>include-it-e2e-coverage</id>
+            <activation>
+                <property>
+                    <name>runITs</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>ai.platon.pulsar</groupId>
+                    <artifactId>pulsar-it-tests</artifactId>
+                    <version>${project.version}</version>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>ai.platon.pulsar</groupId>
+                    <artifactId>pulsar-e2e-tests</artifactId>
+                    <version>${project.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 
     <build>
         <plugins>
