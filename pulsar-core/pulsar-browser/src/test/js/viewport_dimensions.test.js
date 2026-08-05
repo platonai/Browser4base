@@ -58,6 +58,7 @@ describe('__pulsar_utils__.__updateStat maxWidth cap', () => {
         // Simulate resize to 800 wide
         setViewport(800, 600);
 
+        __pulsar_utils__.createDataIfAbsent();
         __pulsar_utils__.__updateStat();
 
         // maxWidth should be 1.2 * 800 = 960, not 1.2 * 1920 = 2304
@@ -69,6 +70,7 @@ describe('__pulsar_utils__.__updateStat maxWidth cap', () => {
     test('falls back to config.viewPortWidth when window.innerWidth is 0', () => {
         setViewport(0, 600);
 
+        __pulsar_utils__.createDataIfAbsent();
         __pulsar_utils__.__updateStat();
 
         // Should not crash; maxWidth = max(1, 1.2 * 0) = 1 with fallback
@@ -78,6 +80,7 @@ describe('__pulsar_utils__.__updateStat maxWidth cap', () => {
     test('maxWidth is never less than 1', () => {
         setViewport(0, 0);
 
+        __pulsar_utils__.createDataIfAbsent();
         __pulsar_utils__.__updateStat();
 
         expect(__pulsar_utils__.data).toBeDefined();
@@ -86,6 +89,7 @@ describe('__pulsar_utils__.__updateStat maxWidth cap', () => {
     test('after resize to wider viewport, cap expands accordingly', () => {
         setViewport(2560, 1440);
 
+        __pulsar_utils__.createDataIfAbsent();
         __pulsar_utils__.__updateStat();
 
         // Should not crash with wide viewport
@@ -206,8 +210,13 @@ describe('__pulsar_utils__.scrollToViewport', () => {
     });
 
     test('does nothing when document has no body', () => {
-        document.body = null;
-        expect(() => __pulsar_utils__.scrollToViewport(1)).not.toThrow();
+        const originalBody = document.body;
+        Object.defineProperty(document, 'body', { value: null, configurable: true, writable: true });
+        try {
+            expect(() => __pulsar_utils__.scrollToViewport(1)).not.toThrow();
+        } finally {
+            Object.defineProperty(document, 'body', { value: originalBody, configurable: true, writable: true });
+        }
     });
 });
 
@@ -320,6 +329,10 @@ describe('FeatureCalculator updateMaxWidth', () => {
         const div = document.body.querySelector('div');
         const nodeExt = new __pulsar_NodeExt(div, config);
         nodeExt.rect = { x: 0, y: 0, width: 400, height: 300 };
+        div.__pulsar_nodeExt = nodeExt;
+        // updateMaxWidth only applies a width when the node has a parent nodeExt,
+        // so provide a parent that does not constrain the 400px child width.
+        nodeExt.parent = () => ({ node: div, maxWidth: 2000 });
 
         const calc = new __pulsar_NodeFeatureCalculator(config);
         // Simulate non-overflow-hidden node
@@ -338,16 +351,27 @@ describe('FeatureCalculator updateMaxWidth', () => {
         const config = ensureConfig();
         const div = document.body.querySelector('div');
         const nodeExt = new __pulsar_NodeExt(div, config);
-        nodeExt.rect = { x: 0, y: 0, width: 400, height: 300 };
+        div.__pulsar_nodeExt = nodeExt;
+        // updateMaxWidth only applies a width when the node has a parent nodeExt,
+        // so provide a parent that does not constrain the 400px child width.
+        nodeExt.parent = () => ({ node: div, maxWidth: 2000 });
 
         const calc = new __pulsar_NodeFeatureCalculator(config);
         // Simulate overflow:hidden
         nodeExt.hasOverflowHidden = () => true;
 
-        calc.calcSelfIndicator(div, 0, nodeExt);
+        // calcSelfIndicator reads layout through NodeOps.getRect; jsdom cannot
+        // compute real layout, so stub a 400px-wide rect.
+        const origGetRect = NodeOps.getRect;
+        NodeOps.getRect = () => ({ x: 0, y: 0, width: 400, height: 300 });
+        try {
+            calc.calcSelfIndicator(div, 0, nodeExt);
 
-        // Should use the element's own rect width, not viewport
-        expect(nodeExt.maxWidth).toBe(400);
+            // Should use the element's own rect width, not viewport
+            expect(nodeExt.maxWidth).toBe(400);
+        } finally {
+            NodeOps.getRect = origGetRect;
+        }
     });
 });
 
@@ -361,6 +385,7 @@ describe('Integration: full viewport resize lifecycle', () => {
         setViewport(1280, 720);
 
         // 1. Stats update should use 1280
+        __pulsar_utils__.createDataIfAbsent();
         __pulsar_utils__.__updateStat();
 
         // 2. Metadata should report 1280x720

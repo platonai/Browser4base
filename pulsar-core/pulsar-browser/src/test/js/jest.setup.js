@@ -3,9 +3,29 @@
  *
  * Polyfills browser APIs that jsdom may not fully implement:
  * - DOMRect constructor
+ * - viewport dimensions (jsdom defaults to 1024x768) and window.scrollTo
  * - document.createTreeWalker (with NodeFilter constants)
  * - Canvas API (for text width measurement in getTextWidth)
  */
+
+// ---------------------------------------------------------------------------
+// Viewport polyfills
+// ---------------------------------------------------------------------------
+// jsdom defaults to a 1024x768 viewport, while the injected Browser4 config
+// uses 1920x1080. The runtime reads window.innerWidth/innerHeight first and
+// falls back to config, so tests that expect config-consistent defaults need
+// the actual viewport to match.
+Object.defineProperty(window, 'innerWidth', { value: 1920, writable: true, configurable: true });
+Object.defineProperty(window, 'innerHeight', { value: 1080, writable: true, configurable: true });
+Object.defineProperty(window, 'scrollX', { value: 0, writable: true, configurable: true });
+Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true });
+
+// jsdom does not implement window.scrollTo; provide a simple mock so the
+// runtime's scroll helpers are testable without a real browser layout engine.
+window.scrollTo = function (x, y) {
+    window.scrollX = x;
+    window.scrollY = y;
+};
 
 // ---------------------------------------------------------------------------
 // DOMRect polyfill
@@ -158,20 +178,11 @@ if (typeof document.createTreeWalker !== 'function') {
 // ---------------------------------------------------------------------------
 // Canvas API polyfill (for getTextWidth)
 // ---------------------------------------------------------------------------
-// jsdom's HTMLCanvasElement.getContext throws "not implemented".
-// Override at the prototype level to provide a mock 2d context.
+// jsdom's HTMLCanvasElement.getContext throws "not implemented" and logs an
+// error to the virtual console. Replace it entirely with a mock 2d context so
+// text-width measurement works without noise.
 if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype) {
-    const origGetContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function(contextType, ...args) {
-        // Try the real implementation first (it might work in some jsdom versions)
-        try {
-            const ctx = origGetContext.call(this, contextType, ...args);
-            if (ctx) return ctx;
-        } catch (_) {
-            // Fall through to mock
-        }
-
-        // Return a mock 2d context with measureText support
         return {
             font: '',
             measureText: function(text) {

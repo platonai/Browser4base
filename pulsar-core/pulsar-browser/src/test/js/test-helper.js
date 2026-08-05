@@ -7,6 +7,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { createInstrumenter } = require('istanbul-lib-instrument');
 
 const JS_DIR = path.resolve(__dirname, '..', '..', 'main', 'resources', 'js');
 
@@ -26,6 +27,12 @@ const LOAD_ORDER = [
 // Track which files have been loaded
 const loaded = new Set();
 
+// Instrument the source files before eval so `jest --coverage` can attribute
+// executed lines back to the real files in src/main/resources/js. The sources
+// are eval'd into the jsdom global scope (not required as modules), so plain
+// jest instrumentation never sees them.
+const instrumenter = createInstrumenter({ esModules: false, produceSourceMap: false });
+
 /**
  * Load a single source file by name.
  *
@@ -43,6 +50,7 @@ function loadScript(filename) {
         throw new Error(`Source file not found: ${filepath}`);
     }
     const code = fs.readFileSync(filepath, 'utf-8');
+    const instrumented = instrumenter.instrumentSync(code, filepath);
 
     // Ensure document.head exists (jsdom may not create it automatically)
     if (!document.head) {
@@ -57,6 +65,8 @@ function loadScript(filename) {
             propertyNames: ['font-size', 'color', 'background-color'],
             viewPortWidth: 1920,
             viewPortHeight: 1080,
+            META_INFORMATION_ID: 'PulsarMetaInformation',
+            SCRIPT_SECTION_ID: 'PulsarScriptSection',
             ATTR_HIDDEN: '_h',
             ATTR_OVERFLOW_HIDDEN: '_oh',
             ATTR_OVERFLOW_VISIBLE: '_ov',
@@ -71,7 +81,7 @@ function loadScript(filename) {
     // Inject as a <script> element so declarations become window properties.
     // In jsdom, script elements without external src are executed synchronously.
     const script = document.createElement('script');
-    script.textContent = code;
+    script.textContent = instrumented;
     document.head.appendChild(script);
     // Clean up — remove the script element after execution
     document.head.removeChild(script);
@@ -107,6 +117,11 @@ function setupDOM(html = '<div id="root"><span>hello</span><p>world</p></div>') 
  */
 function ensureConfig() {
     if (typeof window.__pulsar_CONFIGS !== 'undefined') {
+        // __pulsar_utils__ only creates its vi-data WeakMap during runtime init;
+        // make sure it exists so feature calculation helpers are usable in tests.
+        if (window.__pulsar_utils__ && !window.__pulsar_utils__._viDataMap) {
+            window.__pulsar_utils__._viDataMap = new WeakMap();
+        }
         return window.__pulsar_CONFIGS;
     }
     // __pulsar_CONFIGS is typically set by DualWorldScriptLoader via CDP.
