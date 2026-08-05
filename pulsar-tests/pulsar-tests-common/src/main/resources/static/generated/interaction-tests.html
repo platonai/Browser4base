@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Interaction Tests</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .card { border: 1px solid #ccc; border-radius: 6px; padding: 16px; margin-bottom: 16px; max-width: 640px; }
+        #dragTarget {
+            width: 120px; height: 120px; background: #4a90d9; color: white;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; cursor: grab; user-select: none;
+        }
+        #dropZone {
+            width: 320px; height: 140px; border: 2px dashed #999; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center; color: #777;
+        }
+        #wheelContainer { width: 260px; height: 120px; overflow: auto; border: 1px solid #ccc; }
+        #wheelContent { height: 600px; padding: 8px; }
+        button { padding: 6px 14px; }
+        input[type="text"] { padding: 6px; width: 220px; }
+        .output { font-weight: bold; }
+    </style>
+</head>
+<body>
+<h1>Interaction Tests</h1>
+
+<div class="card">
+    <h2>Typing</h2>
+    <input type="text" id="typeInput" placeholder="Type here...">
+    <p>Output: <span class="output" id="typeOutput"></span></p>
+</div>
+
+<div class="card">
+    <h2>Double click</h2>
+    <button id="dblclickButton">Double click me</button>
+    <p>Output: <span class="output" id="dblclickOutput">none</span></p>
+</div>
+
+<div class="card">
+    <h2>Mouse wheel</h2>
+    <div id="wheelContainer"><div id="wheelContent">Scrollable content</div></div>
+    <p>Total delta: <span class="output" id="wheelOutput">0</span></p>
+</div>
+
+<div class="card">
+    <h2>Drag and drop</h2>
+    <div id="dragTarget" draggable="true">Drag me</div>
+    <div id="dropZone">Drop here</div>
+    <p>Drag events: <span class="output" id="dragOutput">no-drag</span></p>
+    <p>Drag starts: <span class="output" id="dragCount">0</span> | Mouse drags: <span class="output" id="mouseDragCount">0</span> | Drops: <span class="output" id="dropCount">0</span></p>
+</div>
+
+<script>
+    document.getElementById('typeInput').addEventListener('input', function (e) {
+        document.getElementById('typeOutput').textContent = e.target.value;
+    });
+
+    document.getElementById('dblclickButton').addEventListener('dblclick', function () {
+        document.getElementById('dblclickOutput').textContent = 'dblclicked';
+    });
+
+    const wheelContainer = document.getElementById('wheelContainer');
+    let wheelTotal = 0;
+    wheelContainer.addEventListener('wheel', function (e) {
+        wheelTotal += Math.round(e.deltaY);
+        document.getElementById('wheelOutput').textContent = String(wheelTotal);
+        e.preventDefault();
+    });
+
+    const dragTarget = document.getElementById('dragTarget');
+    const dropZone = document.getElementById('dropZone');
+    let dragStarts = 0;
+    let drops = 0;
+    let mouseDrags = 0;
+    let mouseDown = false;
+    let mouseMoved = false;
+
+    dragTarget.addEventListener('dragstart', function () {
+        dragStarts += 1;
+        document.getElementById('dragCount').textContent = String(dragStarts);
+    });
+    dragTarget.addEventListener('dragend', function () {
+        document.getElementById('dragOutput').textContent = 'dragged-' + dragStarts;
+    });
+    dropZone.addEventListener('dragover', function (e) { e.preventDefault(); });
+    dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        drops += 1;
+        document.getElementById('dropCount').textContent = String(drops);
+        document.getElementById('dragOutput').textContent = 'dropped-' + drops;
+    });
+    dragTarget.addEventListener('mousedown', function () { mouseDown = true; });
+    window.addEventListener('mousemove', function () {
+        if (mouseDown) mouseMoved = true;
+    });
+    window.addEventListener('mouseup', function () {
+        if (mouseDown && mouseMoved) {
+            mouseDrags += 1;
+            document.getElementById('mouseDragCount').textContent = String(mouseDrags);
+        }
+        mouseDown = false;
+        mouseMoved = false;
+    });
+</script>
+</body>
+</html>

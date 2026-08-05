@@ -166,7 +166,10 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
         driver.navigate(e2eProductUrl)
         val navbarMain = driver.selectFirstTextOrNull("#navbar-main")
         val title = driver.selectFirstTextOrNull("#productTitle")
-        Assumptions.assumeTrue { navbarMain != null || title != null }
+        Assumptions.assumeTrue(
+            navbarMain != null || title != null,
+            "Mock product page did not render #navbar-main or #productTitle"
+        )
 
         val selector = "body a[href]"
         driver.waitForSelector(selector)
