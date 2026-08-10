@@ -18,6 +18,14 @@ import ai.platon.pulsar.ql.h2.DomToH2Queries.toDOMResultSet
 import ai.platon.pulsar.ql.h2.DomToH2Queries.toResultSet
 import ai.platon.pulsar.ql.h2.H2SessionFactory
 import ai.platon.pulsar.ql.h2.domValue
+import ai.platon.pulsar.ql.h2.utils.QueueRowSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.h2.jdbc.JdbcConnection
 import org.h2.tools.SimpleResultSet
@@ -28,11 +36,20 @@ import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.sql.ResultSet
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 
 @Suppress("unused")
 @UDFGroup(namespace = "DOM")
 object DomFunctionTables {
+
+    /**
+     * The maximum number of pages loaded concurrently by [loadAllAndSelect].
+     *
+     * Loading is I/O bound and the underlying browser pool supports far more open tabs,
+     * but a bounded concurrency keeps the peak memory of in-flight pages under control.
+     */
+    private const val DEFAULT_LOAD_CONCURRENCY = 32
 
     /**
      * Load all urls
@@ -72,6 +89,12 @@ object DomFunctionTables {
 
     /**
      * Load all pages specified by the given urls, and select elements matching [cssQuery] from each page.
+     *
+     * Pages are loaded concurrently (bounded by [DEFAULT_LOAD_CONCURRENCY]) and the matched elements are
+     * streamed to the caller through a bounded queue. Unlike a fully materialized result set, the memory
+     * footprint stays bounded: the result is consumed row by row by H2 while pages are still being fetched.
+     * Duplicate urls are loaded only once.
+     *
      * For example:
      * CALL loadAllAndSelect(ARRAY('http://...1', 'http://...2'), '.product-card');
      * SELECT * FROM LOAD_ALL_AND_SELECT(ARRAY('http://...1', 'http://...2'), '.product-card', 1, 5);
@@ -91,15 +114,48 @@ object DomFunctionTables {
             return toResultSet("DOM", listOf<ValueDom>())
         }
 
-        val urlStrings = urls.list.map { it.string }
-        val elements = runBlocking {
-            urlStrings.flatMap { urlString ->
-                val document = session.loadDocument(urlString)
-                document.select(cssQuery, offset, limit).map { domValue(it) }
+        val urlStrings = urls.list.map { it.string }.distinct()
+        if (urlStrings.isEmpty()) {
+            return toResultSet("DOM", listOf<ValueDom>())
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val rowSource = QueueRowSource(onClose = { scope.cancel() })
+        val rs = SimpleResultSet(rowSource)
+        rs.addColumn("DOM", DataType.convertTypeToSQLType(ValueDom.type), 0, 0)
+
+        val nextUrl = AtomicInteger(0)
+        val concurrency = minOf(urlStrings.size, DEFAULT_LOAD_CONCURRENCY)
+
+        scope.launch {
+            try {
+                coroutineScope {
+                    repeat(concurrency) {
+                        launch {
+                            while (true) {
+                                val i = nextUrl.getAndIncrement()
+                                if (i >= urlStrings.size) {
+                                    break
+                                }
+
+                                val document = session.loadDocument(urlStrings[i])
+                                val elements = document.select(cssQuery, offset, limit)
+                                elements.forEach { rowSource.put(arrayOf<Any?>(domValue(it))) }
+                            }
+                        }
+                    }
+                }
+                rowSource.finish()
+            } catch (e: CancellationException) {
+                rowSource.abort()
+                throw e
+            } catch (e: Exception) {
+                rowSource.fail(e)
+                scope.cancel()
             }
         }
 
-        return toResultSet("DOM", elements)
+        return rs
     }
 
     @JvmStatic
