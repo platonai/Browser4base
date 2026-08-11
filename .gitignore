@@ -132,3 +132,4 @@ settings.local.json
 */**/.browser4-cli/
 /**/dist/**
 /pulsar-core/pulsar-browser-old/
+.claude/worktrees/
