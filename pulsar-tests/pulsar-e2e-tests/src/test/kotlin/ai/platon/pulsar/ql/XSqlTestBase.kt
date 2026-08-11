@@ -25,6 +25,14 @@ abstract class XSqlTestBase : MockSiteAccess() {
     protected val researchUrl get() = "$htmlSnapshotBaseURL/research"
     protected val realEstateUrl get() = "$htmlSnapshotBaseURL/real-estate"
 
+    protected val formPageUrl get() = "$baseURL/assets/test-pages/form-page.html"
+    protected val errorPageUrl get() = "$baseURL/assets/test-pages/error-page.html"
+
+    /**
+     * The mock e-commerce category page, whose product cards link to mock detail pages.
+     */
+    protected val ecCategoryUrl get() = "$baseURL/ec/b?node=1292115012"
+
     /**
      * Run an X-SQL statement and return every result row as a list of string values.
      */
@@ -36,6 +44,24 @@ abstract class XSqlTestBase : MockSiteAccess() {
                     add(List(columnCount) { i -> rs.getString(i + 1) })
                 }
             }
+        }
+    }
+
+    /**
+     * Run an X-SQL statement and return the first column of the first row, or null if there is no row.
+     */
+    protected fun queryValue(sql: String): String? = queryRows(sql).firstOrNull()?.firstOrNull()
+
+    /**
+     * Run an X-SQL statement and count the result rows without materializing their values.
+     */
+    protected fun countRows(sql: String): Int {
+        return sqlContext.executeQuery(sql).use { rs ->
+            var n = 0
+            while (rs.next()) {
+                ++n
+            }
+            n
         }
     }
 
