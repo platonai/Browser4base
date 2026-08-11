@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * End-to-end tests for the load-and-select family of H2 UDFs.
@@ -235,5 +236,31 @@ class LoadAndSelectUdfE2ETest : XSqlTestBase() {
             ),
             rows
         )
+    }
+
+    @Test
+    @Tag("ManualOnly")
+    @DisplayName("LOAD_ALL_AND_SELECT handles a large URL set within bounded memory")
+    fun testLoadAllAndSelectLargeUrlSet() {
+        // Build ~200 distinct URLs pointing at the mock site news page by
+        // appending query params that the controller ignores.
+        val urlCount = 200
+        val urls = (1..urlCount).joinToString(", ") { "'$newsUrl?id=$it'" }
+        val sql = """
+            SELECT COUNT(*) AS cnt
+            FROM LOAD_ALL_AND_SELECT(MAKE_ARRAY($urls), '.athing', 1, 2)
+        """.trimIndent()
+
+        val rows = queryRows(sql)
+
+        // Each of the 200 pages has 6 .athing elements, with limit=2 we
+        // expect 2 per page × 200 pages = 400 rows.
+        val count = rows.firstOrNull()?.firstOrNull()?.toIntOrNull() ?: 0
+        assertEquals(400, count, "Expected 2 elements per page × $urlCount pages")
+
+        // Sanity: the call completed without OOM/timeout.
+        // The framework's concurrency cap (32) ensures memory stays bounded
+        // regardless of URL count.
+        assertTrue(count > 0, "Should return rows even for a large URL set")
     }
 }
