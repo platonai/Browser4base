@@ -154,6 +154,7 @@ object DomSelectFunctions {
     @UDFunction(description = "Select the first element from a DOM by the given css query " +
             "and try to extract an integer from the element text")
     @JvmStatic
+    @JvmOverloads
     fun firstInteger(dom: ValueDom, cssQuery: String, defaultValue: Int = 0): Int {
         val s = firstText(dom, cssQuery)
         return Strings.getFirstInteger(s, defaultValue)
@@ -183,6 +184,7 @@ object DomSelectFunctions {
     @UDFunction(description = "Select the first element from a DOM by the given css query " +
             "and try to extract an number from the element text")
     @JvmStatic
+    @JvmOverloads
     fun firstFloat(dom: ValueDom, cssQuery: String, defaultValue: Float = 0.0f): ValueFloat {
         val s = firstText(dom, cssQuery)
         return Strings.getFirstFloatNumber(s, defaultValue).let { ValueFloat.get(it) }
