@@ -16,6 +16,7 @@ import kotlin.test.assertTrue
  * over an entire result set.
  */
 @Tag("E2ETest")
+@Tag("Slow")
 @DisplayName("UDA aggregation functions")
 class UdaAggregationE2ETest : XSqlTestBase() {
 

@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
  * against the local mock site with assertions on the final results.
  */
 @Tag("E2ETest")
+@Tag("Slow")
 @DisplayName("Core DOM scalar UDFs")
 class DomCoreUdfE2ETest : XSqlTestBase() {
 
@@ -21,15 +22,15 @@ class DomCoreUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("DOM_LOAD and DOM_FETCH")
     fun testLoadAndFetch() {
-        assertValue("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$jobsUrl'))", "true")
-        assertValue("SELECT DOM_IS_NOT_NIL(DOM_FETCH('$jobsUrl'))", "true")
+        assertValue("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$jobsUrl'))", "TRUE")
+        assertValue("SELECT DOM_IS_NOT_NIL(DOM_FETCH('$jobsUrl'))", "TRUE")
     }
 
     @Test
     @DisplayName("DOM_IS_NIL and DOM_IS_NOT_NIL")
     fun testIsNil() {
-        assertValue("SELECT DOM_IS_NIL(DOM_LOAD('$jobsUrl'))", "false")
-        assertValue("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$jobsUrl'))", "true")
+        assertValue("SELECT DOM_IS_NIL(DOM_LOAD('$jobsUrl'))", "FALSE")
+        assertValue("SELECT DOM_IS_NOT_NIL(DOM_LOAD('$jobsUrl'))", "TRUE")
     }
 
     @Test
@@ -114,7 +115,7 @@ class DomCoreUdfE2ETest : XSqlTestBase() {
         )
         assertValue(
             "SELECT DOM_IS_NOT_NIL(DOM_OWNER_DOCUMENT(DOM_SELECT_FIRST(DOM_LOAD('$jobsUrl'), '.job-card-list__title')))",
-            "true"
+            "TRUE"
         )
         assertValue(
             "SELECT DOM_TAG_NAME(DOM_OWNER_BODY(DOM_SELECT_FIRST(DOM_LOAD('$jobsUrl'), '.job-card-list__title')))",
@@ -165,7 +166,7 @@ class DomCoreUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("DOM_DOM identity")
     fun testDomIdentity() {
-        assertValue("SELECT DOM_IS_NOT_NIL(DOM_DOM(DOM_LOAD('$jobsUrl')))", "true")
+        assertValue("SELECT DOM_IS_NOT_NIL(DOM_DOM(DOM_LOAD('$jobsUrl')))", "TRUE")
     }
 
     @Test

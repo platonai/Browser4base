@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
  * all written as direct X-SQL against the local mock site.
  */
 @Tag("E2ETest")
+@Tag("Slow")
 @DisplayName("DOM select and IN_BOX UDFs")
 class DomSelectUdfE2ETest : XSqlTestBase() {
 
@@ -184,23 +185,23 @@ class DomSelectUdfE2ETest : XSqlTestBase() {
             "150"
         )
         assertValue(
-            """SELECT DOM_FIRST_RE1($jobs, '.job-search-card__salary-info', '(\d+)k - ${'$'}(\d+)k', 2)""",
+            """SELECT DOM_FIRST_RE1($jobs, '.job-search-card__salary-info', '(\d+)k - \$(\d+)k', 2)""",
             "200"
         )
         assertValue(
-            "SELECT ARRAY_LENGTH(DOM_ALL_RE2($jobs, '.job-search-card__salary-info', '(\\d+)k - ${'$'}(\\d+)k'))",
+            "SELECT ARRAY_LENGTH(DOM_ALL_RE2($jobs, '.job-search-card__salary-info', '(\\d+)k - \\$(\\d+)k'))",
             "4"
         )
         assertValue(
-            """SELECT STR_JOIN(DOM_FIRST_RE2($jobs, '.job-search-card__salary-info', '(\d+)k - ${'$'}(\d+)k'), ':')""",
+            """SELECT STR_JOIN(DOM_FIRST_RE2($jobs, '.job-search-card__salary-info', '(\d+)k - \$(\d+)k'), ':')""",
             "150:200"
         )
         assertValue(
-            """SELECT STR_JOIN(DOM_FIRST_RE2($jobs, '.job-search-card__salary-info', '(\d+)k - ${'$'}(\d+)k', 1, 2), ':')""",
+            """SELECT STR_JOIN(DOM_FIRST_RE2($jobs, '.job-search-card__salary-info', '(\d+)k - \$(\d+)k', 1, 2), ':')""",
             "150:200"
         )
         assertValue(
-            "SELECT ARRAY_LENGTH(DOM_ALL_RE2($jobs, '.job-search-card__salary-info', '(\\d+)k - ${'$'}(\\d+)k', 1, 2))",
+            "SELECT ARRAY_LENGTH(DOM_ALL_RE2($jobs, '.job-search-card__salary-info', '(\\d+)k - \\$(\\d+)k', 1, 2))",
             "4"
         )
     }
@@ -224,8 +225,8 @@ class DomSelectUdfE2ETest : XSqlTestBase() {
         val jobs = "DOM_LOAD('$jobsUrl')"
         assertValue("SELECT ARRAY_LENGTH(IN_BOX_ALL($jobs, 'garbage'))", "0")
         assertValue("SELECT ARRAY_LENGTH(IN_BOX_ALL($jobs, 'garbage', 1, 2))", "0")
-        assertValue("SELECT DOM_IS_NIL(IN_BOX_FIRST($jobs, 'garbage'))", "true")
-        assertValue("SELECT DOM_IS_NIL(IN_BOX_NTH($jobs, 'garbage', 1))", "true")
+        assertValue("SELECT DOM_IS_NIL(IN_BOX_FIRST($jobs, 'garbage'))", "TRUE")
+        assertValue("SELECT DOM_IS_NIL(IN_BOX_NTH($jobs, 'garbage', 1))", "TRUE")
         assertValue("SELECT IN_BOX_FIRST_TEXT($jobs, 'garbage')", "")
         assertValue("SELECT IN_BOX_NTH_TEXT($jobs, 'garbage', 1)", "")
         assertValue("SELECT IN_BOX_FIRST_IMG($jobs, 'garbage')", "")

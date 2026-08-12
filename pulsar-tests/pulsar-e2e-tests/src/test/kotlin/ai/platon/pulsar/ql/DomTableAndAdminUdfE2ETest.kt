@@ -12,6 +12,7 @@ import kotlin.test.assertTrue
  * ADMIN UDFs, all written as direct X-SQL against the local mock site.
  */
 @Tag("E2ETest")
+@Tag("Slow")
 @DisplayName("DOM table, META, system and ADMIN UDFs")
 class DomTableAndAdminUdfE2ETest : XSqlTestBase() {
 

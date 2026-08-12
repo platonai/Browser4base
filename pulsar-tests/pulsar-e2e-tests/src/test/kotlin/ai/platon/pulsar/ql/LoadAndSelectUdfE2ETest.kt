@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
  * and assert on the final result rows.
  */
 @Tag("E2ETest")
+@Tag("Slow")
 @DisplayName("Load and select UDFs against the mock site")
 class LoadAndSelectUdfE2ETest : XSqlTestBase() {
 
