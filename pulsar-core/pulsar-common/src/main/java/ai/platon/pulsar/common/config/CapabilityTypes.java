@@ -155,6 +155,7 @@ public interface CapabilityTypes {
     /**
      * @deprecated Use {@code MIN_SEQUENTIAL_BROWSER_PROFILE_NUMBER} instead
      * */
+    @Deprecated
     String MIN_SEQUENTIAL_PRIVACY_AGENT_NUMBER = "min.sequential.privacy.agent.number";
     /**
      * The minimal number of sequential browser profiles, the active privacy contexts is chosen from them.
