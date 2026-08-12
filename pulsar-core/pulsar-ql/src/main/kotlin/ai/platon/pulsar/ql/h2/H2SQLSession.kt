@@ -148,12 +148,24 @@ abstract class AbstractH2SQLSession(
         // register shortcuts if required
         udfClass.members
             .filter { it.annotations.any { a -> a is UDFunction && a.hasShortcut } }
-            .forEach { registerUdf(session, udfClass, it.name) }
+            .forEach { member ->
+                val udf = member.annotations.filterIsInstance<UDFunction>().first()
+                registerUdf(
+                    session, udfClass, member.name,
+                    nobuffer = udf.nobuffer, deterministic = udf.deterministic
+                )
+            }
 
         // register udfs
         udfClass.members
             .filter { it.annotations.any { a -> a is UDFunction } }
-            .forEach { registerUdf(session, udfClass, it.name, namespace) }
+            .forEach { member ->
+                val udf = member.annotations.filterIsInstance<UDFunction>().first()
+                registerUdf(
+                    session, udfClass, member.name, namespace,
+                    nobuffer = udf.nobuffer, deterministic = udf.deterministic
+                )
+            }
     }
 
     /**
@@ -195,7 +207,9 @@ abstract class AbstractH2SQLSession(
         session: SessionInterface,
         udfClass: KClass<out Any>,
         method: String,
-        namespace: String = ""
+        namespace: String = "",
+        nobuffer: Boolean = true,
+        deterministic: Boolean = false
     ) {
         var alias = if (namespace.isEmpty()) method else namespace + "_" + method
 
@@ -208,7 +222,7 @@ abstract class AbstractH2SQLSession(
         command.executeUpdate(null)
 
         // Notice : can not use session.prepare(sql) here, which causes a call cycle
-        sql = "CREATE ALIAS IF NOT EXISTS $alias FOR \"${udfClass.qualifiedName}.$method\""
+        sql = createAliasSql(alias, "${udfClass.qualifiedName}.$method", nobuffer, deterministic)
         command = session.prepareCommand(sql, Int.MAX_VALUE)
         command.executeUpdate(null)
 
@@ -225,3 +239,20 @@ open class H2SQLSession(
     sessionDelegate: H2SessionDelegate,
     config: SessionConfig
 ) : AbstractH2SQLSession(context, sessionDelegate, config) {}
+
+/**
+ * Build the SQL to register an H2 alias for a UDF method.
+ *
+ * [nobuffer] adds the H2 `NOBUFFER` keyword: table-valued functions are consumed lazily row by row
+ * instead of being eagerly buffered into a `LocalResult` by H2, which keeps the memory of streamed
+ * results (for example parsed DOMs) bounded.
+ *
+ * [deterministic] adds the H2 `DETERMINISTIC` keyword so H2 may cache or optimize the result.
+ */
+internal fun createAliasSql(alias: String, qualifiedMethod: String, nobuffer: Boolean, deterministic: Boolean): String {
+    val modifiers = buildString {
+        if (deterministic) append(" DETERMINISTIC")
+        if (nobuffer) append(" NOBUFFER")
+    }
+    return "CREATE ALIAS IF NOT EXISTS $alias$modifiers FOR \"$qualifiedMethod\""
+}

@@ -1,5 +1,7 @@
 package ai.platon.pulsar.ql.h2.udfs
 
+import ai.platon.pulsar.common.getLogger
+import ai.platon.pulsar.common.config.AppConstants
 import ai.platon.pulsar.dom.FeaturedDocument
 import ai.platon.pulsar.dom.features.FeatureRegistry
 import ai.platon.pulsar.dom.features.NodeFeature
@@ -42,6 +44,8 @@ import kotlin.math.max
 @Suppress("unused")
 @UDFGroup(namespace = "DOM")
 object DomFunctionTables {
+
+    private val logger = getLogger(this::class)
 
     /**
      * The maximum number of pages loaded concurrently by [loadAllAndSelect].
@@ -93,7 +97,11 @@ object DomFunctionTables {
      * Pages are loaded concurrently (bounded by [DEFAULT_LOAD_CONCURRENCY]) and the matched elements are
      * streamed to the caller through a bounded queue. Unlike a fully materialized result set, the memory
      * footprint stays bounded: the result is consumed row by row by H2 while pages are still being fetched.
-     * Duplicate urls are loaded only once.
+     * Urls are normalized, null or invalid entries are ignored, and duplicate urls are loaded only once.
+     * A page that fails to load is logged and skipped, it does not fail the whole query.
+     *
+     * Rows are streamed as pages complete, so the order of rows across pages is not deterministic.
+     * Use ORDER BY to get a stable output.
      *
      * For example:
      * CALL loadAllAndSelect(ARRAY('http://...1', 'http://...2'), '.product-card');
@@ -114,8 +122,13 @@ object DomFunctionTables {
             return toResultSet("DOM", listOf<ValueDom>())
         }
 
-        val urlStrings = urls.list.map { it.string }.distinct()
-        if (urlStrings.isEmpty()) {
+        // Normalize urls, ignore null/invalid entries and load each normalized url only once.
+        // The normalizer falls back invalid input to the default search engine, drop such entries.
+        val searchEngineFallbackUrls = setOf(AppConstants.SEARCH_ENGINE_URL, AppConstants.SEARCH_ENGINE_EN_URL)
+        val normUrls = session.normalize(urls.list.map { it.string })
+            .filter { it.isNotNil && it.urlString !in searchEngineFallbackUrls }
+            .distinctBy { it.urlString }
+        if (normUrls.isEmpty()) {
             return toResultSet("DOM", listOf<ValueDom>())
         }
 
@@ -125,7 +138,7 @@ object DomFunctionTables {
         rs.addColumn("DOM", DataType.convertTypeToSQLType(ValueDom.type), 0, 0)
 
         val nextUrl = AtomicInteger(0)
-        val concurrency = minOf(urlStrings.size, DEFAULT_LOAD_CONCURRENCY)
+        val concurrency = minOf(normUrls.size, DEFAULT_LOAD_CONCURRENCY)
 
         scope.launch {
             try {
@@ -134,13 +147,20 @@ object DomFunctionTables {
                         launch {
                             while (true) {
                                 val i = nextUrl.getAndIncrement()
-                                if (i >= urlStrings.size) {
+                                if (i >= normUrls.size) {
                                     break
                                 }
 
-                                val document = session.loadDocument(urlStrings[i])
-                                val elements = document.select(cssQuery, offset, limit)
-                                elements.forEach { rowSource.put(arrayOf<Any?>(domValue(it))) }
+                                try {
+                                    val document = session.loadDocument(normUrls[i])
+                                    val elements = document.select(cssQuery, offset, limit)
+                                    elements.forEach { rowSource.put(arrayOf<Any?>(domValue(it))) }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    // A failed page should not fail the whole query; log and continue with other pages.
+                                    logger.warn("Failed to load and select page | {} | {}", normUrls[i].urlString, e.message)
+                                }
                             }
                         }
                     }

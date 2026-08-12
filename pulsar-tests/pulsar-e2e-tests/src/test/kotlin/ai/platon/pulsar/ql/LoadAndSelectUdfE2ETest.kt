@@ -187,6 +187,23 @@ class LoadAndSelectUdfE2ETest : XSqlTestBase() {
     }
 
     @Test
+    @DisplayName("LOAD_ALL_AND_SELECT ignores null and invalid urls and still returns rows from valid pages")
+    fun testLoadAllAndSelectIgnoresNullAndInvalidUrls() {
+        val rows = queryRows(
+            """
+            SELECT COUNT(*)
+            FROM LOAD_ALL_AND_SELECT(
+                MAKE_ARRAY(NULL, ':::not-a-url:::', '$jobsUrl', '$jobsUrl'),
+                '.job-card-list__title'
+            )
+            """.trimIndent()
+        )
+
+        // The null and invalid entries are ignored, and the duplicated jobs url is loaded only once.
+        assertEquals(listOf(listOf("5")), rows)
+    }
+
+    @Test
     @DisplayName("LOAD_ALL_AND_SELECT with an empty url array returns no rows")
     fun testLoadAllAndSelectWithEmptyUrlArray() {
         val rows = queryRows(
