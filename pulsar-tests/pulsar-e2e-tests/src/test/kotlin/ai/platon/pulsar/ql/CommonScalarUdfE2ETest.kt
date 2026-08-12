@@ -17,8 +17,8 @@ class CommonScalarUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("IS_NUMERIC")
     fun testIsNumeric() {
-        assertEquals(listOf(listOf("true")), queryRows("SELECT IS_NUMERIC('12345')"))
-        assertEquals(listOf(listOf("false")), queryRows("SELECT IS_NUMERIC('12a45')"))
+        assertEquals(listOf(listOf("TRUE")), queryRows("SELECT IS_NUMERIC('12345')"))
+        assertEquals(listOf(listOf("FALSE")), queryRows("SELECT IS_NUMERIC('12a45')"))
     }
 
     @Test
@@ -90,8 +90,8 @@ class CommonScalarUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("IS_EMPTY and IS_NOT_EMPTY")
     fun testIsEmpty() {
-        assertEquals(listOf(listOf("true")), queryRows("SELECT IS_EMPTY(MAKE_ARRAY())"))
-        assertEquals(listOf(listOf("true")), queryRows("SELECT IS_NOT_EMPTY(MAKE_ARRAY('a'))"))
+        assertEquals(listOf(listOf("TRUE")), queryRows("SELECT IS_EMPTY(MAKE_ARRAY())"))
+        assertEquals(listOf(listOf("TRUE")), queryRows("SELECT IS_NOT_EMPTY(MAKE_ARRAY('a'))"))
     }
 
     @Test

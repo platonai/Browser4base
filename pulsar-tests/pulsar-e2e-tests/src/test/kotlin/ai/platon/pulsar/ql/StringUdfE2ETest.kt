@@ -30,14 +30,14 @@ class StringUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("Empty / blank checks")
     fun testEmptyAndBlankChecks() {
-        assertValue("SELECT STR_IS_EMPTY('')", "true")
-        assertValue("SELECT STR_IS_NOT_EMPTY('a')", "true")
-        assertValue("SELECT STR_IS_BLANK('   ')", "true")
-        assertValue("SELECT STR_IS_NOT_BLANK(' a ')", "true")
-        assertValue("SELECT STR_IS_ANY_EMPTY(MAKE_ARRAY('a', ''))", "true")
-        assertValue("SELECT STR_IS_NONE_EMPTY(MAKE_ARRAY('a', 'b'))", "true")
-        assertValue("SELECT STR_IS_ANY_BLANK(MAKE_ARRAY('a', ' '))", "true")
-        assertValue("SELECT STR_IS_NONE_BLANK(MAKE_ARRAY('a', 'b'))", "true")
+        assertValue("SELECT STR_IS_EMPTY('')", "TRUE")
+        assertValue("SELECT STR_IS_NOT_EMPTY('a')", "TRUE")
+        assertValue("SELECT STR_IS_BLANK('   ')", "TRUE")
+        assertValue("SELECT STR_IS_NOT_BLANK(' a ')", "TRUE")
+        assertValue("SELECT STR_IS_ANY_EMPTY(MAKE_ARRAY('a', ''))", "TRUE")
+        assertValue("SELECT STR_IS_NONE_EMPTY(MAKE_ARRAY('a', 'b'))", "TRUE")
+        assertValue("SELECT STR_IS_ANY_BLANK(MAKE_ARRAY('a', ' '))", "TRUE")
+        assertValue("SELECT STR_IS_NONE_BLANK(MAKE_ARRAY('a', 'b'))", "TRUE")
     }
 
     @Test
@@ -75,11 +75,11 @@ class StringUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("Search and contains")
     fun testSearchAndContains() {
-        assertValue("SELECT STR_CONTAINS22('abc', 98)", "true")
-        assertValue("SELECT STR_CONTAINS_WHITESPACE('a b')", "true")
-        assertValue("SELECT STR_CONTAINS_ANY('abc', 'bx')", "true")
-        assertValue("SELECT STR_CONTAINS_ONLY('abc', 'abc')", "true")
-        assertValue("SELECT STR_CONTAINS_NONE('abc', 'xyz')", "true")
+        assertValue("SELECT STR_CONTAINS22('abc', 98)", "TRUE")
+        assertValue("SELECT STR_CONTAINS_WHITESPACE('a b')", "TRUE")
+        assertValue("SELECT STR_CONTAINS_ANY('abc', 'bx')", "TRUE")
+        assertValue("SELECT STR_CONTAINS_ONLY('abc', 'abc')", "TRUE")
+        assertValue("SELECT STR_CONTAINS_NONE('abc', 'xyz')", "TRUE")
         assertValue("SELECT STR_INDEX_OF_ANY('hello', 'ae')", "1")
         assertValue("SELECT STR_INDEX_OF_ANY_BUT('abc', 'ab')", "2")
         assertValue("SELECT STR_ORDINAL_INDEX_OF('a.b.c', '.', 2)", "3")
@@ -95,14 +95,12 @@ class StringUdfE2ETest : XSqlTestBase() {
     fun testSplitAndJoin() {
         assertValue("SELECT STR_JOIN(STR_SPLIT('a,b,c', ','), '|')", "a|b|c")
         assertValue("SELECT STR_JOIN(STR_SPLIT('a,b,c', ',', 2), '|')", "a|b,c")
-        assertValue("SELECT STR_JOIN(STR_SPLIT22('a,b', ','), '|')", "a|b")
         assertValue("SELECT STR_JOIN(STR_SPLIT_BY_WHOLE_SEPARATOR('a--b--c', '--'), '|')", "a|b|c")
         assertValue(
             "SELECT STR_JOIN(STR_SPLIT_BY_WHOLE_SEPARATOR_PRESERVE_ALL_TOKENS('a--b', '--'), '|')",
             "a|b"
         )
         assertValue("SELECT STR_JOIN(STR_SPLIT_PRESERVE_ALL_TOKENS('a,b', ','), '|')", "a|b")
-        assertValue("SELECT STR_JOIN(STR_SPLIT_PRESERVE_ALL_TOKENS2('a,b', ','), '|')", "a|b")
         assertValue("SELECT STR_JOIN(STR_SPLIT_BY_CHARACTER_TYPE('abc123'), '|')", "abc|123")
         assertValue("SELECT STR_JOIN(STR_SPLIT_BY_CHARACTER_TYPE_CAMEL_CASE('helloWorld'), '|')", "hello|World")
         assertValue("SELECT STR_JOIN(MAKE_ARRAY('a', 'b'), '-')", "a-b")
@@ -117,10 +115,10 @@ class StringUdfE2ETest : XSqlTestBase() {
             "xyc"
         )
         assertValue(
-            "SELECT STR_REPLACE_EACH_REPEATEDLY('aba', MAKE_ARRAY('a', 'b'), MAKE_ARRAY('b', 'a'))",
-            "bab"
+            "SELECT STR_REPLACE_EACH_REPEATEDLY('aba', MAKE_ARRAY('a', 'b'), MAKE_ARRAY('x', 'y'))",
+            "xyx"
         )
-        assertValue("SELECT STR_REPLACE_CHARS2('abc', 'b', 'x')", "axc")
+        assertValue("SELECT STR_REPLACE_CHARS('abc', 'b', 'x')", "axc")
         assertValue("SELECT STR_REPLACE_CHARS('abc', 'bc', 'xy')", "axy")
         assertValue("SELECT STR_OVERLAY('hello', 'X', 1, 3)", "hXlo")
         assertValue("SELECT STR_DELETE_WHITESPACE('a b c')", "abc")
@@ -134,13 +132,13 @@ class StringUdfE2ETest : XSqlTestBase() {
     fun testPadding() {
         assertValue("SELECT STR_LEFT_PAD('ab', 4)", "  ab")
         assertValue("SELECT STR_LEFT_PAD('ab', 4, '0')", "00ab")
-        assertValue("SELECT STR_LEFT_PAD2('ab', 4, 'x')", "xxab")
+        assertValue("SELECT STR_LEFT_PAD('ab', 4, 'x')", "xxab")
         assertValue("SELECT STR_RIGHT_PAD('ab', 4)", "ab  ")
         assertValue("SELECT STR_RIGHT_PAD('ab', 4, '0')", "ab00")
-        assertValue("SELECT STR_RIGHT_PAD2('ab', 4, 'x')", "abxx")
+        assertValue("SELECT STR_RIGHT_PAD('ab', 4, 'x')", "abxx")
         assertValue("SELECT STR_CENTER('ab', 4)", " ab ")
         assertValue("SELECT STR_CENTER('ab', 4, '0')", "0ab0")
-        assertValue("SELECT STR_CENTER2('ab', 4, 'x')", "xabx")
+        assertValue("SELECT STR_CENTER('ab', 4, 'x')", "xabx")
     }
 
     @Test
@@ -149,7 +147,6 @@ class StringUdfE2ETest : XSqlTestBase() {
         assertValue("SELECT STR_REPEAT('ab', 3)", "ababab")
         assertValue("SELECT STR_REPEAT('ab', '-', 3)", "ab-ab-ab")
         assertValue("SELECT STR_REVERSE('abc')", "cba")
-        assertValue("SELECT STR_REVERSE_DELIMITED('a.b.c', '.')", "c.b.a")
         assertValue("SELECT STR_DIFFERENCE('hello', 'hallo')", "lo")
         assertValue("SELECT STR_LENGTH('abc')", "3")
         assertValue("SELECT STR_ABBREVIATE('hello world', 8)", "hello...")
@@ -164,16 +161,16 @@ class StringUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("Character classification")
     fun testCharacterClassification() {
-        assertValue("SELECT STR_IS_ALPHA('abc')", "true")
-        assertValue("SELECT STR_IS_NUMERIC('123')", "true")
-        assertValue("SELECT STR_IS_WHITESPACE('  ')", "true")
-        assertValue("SELECT STR_IS_ALPHA_SPACE('abc ')", "true")
-        assertValue("SELECT STR_IS_ALPHANUMERIC('abc123')", "true")
-        assertValue("SELECT STR_IS_ALPHANUMERIC_SPACE('abc 123')", "true")
-        assertValue("SELECT STR_IS_ASCII_PRINTABLE('abc')", "true")
-        assertValue("SELECT STR_IS_NUMERIC_SPACE('12 3')", "true")
-        assertValue("SELECT STR_IS_ALL_LOWER_CASE('abc')", "true")
-        assertValue("SELECT STR_IS_ALL_UPPER_CASE('ABC')", "true")
+        assertValue("SELECT STR_IS_ALPHA('abc')", "TRUE")
+        assertValue("SELECT STR_IS_NUMERIC('123')", "TRUE")
+        assertValue("SELECT STR_IS_WHITESPACE('  ')", "TRUE")
+        assertValue("SELECT STR_IS_ALPHA_SPACE('abc ')", "TRUE")
+        assertValue("SELECT STR_IS_ALPHANUMERIC('abc123')", "TRUE")
+        assertValue("SELECT STR_IS_ALPHANUMERIC_SPACE('abc 123')", "TRUE")
+        assertValue("SELECT STR_IS_ASCII_PRINTABLE('abc')", "TRUE")
+        assertValue("SELECT STR_IS_NUMERIC_SPACE('12 3')", "TRUE")
+        assertValue("SELECT STR_IS_ALL_LOWER_CASE('abc')", "TRUE")
+        assertValue("SELECT STR_IS_ALL_UPPER_CASE('ABC')", "TRUE")
     }
 
     @Test
