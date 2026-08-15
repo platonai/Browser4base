@@ -106,7 +106,9 @@ object StringFunctions {
     @UDFunction @JvmStatic fun split(str: String?): Array<String> = StringUtils.split(str)
     @UDFunction @JvmStatic fun split(str: String?, arg1: String): Array<String> = StringUtils.split(str, arg1)
     @UDFunction @JvmStatic fun split22(str: String?, arg1: Char): Array<String> = StringUtils.split(str, arg1)
-    @UDFunction @JvmStatic fun join(str: Array<String>): String? = StringUtils.join(str)
+    // Spread (*) is required: without it Kotlin passes the whole array as a single vararg
+    // element to StringUtils.join(T...), which returns array.toString() instead of "ab".
+    @UDFunction @JvmStatic fun join(str: Array<String>): String? = StringUtils.join(*str)
     @UDFunction @JvmStatic fun join(str: Array<String>, arg1: String): String? = StringUtils.join(str, arg1)
     @UDFunction @JvmStatic fun trim(str: String?): String? = StringUtils.trim(str)
     @UDFunction @JvmStatic fun strip(str: String?, arg1: String): String? = StringUtils.strip(str, arg1)
@@ -199,7 +201,10 @@ object StringFunctions {
     @UDFunction @JvmStatic fun indexOfDifference(str: String?, arg1: String): Int = StringUtils.indexOfDifference(str, arg1)
     @UDFunction @JvmStatic fun getCommonPrefix(str: Array<String>): String? = StringUtils.getCommonPrefix(*str)
     @UDFunction @JvmStatic fun normalizeSpace(str: String?): String? = StringUtils.normalizeSpace(str)
-    @UDFunction @JvmStatic fun toEncodedString(str: ByteArray, arg1: Charset): String? = StringUtils.toEncodedString(str, arg1)
+    // H2 1.4.197 cannot materialize a java.nio.charset.Charset parameter from SQL literals
+    // (it tries to hex-decode the string), so accept the charset name instead.
+    @UDFunction @JvmStatic fun toEncodedString(str: ByteArray, arg1: String): String? =
+        StringUtils.toEncodedString(str, Charset.forName(arg1))
 
     @UDFunction(description = "Get the first integer in the given string")
     @JvmStatic

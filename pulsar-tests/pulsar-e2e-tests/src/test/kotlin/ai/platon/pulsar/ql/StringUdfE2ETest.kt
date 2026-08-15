@@ -147,15 +147,19 @@ class StringUdfE2ETest : XSqlTestBase() {
         assertValue("SELECT STR_REPEAT('ab', 3)", "ababab")
         assertValue("SELECT STR_REPEAT('ab', '-', 3)", "ab-ab-ab")
         assertValue("SELECT STR_REVERSE('abc')", "cba")
-        assertValue("SELECT STR_DIFFERENCE('hello', 'hallo')", "lo")
+        // StringUtils.difference returns the tail of the second string from the first differing char ("h-e-llo" vs "h-a-llo" -> "allo")
+        assertValue("SELECT STR_DIFFERENCE('hello', 'hallo')", "allo")
         assertValue("SELECT STR_LENGTH('abc')", "3")
         assertValue("SELECT STR_ABBREVIATE('hello world', 8)", "hello...")
-        assertValue("SELECT STR_ABBREVIATE('hello world', 3, 8)", "hel...")
+        // StringUtils.abbreviate(str, offset, maxWidth): offset <= 4 keeps the string start, so
+        // ("hello world", 3, 8) -> "hello..." (first 5 chars + "...").
+        assertValue("SELECT STR_ABBREVIATE('hello world', 3, 8)", "hello...")
         assertValue("SELECT STR_ABBREVIATE_MIDDLE('abcdefghijkl', '*', 8)", "abcd*jkl")
         assertValue("SELECT STR_DEFAULT_STRING(NULL)", "")
         assertValue("SELECT STR_DEFAULT_IF_BLANK(' ', 'x')", "x")
         assertValue("SELECT STR_DEFAULT_IF_EMPTY('', 'x')", "x")
-        assertValue("SELECT STR_TO_ENCODED_STRING(CAST('abc' AS VARBINARY), 'UTF-8')", "abc")
+        // X'616263' is the binary literal for "abc"; CAST('abc' AS VARBINARY) would hex-decode the string.
+        assertValue("SELECT STR_TO_ENCODED_STRING(X'616263', 'UTF-8')", "abc")
     }
 
     @Test
