@@ -609,6 +609,12 @@ open class BrowserSettings constructor(
 
         chromeOptions.headless = isHeadless
         chromeOptions.noSandbox = noSandbox
+        // --no-startup-window tells Chrome to skip creating its initial window.
+        // That is correct for headless mode (no window is wanted) but wrong for
+        // headed mode: with the default noStartupWindow=true, a headed browser
+        // starts with a process and a CDP endpoint but no visible window, which
+        // looks like a hang to users (issue: headed window silently missing).
+        chromeOptions.noStartupWindow = isHeadless
 
         chromeOptions
             .addArgument("window-position", "0,0")
