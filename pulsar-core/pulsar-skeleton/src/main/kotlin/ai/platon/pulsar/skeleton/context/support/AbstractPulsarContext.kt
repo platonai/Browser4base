@@ -442,13 +442,11 @@ abstract class AbstractPulsarContext(
      */
     @Throws(WebDBException::class)
     override fun loadAll(urls: Iterable<String>, options: LoadOptions): List<WebPage> {
-        startLoopIfNecessary()
         return abnormalPages ?: loadComponent.loadAll(normalize(urls, options))
     }
 
     @Throws(WebDBException::class)
     override fun loadAll(urls: Iterable<NormURL>): List<WebPage> {
-        startLoopIfNecessary()
         return abnormalPages ?: loadComponent.loadAll(urls)
     }
 

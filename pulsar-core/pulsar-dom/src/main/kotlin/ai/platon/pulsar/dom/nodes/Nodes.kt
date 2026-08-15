@@ -153,15 +153,33 @@ data class DOMRect(var left: Double = 0.0, var top: Double = 0.0, var width: Dou
                 return DOMRect()
             }
 
-            val a = rect.split(SPACE.toRegex()).dropLastWhile { it.isEmpty() }
-            if (a.size != 4) {
+            val trimmed = rect.trim()
+            // Choose delimiter: comma (compact/base-36) or whitespace (legacy)
+            val parts: List<String> = if (',' in trimmed) {
+                trimmed.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            } else {
+                trimmed.split(SPACE.toRegex()).dropLastWhile { it.isEmpty() }
+            }
+
+            if (parts.size != 4) {
                 return DOMRect()
             }
 
-            val left = NumberUtils.toDouble(a[0])
-            val top = NumberUtils.toDouble(a[1])
-            val width = NumberUtils.toDouble(a[2])
-            val height = NumberUtils.toDouble(a[3])
+            // Base-36 detection: any part contains a letter → base-36 encoding.
+            // Pure-digit strings are always decimal to stay compatible with
+            // existing comma-separated decimal fixtures.
+            val isBase36 = parts.any { part ->
+                part.any { c -> c in 'a'..'z' || c in 'A'..'Z' }
+            }
+
+            fun parsePart(s: String): Double =
+                if (isBase36) s.toIntOrNull(36)?.toDouble() ?: 0.0
+                else NumberUtils.toDouble(s)
+
+            val left = parsePart(parts[0])
+            val top = parsePart(parts[1])
+            val width = parsePart(parts[2])
+            val height = parsePart(parts[3])
 
             return DOMRect(left, top, width, height)
         }

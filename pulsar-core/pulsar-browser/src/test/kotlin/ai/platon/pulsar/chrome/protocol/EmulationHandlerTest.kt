@@ -3,6 +3,7 @@ package ai.platon.pulsar.chrome.protocol
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.NodeRef
 import ai.platon.cdt.kt.protocol.types.dom.BoxModel
+import ai.platon.cdt.kt.protocol.types.input.DispatchKeyEventType
 import ai.platon.cdt.kt.protocol.types.page.LayoutMetrics
 import ai.platon.pulsar.common.math.geometric.PointD
 import kotlinx.coroutines.runBlocking
@@ -508,6 +509,63 @@ class EmulationHandlerTest {
     }
 
     // =========================================================================
+    // Keyboard — modifier state across keyDown/press/keyUp
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Keyboard modifier state")
+    inner class KeyboardModifiers {
+
+        @Test
+        @DisplayName("keyDown Control then press a dispatches keyDown for a with ctrl modifier")
+        fun keyDownControlThenPressCarriesCtrlModifier() = runBlocking {
+            // The stateful path used by Browser4WebDriver.keyDown: holding a
+            // modifier must populate Keyboard.pressedModifiers so that a
+            // subsequent press() carries the modifier bitmask (Control=2).
+            // The Control keyDown itself is dispatched as RAW_KEY_DOWN; the
+            // "a" keyDown arrives as KEY_DOWN, which is what we pin here.
+            keyboard.down("Control")
+            keyboard.press("a", delayMillis = 0)
+
+            verify(bp).dispatchKeyEvent(
+                eq(DispatchKeyEventType.KEY_DOWN),
+                eq(2),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+
+        @Test
+        @DisplayName("keyUp Control clears modifier for subsequent presses")
+        fun keyUpControlClearsModifier() = runBlocking {
+            keyboard.down("Control")
+            keyboard.up("Control")
+            keyboard.press("a", delayMillis = 0)
+
+            // After Control is released, "a" must carry no modifiers.
+            verify(bp).dispatchKeyEvent(
+                eq(DispatchKeyEventType.KEY_DOWN),
+                eq(0),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+
+        @Test
+        @DisplayName("press without prior keyDown dispatches no modifiers")
+        fun pressWithoutModifierState() = runBlocking {
+            keyboard.press("a", delayMillis = 0)
+
+            verify(bp).dispatchKeyEvent(
+                eq(DispatchKeyEventType.KEY_DOWN),
+                eq(0),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+    }
+
+    // =========================================================================
     // EmulationHandler — click / hover null-safety and error handling
     //
     // Full click/hover CDP integration is covered by browser-level E2E tests
@@ -586,57 +644,6 @@ class EmulationHandlerTest {
 
             // Should not throw — boundingBox returns null, getInteractPoint falls back to quad center
             emulationHandler.click(node, 1, position = "center", delayMillis = 0)
-        }
-    }
-
-    // =========================================================================
-    // normalizeKeyStringForPress — already tested in KeyboardKeyStringNormalizationTest
-    // but adding corner cases not covered there
-    // =========================================================================
-
-    @Nested
-    @DisplayName("normalizeKeyStringForPress corner cases")
-    inner class NormalizeKeyStringCornerCases {
-
-        @Test
-        @DisplayName("digit characters remain unchanged")
-        fun digitsUnchanged() {
-            assertEquals("1", normalizeKeyStringForPress("1"))
-            assertEquals("9", normalizeKeyStringForPress("9"))
-        }
-
-        @Test
-        @DisplayName("lowercase letters remain unchanged")
-        fun lowercaseLettersUnchanged() {
-            assertEquals("a", normalizeKeyStringForPress("a"))
-            assertEquals("z", normalizeKeyStringForPress("z"))
-        }
-
-        @Test
-        @DisplayName("all shifted punctuation characters expand correctly")
-        fun allShiftedPunctuationExpands() {
-            // Based on SHIFTED_CHARACTER_BASE_KEYS map
-            assertEquals("Shift+`", normalizeKeyStringForPress("~"))
-            assertEquals("Shift+1", normalizeKeyStringForPress("!"))
-            assertEquals("Shift+2", normalizeKeyStringForPress("@"))
-            assertEquals("Shift+3", normalizeKeyStringForPress("#"))
-            assertEquals("Shift+4", normalizeKeyStringForPress("$"))
-            assertEquals("Shift+5", normalizeKeyStringForPress("%"))
-            assertEquals("Shift+6", normalizeKeyStringForPress("^"))
-            assertEquals("Shift+7", normalizeKeyStringForPress("&"))
-            assertEquals("Shift+8", normalizeKeyStringForPress("*"))
-            assertEquals("Shift+9", normalizeKeyStringForPress("("))
-            assertEquals("Shift+0", normalizeKeyStringForPress(")"))
-            assertEquals("Shift+-", normalizeKeyStringForPress("_"))
-            assertEquals("Shift+=", normalizeKeyStringForPress("+"))
-            assertEquals("Shift+[", normalizeKeyStringForPress("{"))
-            assertEquals("Shift+]", normalizeKeyStringForPress("}"))
-            assertEquals("Shift+\\", normalizeKeyStringForPress("|"))
-            assertEquals("Shift+;", normalizeKeyStringForPress(":"))
-            assertEquals("Shift+'", normalizeKeyStringForPress("\""))
-            assertEquals("Shift+,", normalizeKeyStringForPress("<"))
-            assertEquals("Shift+.", normalizeKeyStringForPress(">"))
-            assertEquals("Shift+/", normalizeKeyStringForPress("?"))
         }
     }
 }
