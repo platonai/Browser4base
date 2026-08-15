@@ -10,8 +10,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.h2.engine.Constants
+import org.h2.ext.pulsar.PulsarExtension
 import org.h2.jdbc.JdbcConnection
 import org.h2.tools.SimpleResultSet
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DisplayName
 import java.sql.DriverManager
 import java.sql.ResultSet
@@ -76,6 +78,26 @@ object NobufferStreamingTestFunctions {
 
 @DisplayName("NOBUFFER alias registration")
 class NobufferAliasTest {
+
+    companion object {
+        /**
+         * This class intentionally opens raw DriverManager H2 connections. When it runs first in
+         * the module JVM (surefire filesystem order), the `h2.sessionFactory` system property is
+         * not set yet (it is set by AbstractSQLContext's initializer), so PulsarExtension caches
+         * the plain `org.h2.engine.Engine` in a static field for the whole JVM lifetime. Every
+         * later test would then get plain H2 sessions: no SQLSession, no UDF registration, and no
+         * PulsarObjectSerializer - e.g. TestSQLFeatures fails with `Function "EXPLODE" not found`
+         * and TestJavaObjectSerializer fails with NotSerializableException.
+         *
+         * Reset the cached engine after this class so the next session creation re-reads the
+         * property and picks ai.platon.pulsar.ql.h2.H2SessionFactory.
+         * */
+        @JvmStatic
+        @AfterAll
+        fun resetPulsarEngineCache() {
+            PulsarExtension.sessionFactory = null
+        }
+    }
 
     @Test
     @DisplayName("createAliasSql emits NOBUFFER and DETERMINISTIC when requested")
