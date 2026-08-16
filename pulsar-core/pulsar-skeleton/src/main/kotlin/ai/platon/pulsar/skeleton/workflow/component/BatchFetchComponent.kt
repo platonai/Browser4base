@@ -23,7 +23,10 @@ class BatchFetchComponent(
     @Suppress("DEPRECATION")
     @Deprecated(
         message = "Use the primary constructor with a properly wired ProtocolFactory. " +
-            "An empty ProtocolFactory causes 'Protocol not found (1600)' for every URL."
+            "An empty ProtocolFactory causes 'Protocol not found (1600)' for every URL.",
+        replaceWith = ReplaceWith(
+            "BatchFetchComponent(webDb, globalCacheFactory, null, ProtocolFactory(listOf()), immutableConfig)"
+        )
     )
     constructor(webDb: WebDb, immutableConfig: ImmutableConfig) : this(
         webDb, GlobalCacheFactory(immutableConfig), null, ProtocolFactory(listOf()), immutableConfig

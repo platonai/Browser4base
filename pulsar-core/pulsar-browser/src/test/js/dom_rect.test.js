@@ -22,9 +22,9 @@ beforeEach(() => {
 describe('formatRect', () => {
     test('formats coordinates as space-separated integers (default)', () => {
         const result = __pulsar_utils__.formatRect(10.56, 20.34, 100.78, 200.12);
-        // left=Math.round(10.56)=11, top=Math.round(20.34)=20,
+        // left=Math.round(20.34)=20, top=Math.round(10.56)=11,
         // width=Math.round(100.78)=101, height=Math.round(200.12)=200
-        expect(result).toBe('11 20 101 200');
+        expect(result).toBe('20 11 101 200');
     });
 
     test('formats coordinates as compact base-36 integers when VI_COMPRESSION=base36', () => {
@@ -33,8 +33,8 @@ describe('formatRect', () => {
         config.VI_COMPRESSION = 'base36';
         try {
             const result = __pulsar_utils__.formatRect(10.56, 20.34, 100.78, 200.12);
-            // left=11→"b", top=20→"k", width=101→"2t", height=200→"5k"
-            expect(result).toBe('b,k,2t,5k');
+            // left=20→"k", top=11→"b", width=101→"2t", height=200→"5k"
+            expect(result).toBe('k,b,2t,5k');
         } finally {
             config.VI_COMPRESSION = saved;
         }

@@ -18,13 +18,13 @@
  *
  * Output order: left,top,width,height (matches DOMRect / formatDOMRect).
  *
- * @param left {Number}
  * @param top {Number}
+ * @param left {Number}
  * @param width {Number}
  * @param height {Number}
  * @return {String|Boolean} Formatted string or false if zero dimensions.
  * */
-__pulsar_utils__.formatRect = function(left, top, width, height) {
+__pulsar_utils__.formatRect = function(top, left, width, height) {
     if (width === 0 && height === 0) {
         return false;
     }

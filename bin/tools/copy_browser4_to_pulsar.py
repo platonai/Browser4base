@@ -123,13 +123,29 @@ POST_FIXUPS = [
 # Copy jobs
 # ---------------------------------------------------------------------------
 
+# Files that are Browser4-specific and must NEVER be synced into pulsar upstream.
+# These types are the extension point of the Team2 fork (Browser4); publishing them
+# inside pulsar-browser creates same-FQCN duplicate classes with the fork's own
+# browser4-browser sources (see 4f17ae50b which wrongly added them upstream).
+# Paths are relative to the browser job's source_root (browser4-browser/src).
+BROWSER4_SPECIFIC_FILES = [
+    "main/kotlin/ai/platon/pulsar/chrome/Browser4WebDriver.kt",
+    "main/kotlin/ai/platon/pulsar/api/snapshot/ViewportRanges.kt",
+    "test/kotlin/ai/platon/pulsar/chrome/Browser4WebDriverTest.kt",
+    "test/kotlin/ai/platon/pulsar/api/snapshot/ViewportRangesTest.kt",
+]
+
 COPY_JOBS = {
     "browser": {
         "name": "browser4-browser -> pulsar-browser",
         "source_root": SOURCE_BASE / "browser4-core" / "browser4-browser" / "src",
         "dest_root": DEST_BASE / "pulsar-core" / "pulsar-browser" / "src",
         "sync_mode": "overwrite",
-        "skip_paths": [],
+        # Browser4WebDriver / ViewportRanges (and their tests) are Browser4-specific
+        # extension points — they must not be copied into pulsar upstream, otherwise
+        # the published pulsar-browser jar contains same-FQCN duplicates of the fork's
+        # own classes.
+        "skip_paths": BROWSER4_SPECIFIC_FILES,
     },
     "rest": {
         "name": "browser4-rest -> pulsar-it-tests (src/main)",
