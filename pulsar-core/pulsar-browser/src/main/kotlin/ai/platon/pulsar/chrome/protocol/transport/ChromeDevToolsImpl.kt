@@ -88,6 +88,25 @@ internal class ChromeDevToolsImpl(
         domainCache.commandHandler.devTools = this
     }
 
+    /**
+     * Re-establishes the CDP connections after they were lost (e.g. machine
+     * sleep killed the websockets). The event dispatcher and all registered
+     * listeners survive — transports retain their message consumers across
+     * reconnects, so events keep flowing once the new sessions are up.
+     *
+     * @return true when both the browser and page transports are open again
+     */
+    override suspend fun reconnect(): Boolean {
+        if (closed.get()) return false
+        if (pageTransport.isOpen && browserTransport.isOpen) return true
+
+        return runCatching {
+            if (!browserTransport.isOpen) browserTransport.reconnect()
+            if (!pageTransport.isOpen) pageTransport.reconnect()
+            pageTransport.isOpen && browserTransport.isOpen
+        }.getOrDefault(false)
+    }
+
     // ── ChromeDevTools domain properties ──────────────────────────────────────
 
     override val accessibility: Accessibility get() = domainCache.getOrCreate(Accessibility::class.java)

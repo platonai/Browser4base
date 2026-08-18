@@ -45,6 +45,13 @@ interface BrowserProtocol {
     val remoteDevToolsOrNull: RemoteDevTools?
 
     /**
+     * Re-establishes the CDP connection to the same Chrome instance and tab
+     * after the link was lost (e.g. machine sleep killed the websockets).
+     * Implementations that cannot reconnect return false.
+     */
+    suspend fun reconnect(): Boolean = false
+
+    /**
      * Answers: "Can I reach the browser process via CDP?"
      *
      * Sends [Browser.getVersion] — a tiny, fixed-size browser-level ping

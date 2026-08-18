@@ -223,6 +223,31 @@ open class PulsarWebDriver constructor(
         return CheckState(0, "WebDriver is healthy")
     }
 
+    /**
+     * Re-establishes the CDP connection to the backend tab after the link was
+     * lost (e.g. machine sleep killed the websocket, or the backend tab was
+     * closed). Keeps the SAME tab and browser — cookies and login state are
+     * preserved.
+     *
+     * The fresh CDP session starts with no domains enabled, so the protocol
+     * agents the driver needs (Page/DOM/Runtime/Network/CSS) are re-enabled
+     * best-effort; subsequent navigations re-enable them anyway.
+     *
+     * @return true when the driver is open and healthy again
+     */
+    override suspend fun reconnect(): Boolean {
+        if (browserProtocol.isOpen) return true
+
+        val protocolReconnected = runCatching { browserProtocol.reconnect() }.getOrDefault(false)
+        if (!protocolReconnected) return false
+
+        runCatching { enableAPIAgents() }.onFailure {
+            logger.warn("Failed to re-enable CDT agents after reconnect | {}", it.message)
+        }
+
+        return healthy().isOK
+    }
+
     override suspend fun addBlockedURLs(urlPatterns: List<String>) {
         _blockedURLPatterns.addAll(urlPatterns)
     }

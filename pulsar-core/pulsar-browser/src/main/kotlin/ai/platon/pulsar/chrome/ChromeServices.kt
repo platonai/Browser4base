@@ -23,6 +23,12 @@ interface Transport : AutoCloseable {
     suspend fun send(message: String)
 
     fun addMessageHandler(consumer: Consumer<String>)
+
+    /**
+     * Re-establishes the connection after it was lost (e.g. machine sleep
+     * killed the CDP link). Transports that cannot reconnect return false.
+     */
+    suspend fun reconnect(): Boolean = false
 }
 
 interface ChromeService : AutoCloseable {
@@ -100,6 +106,13 @@ interface ChromeDevToolsService : ChromeDevTools, AutoCloseable {
     ): EventListener
 
     fun removeEventListener(eventListener: EventListener)
+
+    /**
+     * Re-establishes the CDP connections (browser + page) after they were
+     * lost, keeping the same Chrome instance and tab. Implementations that
+     * cannot reconnect return false.
+     */
+    suspend fun reconnect(): Boolean = false
 
     // Compatibility
     fun waitUntilClosed() = awaitTermination()

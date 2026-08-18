@@ -232,6 +232,14 @@ interface WebDriver : Closeable {
     suspend fun healthy(): CheckState
 
     /**
+     * Re-establishes the CDP connection to the backend tab after the link was
+     * lost (e.g. machine sleep killed the websocket, or the backend tab was
+     * closed). Keeps the same tab and browser — cookies and login state are
+     * preserved. Implementations that cannot reconnect return false.
+     */
+    suspend fun reconnect(): Boolean = false
+
+    /**
      * Adds a script which would be evaluated whenever the page is navigated. @mcp
      *
      * The script is evaluated after the document was created but before any of

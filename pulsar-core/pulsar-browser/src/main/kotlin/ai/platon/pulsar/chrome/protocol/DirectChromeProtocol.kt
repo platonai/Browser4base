@@ -56,6 +56,8 @@ class DirectChromeProtocol(
     override val remoteDevToolsOrNull: RemoteDevTools? get() = devTools as? RemoteDevTools
     override val isOpen: Boolean get() = remoteDevToolsOrNull?.isOpen ?: false
 
+    override suspend fun reconnect(): Boolean = remoteDevToolsOrNull?.reconnect() ?: false
+
     // ---------------------------------------------------------------------------
     // Domain accessors (kept for backward compatibility — not used internally)
     // ---------------------------------------------------------------------------

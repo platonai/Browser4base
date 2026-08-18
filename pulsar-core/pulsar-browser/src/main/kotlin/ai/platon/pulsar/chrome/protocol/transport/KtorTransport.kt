@@ -33,7 +33,7 @@ internal class KtorTransport : Transport {
     private val tracer = getTracerOrNull(this)
     private val closed = AtomicBoolean()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var client: HttpClient? = null
     private var session: DefaultClientWebSocketSession? = null
@@ -54,6 +54,11 @@ internal class KtorTransport : Transport {
         // Normalize localhost to IPv4 on Windows to avoid potential IPv6-only bind issues
         val normalizedUri = normalizeUri(uri)
         this.uri = normalizedUri
+        // Re-connect support: a closed transport may connect again (e.g. the CDP
+        // link died after machine sleep). Reset the closed flag and give the
+        // receiver loop a fresh scope — close() cancelled the previous one.
+        closed.set(false)
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         try {
             client = HttpClient(CIO) {
                 install(WebSockets.Plugin) {
@@ -167,6 +172,26 @@ internal class KtorTransport : Transport {
 
     override fun toString(): String {
         return uri?.toString() ?: "ws://"
+    }
+
+    /**
+     * Re-establishes the websocket connection to the same URI after the
+     * connection was lost (e.g. machine sleep killed the CDP link).
+     *
+     * The message consumer registered via [addMessageHandler] is retained
+     * across reconnects, so existing listeners keep receiving frames once the
+     * new session is up.
+     *
+     * @return true when the transport is open again
+     */
+    override suspend fun reconnect(): Boolean {
+        val target = uri ?: return false
+        if (isOpen) return true
+        return runCatching {
+            close()
+            connect(target)
+            isOpen
+        }.getOrDefault(false)
     }
 
     private fun shortenMessage(message: String, length: Int = 500): String {
