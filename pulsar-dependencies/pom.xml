@@ -1,4 +1,4 @@
-﻿<!--  Licensed to the Apache Software Foundation (ASF) under one or more contributor
+<!--  Licensed to the Apache Software Foundation (ASF) under one or more contributor
     license agreements. See the NOTICE file distributed with this work for additional
     information regarding copyright ownership. The ASF licenses this file to
     you under the Apache License, Version 2.0 (the "License"); you may not use
@@ -17,7 +17,7 @@
     <groupId>ai.platon</groupId>
     <artifactId>pulsar-dependencies</artifactId>
     <name>Pulsar Dependencies</name>
-    <version>4.11.4-SNAPSHOT</version>
+    <version>4.11.5-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <description>Pulsar Dependencies</description>
