@@ -1817,9 +1817,15 @@ open class PulsarWebDriver constructor(
 
     @Throws(WebDriverException::class)
     override suspend fun browserUseState(target: PageTarget, snapshotOptions: SnapshotOptions): BrowserUseState {
+        // invokeOnPage returns null when the driver's health check fails (e.g. the
+        // browser was closed while a session kept the driver). The previous `!!`
+        // turned that documented null into a NullPointerException that crashed
+        // callers (agent sessions reusing a torn-down driver). Degrade to the
+        // dummy state so callers can still proceed (and typically recover by
+        // navigating) instead of crashing.
         return rpc.invokeOnPage("browserUseState") {
             page.snapshot.getBrowserUseState(target, snapshotOptions)
-        }!!
+        } ?: BrowserUseState.DUMMY
     }
 
     override suspend fun bringToFront() {
