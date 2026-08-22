@@ -48,6 +48,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# gh emits UTF-8. On Windows with a legacy console codepage (e.g. cp936),
+# PowerShell decodes native output with [Console]::OutputEncoding and any
+# multi-byte character (e.g. the "…" GitHub appends to truncated titles)
+# can swallow an adjacent ASCII quote, structurally corrupting the JSON
+# before ConvertFrom-Json ever sees it — deterministically, so retries
+# cannot help. Force UTF-8 decoding instead.
+try {
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch {
+    # Non-interactive or redirected hosts may refuse; proceed regardless.
+}
+
 $repoRoot = (git rev-parse --show-toplevel 2>$null)
 if (-not $repoRoot) {
     Write-Error "Not inside a git repository."
@@ -92,6 +104,31 @@ $workflowFile = "ci.yml"
 $maxWaitSeconds = 120
 $elapsed = 0
 
+# --- Helper: run gh and parse JSON defensively -----------------------------
+# ConvertFrom-Json throws a terminating error under $ErrorActionPreference
+# = "Stop"; transient failures (truncated/garbled output, network hiccups)
+# would kill the whole monitor. Retry a few times, then give up gracefully.
+function Invoke-GhJson {
+    param(
+        [string[]]$GhArgs,
+        [int]$Attempts = 3,
+        [int]$RetryDelaySeconds = 3
+    )
+    for ($i = 1; $i -le $Attempts; $i++) {
+        try {
+            $raw = & gh @GhArgs 2>$null
+            if ($LASTEXITCODE -ne 0) { throw "gh exited with code $LASTEXITCODE" }
+            return (($raw -join "`n") | ConvertFrom-Json)
+        } catch {
+            if ($i -ge $Attempts) {
+                Write-Warning "gh $($GhArgs -join ' ') failed after ${Attempts} attempts: $($_.Exception.Message)"
+                return $null
+            }
+            Start-Sleep -Seconds $RetryDelaySeconds
+        }
+    }
+}
+
 # --- Helper: resolve a run ID from a tag by polling gh run list ----------
 function Find-RunByTag {
     param(
@@ -99,9 +136,10 @@ function Find-RunByTag {
         [string]$WorkflowFile
     )
     # gh run list returns newest first; filter by the workflow file and the tag
-    $runs = gh run list --workflow "$WorkflowFile" --json databaseId,headBranch,status,conclusion,url `
-        --limit 5 2>$null `
-        | ConvertFrom-Json
+    $runs = Invoke-GhJson -GhArgs @(
+        "run", "list", "--workflow", "$WorkflowFile",
+        "--json", "databaseId,headBranch,status,conclusion,url", "--limit", "5"
+    )
 
     if (-not $runs) { return $null }
 
@@ -141,11 +179,27 @@ if ($NoWatch) {
     # Non-interactive poll loop
     Write-Host "Polling every ${PollIntervalSeconds}s (non-interactive mode) ..."
     $done = $false
+    $consecutiveFailures = 0
+    $maxConsecutiveFailures = 12
     do {
         Start-Sleep -Seconds $PollIntervalSeconds
-        $info = gh run view $run.databaseId --json status,conclusion,displayTitle 2>$null | ConvertFrom-Json
-        Write-Host "  [$((Get-Date).ToString('HH:mm:ss'))] Status: $($info.status)" +
-                   $(if ($info.conclusion) { " | Conclusion: $($info.conclusion)" } else { "" })
+        $info = Invoke-GhJson -GhArgs @(
+            "run", "view", "$($run.databaseId)", "--json", "status,conclusion"
+        )
+        if (-not $info) {
+            # Transient query failure — keep polling, but bail out eventually.
+            $consecutiveFailures++
+            if ($consecutiveFailures -ge $maxConsecutiveFailures) {
+                Write-Error "Failed to query run status ${consecutiveFailures} times in a row; giving up."
+                exit 1
+            }
+            Write-Host "  [$((Get-Date).ToString('HH:mm:ss'))] Failed to query run status — retrying ..."
+            continue
+        }
+        $consecutiveFailures = 0
+        $statusLine = "  [$((Get-Date).ToString('HH:mm:ss'))] Status: $($info.status)"
+        if ($info.conclusion) { $statusLine += " | Conclusion: $($info.conclusion)" }
+        Write-Host $statusLine
         if ($info.status -eq "completed") {
             $done = $true
             $finalConclusion = $info.conclusion
@@ -156,8 +210,15 @@ if ($NoWatch) {
     gh run watch $run.databaseId
 
     # After watch returns, get the final conclusion
-    $info = gh run view $run.databaseId --json status,conclusion,displayTitle 2>$null | ConvertFrom-Json
-    $finalConclusion = $info.conclusion
+    $info = Invoke-GhJson -GhArgs @(
+        "run", "view", "$($run.databaseId)", "--json", "status,conclusion"
+    )
+    if (-not $info) {
+        Write-Warning "Could not read the final run conclusion; treating as failure."
+        $finalConclusion = "unknown"
+    } else {
+        $finalConclusion = $info.conclusion
+    }
 }
 
 # ── 4. Report ─────────────────────────────────────────────────────
@@ -180,3 +241,4 @@ if ($finalConclusion -eq "success") {
 } else {
     exit 1
 }
+
