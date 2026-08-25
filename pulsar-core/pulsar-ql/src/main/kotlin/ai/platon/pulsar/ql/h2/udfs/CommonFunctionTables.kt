@@ -86,7 +86,10 @@ object CommonFunctionTables {
 
         var i = 0
         while (i < kvs.size - 1) {
-            rs.addRow(kvs[i], kvs[i + 1])
+            // addRow stores values through H2's SimpleResultSet, which renders
+            // Value objects as SQL literals (strings get quoted). Convert to
+            // plain strings so the returned values match the input.
+            rs.addRow(kvs[i].getString(), kvs[i + 1].getString())
             i += 2
         }
 
@@ -106,6 +109,9 @@ object CommonFunctionTables {
         val rs = ResultSets.newSimpleResultSet()
 
         if (values.list.isEmpty()) {
+            // Still define the column so `FROM EXPLODE(MAKE_ARRAY())` works
+            // and aggregate references like GROUP_COLLECT(COL) resolve.
+            rs.addColumn(col, DataType.convertTypeToSQLType(Value.STRING), 0, 0)
             return rs
         }
 
@@ -115,7 +121,8 @@ object CommonFunctionTables {
         rs.addColumn(col, dt.sqlType, template.precision.toInt(), template.scale)
 
         for (element in values.list) {
-            rs.addRow(element)
+            // Convert to plain strings, see MAP for why (SimpleResultSet quotes Value objects).
+            rs.addRow(element.getString())
         }
 
         return rs
@@ -133,17 +140,11 @@ object CommonFunctionTables {
     fun posexplode(values: ValueArray, col: String = "COL"): ResultSet {
         val rs = ResultSets.newSimpleResultSet()
 
-        if (values.list.isEmpty()) {
-            return rs
-        }
-
         rs.addColumn("POS", Types.INTEGER, 10, 0)
-        val template = values.list[0]
-        val dt = DataType.getDataType(template.type)
-        rs.addColumn(col, dt.sqlType, template.precision.toInt(), template.scale)
+        rs.addColumn(col, DataType.convertTypeToSQLType(Value.STRING), 0, 0)
 
         for (i in values.list.indices) {
-            rs.addRow(i + 1, values.list[i])
+            rs.addRow(i + 1, values.list[i].getString())
         }
         return rs
     }

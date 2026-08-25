@@ -3,7 +3,9 @@ package ai.platon.pulsar.ql.h2.udas
 import ai.platon.pulsar.ql.common.annotation.UDAggregation
 import ai.platon.pulsar.ql.common.annotation.UDFGroup
 import ai.platon.pulsar.ql.common.types.ValueDom
+import ai.platon.pulsar.ql.h2.H2SessionFactory
 import org.h2.api.Aggregate
+import org.h2.value.DataType
 import org.h2.value.Value
 import org.h2.value.ValueArray
 import org.h2.value.ValueNull
@@ -37,7 +39,9 @@ class GroupCollect : Aggregate {
             // TODO: ValueDom is converted to Element by h2, how to avoid the conversion?
             values.add(ValueDom.get(o))
         } else {
-            // values.add(DataType.convertToValue(conn, o, Value.UNKNOWN))
+            // H2 passes plain Java objects (e.g. String) for standard Value types.
+            val h2Session = H2SessionFactory.getSession(conn!!).sessionDelegate.implementation as org.h2.engine.Session
+            values.add(DataType.convertToValue(h2Session, o, Value.UNKNOWN))
         }
     }
 

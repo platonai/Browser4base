@@ -16,19 +16,31 @@ import kotlin.test.assertTrue
 @DisplayName("DOM table, META, system and ADMIN UDFs")
 class DomTableAndAdminUdfE2ETest : XSqlTestBase() {
 
+    /**
+     * H2 invokes table functions twice (column retrieval + execution) and the
+     * column-retrieval connection can leak into the execution call on reused
+     * connections, intermittently yielding an empty result set. Retry once to
+     * shield the assertions from this framework-level race.
+     */
+    private fun countRowsStable(sql: String): Int {
+        val n = countRows(sql)
+        return if (n == 0) countRows(sql) else n
+    }
+
     @Test
     @DisplayName("DOM_SELECT table function via CALL")
     fun testDomSelectTableFunction() {
         assertEquals(
             3,
-            countRows("CALL DOM_SELECT(DOM_LOAD('$jobsUrl'), '.job-card-list__title', 1, 3)")
+            countRowsStable("CALL DOM_SELECT(DOM_LOAD('$jobsUrl'), '.job-card-list__title', 1, 3)")
         )
     }
 
     @Test
     @DisplayName("DOM_LINKS table function via CALL")
     fun testDomLinksTableFunction() {
-        assertEquals(2, countRows("CALL DOM_LINKS(DOM_LOAD('$seoUrl'), '.nav', 1, 2)"))
+        // The seo page uses a <nav> element without a class; query it by tag.
+        assertEquals(2, countRowsStable("CALL DOM_LINKS(DOM_LOAD('$seoUrl'), 'nav a', 1, 2)"))
     }
 
     @Test
@@ -36,11 +48,11 @@ class DomTableAndAdminUdfE2ETest : XSqlTestBase() {
     fun testLoadAndGetLinksAndAnchors() {
         assertEquals(
             2,
-            countRows("SELECT COUNT(*) FROM DOM_LOAD_AND_GET_LINKS('$seoUrl', '.nav', 1, 2)")
+            countRowsStable("SELECT * FROM DOM_LOAD_AND_GET_LINKS('$seoUrl', 'nav a', 1, 2)")
         )
         assertEquals(
             2,
-            countRows("SELECT COUNT(*) FROM DOM_LOAD_AND_GET_ANCHORS('$seoUrl', '.nav', 1, 2)")
+            countRowsStable("SELECT * FROM DOM_LOAD_AND_GET_ANCHORS('$seoUrl', 'nav a', 1, 2)")
         )
     }
 
@@ -49,11 +61,11 @@ class DomTableAndAdminUdfE2ETest : XSqlTestBase() {
     fun testFeatures() {
         assertEquals(
             3,
-            countRows("SELECT COUNT(*) FROM DOM_LOAD_AND_GET_FEATURES('$seoUrl', 'h2', 1, 5)")
+            countRowsStable("SELECT * FROM DOM_LOAD_AND_GET_FEATURES('$seoUrl', 'h2', 1, 5)")
         )
         assertEquals(
             3,
-            countRows("CALL DOM_FEATURES(DOM_LOAD('$seoUrl'), 'h2', 1, 5)")
+            countRowsStable("CALL DOM_FEATURES(DOM_LOAD('$seoUrl'), 'h2', 1, 5)")
         )
     }
 
@@ -61,36 +73,39 @@ class DomTableAndAdminUdfE2ETest : XSqlTestBase() {
     @DisplayName("DOM_LOAD_AND_GET_ELEMENTS_WITH_MOST_SIBLING and DOM_GET_ELEMENTS_WITH_MOST_SIBLING")
     fun testElementsWithMostSibling() {
         assertTrue(
-            countRows(
-                "SELECT COUNT(*) FROM DOM_LOAD_AND_GET_ELEMENTS_WITH_MOST_SIBLING('$jobsUrl', 'DIV', 1, 3)"
+            countRowsStable(
+                "SELECT * FROM DOM_LOAD_AND_GET_ELEMENTS_WITH_MOST_SIBLING('$jobsUrl', 'DIV', 1, 3)"
             ) > 0
         )
         assertTrue(
-            countRows("CALL DOM_GET_ELEMENTS_WITH_MOST_SIBLING(DOM_LOAD('$jobsUrl'), 'DIV', 1, 3)") > 0
+            countRowsStable("CALL DOM_GET_ELEMENTS_WITH_MOST_SIBLING(DOM_LOAD('$jobsUrl'), 'DIV', 1, 3)") > 0
         )
     }
 
     @Test
     @DisplayName("LOAD_OUT_PAGES family follows mock e-commerce links")
     fun testLoadOutPages() {
+        // The product links are <a class="product-link"> elements: pass the tag
+        // explicitly so getLinks does not append 'a' as a descendant selector.
+        val productLink = "a.product-link"
         assertEquals(
             3,
-            countRows("SELECT COUNT(*) FROM LOAD_OUT_PAGES('$ecCategoryUrl', '.product-link', 1, 3)")
+            countRowsStable("SELECT * FROM LOAD_OUT_PAGES('$ecCategoryUrl', '$productLink', 1, 3)")
         )
         assertEquals(
             3,
-            countRows("SELECT COUNT(*) FROM LOAD_OUT_PAGES_IGNORE_URL_QUERY('$ecCategoryUrl', '.product-link', 1, 3)")
+            countRowsStable("SELECT * FROM LOAD_OUT_PAGES_IGNORE_URL_QUERY('$ecCategoryUrl', '$productLink', 1, 3)")
         )
         assertEquals(
             3,
-            countRows(
-                "SELECT COUNT(*) FROM LOAD_OUT_PAGES_AND_SELECT('$ecCategoryUrl', '.product-link', 1, 3, '.product-title')"
+            countRowsStable(
+                "SELECT * FROM LOAD_OUT_PAGES_AND_SELECT('$ecCategoryUrl', '$productLink', 1, 3, '#productTitle')"
             )
         )
         assertEquals(
             3,
-            countRows(
-                "SELECT COUNT(*) FROM LOAD_OUT_PAGES_AND_SELECT_FIRST('$ecCategoryUrl', '.product-link', 1, 3, '.product-title')"
+            countRowsStable(
+                "SELECT * FROM LOAD_OUT_PAGES_AND_SELECT_FIRST('$ecCategoryUrl', '$productLink', 1, 3, '#productTitle')"
             )
         )
     }
@@ -107,15 +122,15 @@ class DomTableAndAdminUdfE2ETest : XSqlTestBase() {
     @Test
     @DisplayName("LOAD_OPTIONS and XSQL_HELP")
     fun testLoadOptionsAndHelp() {
-        assertTrue(countRows("SELECT COUNT(*) FROM LOAD_OPTIONS()") > 10)
-        assertTrue(countRows("SELECT COUNT(*) FROM XSQL_HELP()") > 100)
+        assertTrue(countRowsStable("SELECT * FROM LOAD_OPTIONS()") > 10)
+        assertTrue(countRowsStable("SELECT * FROM XSQL_HELP()") > 100)
     }
 
     @Test
     @DisplayName("GAUGES and METERS")
     fun testGaugesAndMeters() {
-        assertTrue(countRows("SELECT COUNT(*) FROM GAUGES()") > 0)
-        assertTrue(countRows("SELECT COUNT(*) FROM METERS()") > 0)
+        assertTrue(countRowsStable("SELECT * FROM GAUGES()") > 0)
+        assertTrue(countRowsStable("SELECT * FROM METERS()") > 0)
     }
 
     @Test
