@@ -42,6 +42,12 @@ jobs:
           skip_tests: 'true'
           timeout_minutes: '25'
 
+      # The local page store survives between runs on the same runner. Clean it
+      # so every URL is fetched for real in this run (pages otherwise never
+      # expire with the default fetch schedule and stale content would be reused).
+      - name: Clean Page Store
+        run: rm -rf ~/.pulsar/data/store
+
       - name: Run All Unit Tests
         id: tests
         uses: ./.github/actions/run-tests
@@ -98,6 +104,11 @@ jobs:
         uses: ./.github/actions/setup-environment
         with:
           java_version: ${{ env.JAVA_VERSION }}
+
+      # Clean the local page store so every URL is fetched for real in this run
+      # (pages never expire with the default fetch schedule).
+      - name: Clean Page Store
+        run: rm -rf ~/.pulsar/data/store
 
       - name: Maven Build with Tests and Aggregate Coverage
         id: build

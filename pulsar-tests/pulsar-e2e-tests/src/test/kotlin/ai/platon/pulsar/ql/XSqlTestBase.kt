@@ -1,11 +1,17 @@
 package ai.platon.pulsar.ql
 
 import ai.platon.pulsar.MockSiteAccess
+import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.ql.context.SQLContext
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
+import ai.platon.pulsar.skeleton.context.PulsarContexts
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.springframework.beans.factory.annotation.Autowired
-import java.time.Duration
+import java.nio.file.Files
+import java.util.Comparator
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Base class for X-SQL UDF end-to-end tests running against the local mock site.
@@ -66,17 +72,61 @@ abstract class XSqlTestBase : MockSiteAccess() {
     }
 
     companion object {
+        private val pageStoreCleaned = AtomicBoolean(false)
+
         init {
             LoadOptionDefaults.apply {
-                // Force a real fetch on every run so tests are deterministic regardless
-                // of what was persisted to the local page store by previous runs.
-                expires = Duration.ZERO
+                // The default expiry is decades, so a page fetched by an earlier
+                // test is reused by later tests within the same run. This keeps
+                // the tests deterministic as long as the page store is cleaned
+                // before the first test (see cleanPageStore).
                 parse = true
                 ignoreFailure = true
                 nJitRetry = 3
                 test = 1
                 browser = BrowserType.PULSAR_CHROME
             }
+        }
+
+        /**
+         * Clean the local page store (disk + in-memory caches) once per JVM
+         * before the first test, so every URL is fetched for real at least once,
+         * even when the suite is re-run locally against a stale store.
+         *
+         * Deleting the disk files is safe at this point: the in-memory store
+         * (MemStore) is still empty before any test fetches a page, and
+         * FileBackendPageStore recreates missing directories on demand.
+         */
+        @JvmStatic
+        @BeforeAll
+        fun cleanPageStore() {
+            if (pageStoreCleaned.compareAndSet(false, true)) {
+                runCatching {
+                    val storeDir = AppPaths.LOCAL_STORAGE_DIR
+                    if (Files.exists(storeDir)) {
+                        Files.walk(storeDir).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+                    }
+                    PulsarContexts.getOrCreate().globalCache.clearPDCaches()
+                }.onFailure { it.printStackTrace() }
+            }
+        }
+
+        /**
+         * Stop the background task loop after all tests in the class.
+         *
+         * The loop is started on demand by loadAll/loadAllAsync (via
+         * startLoopIfNecessary) and would otherwise poll the url pool forever,
+         * holding the only Chrome browser (max browser number = 1) and its CDP
+         * connections while the rest of the suite runs. Stopping it here
+         * releases those resources; the next loadAll restarts the loop.
+         *
+         * The loop is stopped idempotently: it is a no-op if it is not running.
+         */
+        @JvmStatic
+        @AfterAll
+        fun stopTaskLoops() {
+            runCatching { PulsarContexts.getOrCreate().taskLoops.stop() }
+                .onFailure { it.printStackTrace() }
         }
     }
 }
