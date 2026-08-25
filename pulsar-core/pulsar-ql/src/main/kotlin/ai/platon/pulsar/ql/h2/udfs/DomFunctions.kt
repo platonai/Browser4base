@@ -194,7 +194,7 @@ object DomFunctions {
 
     @UDFunction(description = "Get the absolute URL of the element's 'src' attribute")
     @JvmStatic
-    fun absSrc(dom: ValueDom) = dom.element.absUrl("abs:src")
+    fun absSrc(dom: ValueDom) = dom.element.absUrl("src")
 
     @UDFunction(description = "Get the element title")
     @JvmStatic
@@ -468,10 +468,7 @@ object DomFunctions {
     }
 
     private fun toValueArray(elements: Elements): ValueArray {
-        val values = arrayOf<Value>()
-        for (i in 0 until elements.size) {
-            values[i] = ValueDom.get(elements[i])
-        }
+        val values: Array<Value> = Array(elements.size) { i -> ValueDom.get(elements[i]) }
         return ValueArray.get(values)
     }
 }
