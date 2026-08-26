@@ -2,6 +2,7 @@ package ai.platon.pulsar.chrome
 
 import ai.platon.pulsar.chrome.protocol.transport.ChromeImpl
 import ai.platon.pulsar.chrome.util.ChromeLaunchException
+import ai.platon.pulsar.api.ChromeDefaults
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.LauncherOptions
 import ai.platon.pulsar.common.*
@@ -23,7 +24,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFilePermission
-import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
@@ -283,10 +283,10 @@ class ChromeLauncher constructor(
     }
 
     private val closed = AtomicBoolean()
-    private val temporaryUddExpiry = Duration.ofMinutes(60) // BrowserFiles.TEMPORARY_UDD_EXPIRY
+    private val temporaryUddExpiry = ChromeDefaults.TEMPORARY_UDD_EXPIRY // BrowserFiles.TEMPORARY_UDD_EXPIRY
 
     // The number of recent temporary user data directories to keep, the browser has to be closed
-    private val recentNToKeep = 5
+    private val recentNToKeep = ChromeDefaults.RECENT_TEMP_UDD_TO_KEEP
     private val browserFileSystem = BrowserFileSystem(userDataDir)
     private val chromeDestroyer = ChromeDestroyer(userDataDir)
     private var process: Process? = null
@@ -317,6 +317,11 @@ class ChromeLauncher constructor(
         options: ChromeOptions
     ): RemoteChrome {
         return browserFileSystem.withUserDataDirLock {
+            // Apply the extra Chrome arguments configured in the config file
+            // (e.g. browser.launch.chrome.args in application.properties), so they
+            // take effect for every launch path, including direct ChromeLauncher usage.
+            applyConfiguredArguments(options)
+
             // Destroy zombie Chrome processes associated with the user data directory if any
             if (chromeDestroyer.isZombie()) {
                 chromeDestroyer.destroyForcibly()
@@ -341,18 +346,18 @@ class ChromeLauncher constructor(
             var lastException: Exception? = null
 
             // Retry if the profile is locked, it happens when the previous process is exiting
-            for (i in 1..5) {
+            for (i in 1..ChromeDefaults.LAUNCH_RETRY_COUNT) {
                 try {
                     port = launchChromeProcess(chromeBinaryPath, userDataDir, options)
                     break
                 } catch (e: ChromeLaunchException) {
                     lastException = e
                     // If the profile is locked, wait for the previous process to exit
-                    if (i < 5) {
+                    if (i < ChromeDefaults.LAUNCH_RETRY_COUNT) {
                         chromeDestroyer.killProcess()
 
                         try {
-                            Thread.sleep(3000)
+                            Thread.sleep(ChromeDefaults.LAUNCH_RETRY_INTERVAL_MS)
                         } catch (_: InterruptedException) {
                             Thread.currentThread().interrupt()
                             throw e
@@ -374,6 +379,22 @@ class ChromeLauncher constructor(
             // Return a new instance of ChromeImpl initialized with port
             ChromeImpl(port)
         }
+    }
+
+    /**
+     * Apply the extra Chrome command-line arguments configured in the config file
+     * (e.g. `browser.launch.chrome.args` in application.properties) to the given options.
+     *
+     * The configured arguments are appended to the Chrome command line exactly as written,
+     * so they take effect for every launch path. Programmatic settings always take
+     * precedence over the configured arguments (see ChromeOptions.toList()).
+     * */
+    internal fun applyConfiguredArguments(chromeOptions: ChromeOptions) {
+        val args = this.options.settings.chromeArguments
+        if (args.isNotEmpty()) {
+            logger.debug("Applying Chrome arguments from config file: {}", args.joinToString(" "))
+        }
+        chromeOptions.addArguments(args)
     }
 
     /**
@@ -417,7 +438,7 @@ class ChromeLauncher constructor(
         this.process = null
         try {
             if (p != null && p.isAlive) {
-                chromeDestroyer.destroyGracefully(p, shutdownWaitTime = Duration.ofSeconds(5))
+                chromeDestroyer.destroyGracefully(p, shutdownWaitTime = ChromeDefaults.GRACEFUL_DESTROY_WAIT_TIME)
                 if (p.isAlive) {
                     destroyForcibly()
                 }
@@ -515,8 +536,7 @@ class ChromeLauncher constructor(
         if (userDataDir.startsWith(AppPaths.SYSTEM_DEFAULT_BROWSER_DATA_DIR_PLACEHOLDER)) {
             // Open the default browser just like a real user daily do,
             // open a blank page not to choose the profile
-            val args = "--remote-debugging-port=0 --remote-allow-origins=* about:blank"
-            arguments = args.split(" ").toMutableList()
+            arguments = ChromeDefaults.SYSTEM_DEFAULT_BROWSER_ARGS.toMutableList()
         } else {
             arguments.add("--user-data-dir=$userDataDir")
         }
@@ -834,7 +854,7 @@ ${scriptPath.toUri()}
             runCatching {
                 chromeDestroyer.clearProcessMarkers()
                 BrowserFiles.cleanUpContextTmpDir(temporaryUddExpiry)
-                BrowserFiles.cleanOldestContextTmpDirs(Duration.ofMinutes(2), recentNToKeep)
+                BrowserFiles.cleanOldestContextTmpDirs(ChromeDefaults.TEMP_UDD_KEEP_MIN_AGE, recentNToKeep)
             }.onFailure { warnForClose(this, it) }
         } catch (_: Throwable) {
             // ignored

@@ -133,3 +133,4 @@ settings.local.json
 /**/dist/**
 /pulsar-core/pulsar-browser-old/
 .claude/worktrees/
+/.tmp-ci-logs/

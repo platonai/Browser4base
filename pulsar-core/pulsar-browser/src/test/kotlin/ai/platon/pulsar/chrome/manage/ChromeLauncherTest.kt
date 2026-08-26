@@ -1,7 +1,12 @@
 package ai.platon.pulsar.chrome.manage
 
+import ai.platon.pulsar.api.ChromeOptions
+import ai.platon.pulsar.api.LauncherOptions
+import ai.platon.pulsar.api.model.BrowserSettings
 import ai.platon.pulsar.chrome.ChromeLauncher
 import ai.platon.pulsar.common.browser.BrowserFiles.PID_FILE_NAME
+import ai.platon.pulsar.common.config.CapabilityTypes
+import ai.platon.pulsar.common.config.MutableConfig
 import org.apache.commons.lang3.SystemUtils
 import java.nio.file.Files
 import java.nio.file.Path
@@ -133,6 +138,39 @@ class ChromeLauncherTest {
             process.destroyForcibly()
             process.waitFor(10, TimeUnit.SECONDS)
         }
+    }
+
+    @Test
+    fun testApplyConfiguredArgumentsAddsArgsFromConfigFile() {
+        val conf = MutableConfig()
+        conf[CapabilityTypes.BROWSER_LAUNCH_CHROME_ARGS] =
+            "--disable-features=Translate --proxy-server=\"http=foopy:80;ftp=foopy2\""
+        val launcher = ChromeLauncher(
+            userDataDir = Files.createTempDirectory("chrome-launcher-test-").resolve("profile"),
+            options = LauncherOptions(BrowserSettings(conf))
+        )
+
+        val chromeOptions = ChromeOptions()
+        launcher.applyConfiguredArguments(chromeOptions)
+
+        val args = chromeOptions.toList()
+        assertTrue(args.contains("--disable-features=Translate"))
+        assertTrue(args.contains("--proxy-server=http=foopy:80;ftp=foopy2"))
+    }
+
+    @Test
+    fun testApplyConfiguredArgumentsAddsNothingWhenNotConfigured() {
+        val launcher = ChromeLauncher(
+            userDataDir = Files.createTempDirectory("chrome-launcher-test-").resolve("profile"),
+            options = LauncherOptions(BrowserSettings(MutableConfig()))
+        )
+
+        val chromeOptions = ChromeOptions().apply { noSandbox = true }
+        launcher.applyConfiguredArguments(chromeOptions)
+
+        assertTrue(chromeOptions.rawArguments.isEmpty())
+        assertTrue(chromeOptions.toList().contains("--no-sandbox"))
+        assertTrue(chromeOptions.toList().none { it.startsWith("--disable-features=Translate") })
     }
 }
 

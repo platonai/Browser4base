@@ -223,6 +223,28 @@ public interface CapabilityTypes {
     String BROWSER_LAUNCH_NO_SANDBOX = "browser.launch.no.sandbox";
     String BROWSER_LAUNCH_SUPERVISOR_PROCESS = "browser.launch.supervisor.process";
     String BROWSER_LAUNCH_SUPERVISOR_PROCESS_ARGS = "browser.launch.supervisor.process.args";
+    /**
+     * Extra Chrome command-line arguments to add when launching the browser, configured in the
+     * config file (e.g. application.properties), for example:
+     *
+     * browser.launch.chrome.args=--disable-features=Translate --proxy-server="http=foopy:80;ftp=foopy2"
+     *
+     * Arguments are separated by whitespace; double quotes can be used to group an argument
+     * that contains whitespace. Each argument is passed to Chrome exactly as written.
+     */
+    String BROWSER_LAUNCH_CHROME_ARGS = "browser.launch.chrome.args";
+    /**
+     * The --window-position Chrome argument, default is "0,0".
+     */
+    String BROWSER_LAUNCH_WINDOW_POSITION = "browser.launch.window.position";
+    /**
+     * The page load strategy, default is "none".
+     */
+    String BROWSER_LAUNCH_PAGE_LOAD_STRATEGY = "browser.launch.page.load.strategy";
+    /**
+     * Whether to add the --throwExceptionOnScriptError Chrome argument, default is true.
+     */
+    String BROWSER_LAUNCH_THROW_EXCEPTION_ON_SCRIPT_ERROR = "browser.launch.throw.exception.on.script.error";
     String POLLING_DRIVER_TIMEOUT = "polling.driver.timeout";
 
     ///////////////////////////////////////////////////////////////////////////

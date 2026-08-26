@@ -121,4 +121,48 @@ class BrowserSettingsTests {
         val settings2: InteractSettings = pulsarObjectMapper().readValue(json)
         assertEquals(settings.toString(), settings2.toString())
     }
+
+    @Test
+    fun testChromeArgumentsReadFromConfig() {
+        val conf = MutableConfig()
+        conf[CapabilityTypes.BROWSER_LAUNCH_CHROME_ARGS] =
+            "--disable-features=Translate --proxy-server=\"http=foopy:80;ftp=foopy2\""
+
+        val settings = BrowserSettings(conf)
+        assertEquals(
+            listOf("--disable-features=Translate", "--proxy-server=http=foopy:80;ftp=foopy2"),
+            settings.chromeArguments
+        )
+    }
+
+    @Test
+    fun testChromeArgumentsEmptyWhenNotConfigured() {
+        val settings = BrowserSettings(MutableConfig())
+        assertTrue(settings.chromeArguments.isEmpty())
+    }
+
+    @Test
+    fun testCreateChromeOptionsUsesLaunchConfigFromConfigFile() {
+        val conf = MutableConfig()
+        conf[CapabilityTypes.BROWSER_LAUNCH_WINDOW_POSITION] = "100,200"
+        conf[CapabilityTypes.BROWSER_LAUNCH_PAGE_LOAD_STRATEGY] = "eager"
+        conf[CapabilityTypes.BROWSER_LAUNCH_THROW_EXCEPTION_ON_SCRIPT_ERROR] = "false"
+
+        val settings = BrowserSettings(conf)
+        val args = settings.createChromeOptions(emptyMap()).toList()
+
+        assertTrue(args.contains("--window-position=100,200"))
+        assertTrue(args.contains("--pageLoadStrategy=eager"))
+        assertTrue(args.contains("--throwExceptionOnScriptError=false"))
+    }
+
+    @Test
+    fun testCreateChromeOptionsUsesCodeDefaultsWhenNotConfigured() {
+        val settings = BrowserSettings(MutableConfig())
+        val args = settings.createChromeOptions(emptyMap()).toList()
+
+        assertTrue(args.contains("--window-position=0,0"))
+        assertTrue(args.contains("--pageLoadStrategy=none"))
+        assertTrue(args.contains("--throwExceptionOnScriptError=true"))
+    }
 }

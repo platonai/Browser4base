@@ -1,5 +1,7 @@
 package ai.platon.pulsar.api.model
 
+import ai.platon.pulsar.api.ChromeDefaults
+import ai.platon.pulsar.api.ChromeLaunchConfig
 import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.InteractSettings
 import ai.platon.pulsar.api.scripting.DualWorldScriptLoader
@@ -36,7 +38,7 @@ open class BrowserSettings constructor(
          * The screenshot quality.
          * Compression quality from range [0..100] (jpeg only) to capture screenshots.
          * */
-        var SCREENSHOT_QUALITY = 50
+        var SCREENSHOT_QUALITY = ChromeDefaults.SCREENSHOT_QUALITY
 
         /**
          * The default script confuser, which is used to confuse the javascript that will be injected to the webpage.
@@ -489,6 +491,20 @@ open class BrowserSettings constructor(
     val supervisorProcessArgs get() = config.getTrimmedStringCollection(BROWSER_LAUNCH_SUPERVISOR_PROCESS_ARGS)
 
     /**
+     * Extra Chrome command-line arguments read from the configuration file, configured by
+     * `browser.launch.chrome.args` (see [CapabilityTypes.BROWSER_LAUNCH_CHROME_ARGS]).
+     *
+     * Arguments are whitespace-separated; double quotes group an argument that contains
+     * whitespace. They are appended to the Chrome command line exactly as written when the
+     * browser is launched.
+     * */
+    val chromeArguments: List<String>
+        get() {
+            val configured = config.get(BROWSER_LAUNCH_CHROME_ARGS)?.trim().orEmpty()
+            return if (configured.isBlank()) emptyList() else ChromeOptions.parseArguments(configured)
+        }
+
+    /**
      * Add a --no-sandbox flag to launch the chrome if we are running inside a virtual machine,
      * for example, virtualbox, vmware or WSL
      * */
@@ -559,6 +575,15 @@ open class BrowserSettings constructor(
     val interactSettings get() = InteractSettings.fromJson(config[BROWSER_INTERACT_SETTINGS], InteractSettings.DEFAULT)
 
     /**
+     * The browser launch config, loaded once from the configuration file.
+     *
+     * Code defaults come from [ChromeDefaults]; configurable items (e.g.
+     * browser.launch.window.position) are overridden at load time, so the
+     * effective values are stable during the whole lifetime of this settings.
+     * */
+    val launchConfig: ChromeLaunchConfig = ChromeLaunchConfig.load(config)
+
+    /**
      * Page load strategy.
      *
      * Browser4 checks document ready using javascript so just set the strategy to be none.
@@ -566,7 +591,7 @@ open class BrowserSettings constructor(
      * @see <a href='https://blog.knoldus.com/page-loading-strategy-in-the-selenium-webdriver/'>
      *     Page Loading Strategy</a>
      * */
-    var pageLoadStrategy = "none"
+    var pageLoadStrategy = launchConfig.pageLoadStrategy
 
     /**
      * The user agent to use.
@@ -617,11 +642,11 @@ open class BrowserSettings constructor(
         chromeOptions.noStartupWindow = isHeadless
 
         chromeOptions
-            .addArgument("window-position", "0,0")
+            .addArgument("window-position", launchConfig.windowPosition)
             .addArgument("window-size", formatViewPort())
             .addArgument("pageLoadStrategy", pageLoadStrategy)
-            .addArgument("throwExceptionOnScriptError", "true")
-            .addArgument("disable-blink-features", "AutomationControlled")
+            .addArgument("throwExceptionOnScriptError", launchConfig.throwExceptionOnScriptError.toString())
+            .addArgument("disable-blink-features", ChromeDefaults.DISABLE_BLINK_FEATURES)
 //            .addArgument("start-maximized")
 
         return chromeOptions

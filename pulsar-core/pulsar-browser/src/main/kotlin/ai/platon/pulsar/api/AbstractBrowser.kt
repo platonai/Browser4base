@@ -16,7 +16,7 @@ abstract class AbstractBrowser(
 ) : Browser, AutoCloseable, AbstractEventEmitter<BrowserEvents>() {
     companion object {
         protected val SEQUENCER = AtomicInteger()
-        const val DEFAULT_USER_AGENT = "Browser4 Agent/1.0"
+        const val DEFAULT_USER_AGENT = ChromeDefaults.DEFAULT_USER_AGENT
     }
 
     /**
