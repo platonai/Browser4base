@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Created by Vincent on 18-1-1.
  * Copyright @ 2013-2023 Platon AI. All rights reserved
  */
-class LoadingWebDriverPool constructor(
+open class LoadingWebDriverPool constructor(
     val browserId: BrowserId,
     val browserManager: BrowserManager,
     val immutableConfig: ImmutableConfig
@@ -43,6 +43,13 @@ class LoadingWebDriverPool constructor(
     companion object {
         var CLOSE_ALL_TIMEOUT = Duration.ofSeconds(60)
         var POLLING_TIMEOUT = Duration.ofSeconds(60)
+
+        /**
+         * The interval between two driver creation retries while a poll task is waiting
+         * for a driver on an empty standby queue.
+         * */
+        private const val CREATE_RETRY_INTERVAL_MS = 1000L
+
         private val ID_SUPPLIER = AtomicInteger()
     }
 
@@ -222,7 +229,15 @@ class LoadingWebDriverPool constructor(
             val message = String.format("%s", snapshot.format(true))
             if (AppContext.isActive) {
                 // log only when the application is active
-                logger.info("Driver pool is exhausted, rethrow WebDriverPoolExhaustedException | $message")
+                if (numCreated == 0) {
+                    // No driver was ever created: creation was skipped during the whole
+                    // waiting period, so the pool could not serve the task even though it
+                    // had free driver slots. This usually indicates a transient system
+                    // load or capacity condition, see the snapshot for the reason.
+                    logger.warn("Driver pool is exhausted with no driver created, rethrow WebDriverPoolExhaustedException | $message")
+                } else {
+                    logger.info("Driver pool is exhausted, rethrow WebDriverPoolExhaustedException | $message")
+                }
             }
             throw WebDriverPoolExhaustedException(browserId.toString(), "Driver pool is exhausted ($snapshot)")
         }
@@ -355,14 +370,51 @@ class LoadingWebDriverPool constructor(
         _numWaitingTasks.incrementAndGet()
 
         val driver = try {
-            resourceSafeCreateDriverIfNecessary(priority, conf)
-            statefulDriverPool.poll(timeout, unit)
+            pollWebDriverWithCreateRetry(priority, conf, timeout, unit)
         } finally {
             _numWaitingTasks.decrementAndGet()
             lastActiveTime = Instant.now()
         }
 
         return driver
+    }
+
+    /**
+     * Poll a driver from the standby queue, retrying driver creation while waiting.
+     *
+     * A single creation attempt before a long blocking poll is not enough: creation can
+     * be skipped for transient reasons (e.g. a momentary critical system load right after
+     * the pool's own browser launch), in which case the task would wait the whole poll
+     * timeout on an empty queue and finally fail with a [WebDriverPoolExhaustedException]
+     * even though the pool has free driver slots. Retrying creation periodically gives the
+     * task a chance to get a driver as soon as the transient condition disappears.
+     *
+     * Note that driver creation is serialized by [resourceSafeCreateDriverIfNecessary]
+     * and bounded by the pool capacity, so concurrent pollers never create more drivers
+     * than allowed.
+     * */
+    @Throws(BrowserLaunchException::class, InterruptedException::class)
+    private fun pollWebDriverWithCreateRetry(
+        priority: Int, conf: MutableConfig, timeout: Long, unit: TimeUnit
+    ): WebDriver? {
+        val deadlineNanos = System.nanoTime() + unit.toNanos(timeout)
+
+        while (true) {
+            resourceSafeCreateDriverIfNecessary(priority, conf)
+
+            val remainingMillis = (deadlineNanos - System.nanoTime()) / 1_000_000
+            if (remainingMillis <= 0) {
+                // One last non-blocking attempt in case a driver was just created
+                return statefulDriverPool.poll(0, TimeUnit.MILLISECONDS)
+            }
+
+            val driver = statefulDriverPool.poll(
+                minOf(remainingMillis, CREATE_RETRY_INTERVAL_MS), TimeUnit.MILLISECONDS
+            )
+            if (driver != null) {
+                return driver
+            }
+        }
     }
 
     /**
@@ -391,8 +443,11 @@ class LoadingWebDriverPool constructor(
 
     /**
      * Check if we should create a new web driver.
+     *
+     * NOTE: this method can return false for transient reasons (e.g. a momentary critical
+     * system load), callers must not give up creating drivers based on a single call.
      * */
-    private fun shouldCreateWebDriver(): Boolean {
+    protected open fun shouldCreateWebDriver(): Boolean {
         // Using the count of non-quit drivers can better match the memory consumption,
         // but it's easy to wrongly count the quit drivers, a tiny bug can lead to a big mistake.
         // We leave a debug log here for diagnosis purpose.
