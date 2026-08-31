@@ -366,11 +366,13 @@ jobs:
           version_file.write_text(f"{next_version}\n", encoding="utf-8")
           print(f"Updated VERSION: {release_version} → {next_version}")
 
-          # Update all pom.xml files
+          # Update all pom.xml files. The tag keeps the SNAPSHOT form (the deploy job strips it
+          # only in the build workspace), so replace both the release and the SNAPSHOT form.
           updated_count = 0
           for pom_file in repo_root.rglob("pom.xml"):
               original = pom_file.read_text(encoding="utf-8")
               updated = original.replace(f"<version>{release_version}</version>", f"<version>{next_version}</version>")
+              updated = updated.replace(f"<version>{release_version}-SNAPSHOT</version>", f"<version>{next_version}</version>")
               if updated != original:
                   pom_file.write_text(updated, encoding="utf-8", newline="\n")
                   updated_count += 1
