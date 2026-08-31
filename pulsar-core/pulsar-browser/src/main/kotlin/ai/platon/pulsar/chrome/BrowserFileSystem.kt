@@ -29,6 +29,44 @@ class BrowserFileSystem(val userDataDir: Path) {
             "SingletonCookie",
             "DevToolsActivePort"
         )
+
+        /**
+         * Entries at the top level of the prototype user data dir that Chrome regenerates by itself.
+         *
+         * Copying them into a fresh profile wastes time and disk for zero semantic value: they are
+         * stale runtime data (BrowserMetrics alone is usually hundreds of MB of UMA logs), and Chrome
+         * recreates every one of them on the first launch of the new profile.
+         */
+        private val REGENERABLE_TOP_LEVEL_ENTRY_NAMES = setOf(
+            "BrowserMetrics",
+            "Crashpad",
+            "ShaderCache",
+            "GrShaderCache",
+            "GPUPersistentCache",
+            "component_crx_cache",
+            "extensions_crx_cache",
+            "optimization_guide_model_store",
+            "RecoveryImproved"
+        )
+
+        /**
+         * Entries inside the Default profile dir that Chrome regenerates by itself.
+         *
+         * The rest of the Default profile (Preferences, Extensions, Network, sqlite databases, ...)
+         * is the actual inherited content and must be copied.
+         */
+        private val REGENERABLE_DEFAULT_PROFILE_ENTRY_NAMES = setOf(
+            "Cache",
+            "Code Cache",
+            "GPUCache",
+            "DawnWebGPUCache",
+            "DawnGraphiteCache",
+            "GrShaderCache",
+            "shared_proto_db",
+            "Download Service",
+            "Service Worker",
+            "Session Storage"
+        )
     }
 
     val pidPath get() = userDataDir.resolveSibling(BrowserFiles.PID_FILE_NAME)
@@ -75,10 +113,61 @@ class BrowserFileSystem(val userDataDir: Path) {
                 prototypeUserDataDir
             )
 
-            removeDeadSymbolicLinks(prototypeUserDataDir)
+            copyPrototypeUserDataDir(prototypeUserDataDir, userDataDir)
+        }
+    }
 
-            val fileFilter = FileFilter { !Files.isSymbolicLink(it.toPath()) }
-            FileUtils.copyDirectory(prototypeUserDataDir.toFile(), userDataDir.toFile(), fileFilter)
+    /**
+     * Copy the prototype user data dir to the target user data dir, skipping entries that Chrome
+     * regenerates by itself.
+     *
+     * A full recursive copy is wasteful: the prototype usually contains hundreds of MB of stale
+     * runtime data (BrowserMetrics UMA logs, caches, crash reports, model stores) that Chrome
+     * recreates on the first launch of the new profile. Skipping them reduces the copy from
+     * hundreds of MB to a few MB, and the disk footprint of every profile by roughly 20x, with no
+     * change to the inherited settings (Default profile, Local State, component data).
+     */
+    internal fun copyPrototypeUserDataDir(prototypeUserDataDir: Path, targetUserDataDir: Path) {
+        removeDeadSymbolicLinks(prototypeUserDataDir)
+
+        val fileFilter = createPrototypeCopyFilter(prototypeUserDataDir)
+        FileUtils.copyDirectory(prototypeUserDataDir.toFile(), targetUserDataDir.toFile(), fileFilter)
+    }
+
+    /**
+     * Create a [FileFilter] that copies the prototype user data dir except:
+     *
+     * - symbolic links, they may point to the running prototype browser or elsewhere
+     * - top level entries Chrome regenerates, e.g. BrowserMetrics, Crashpad, caches, model stores
+     * - transient runtime markers, e.g. SingletonLock, DevToolsActivePort
+     * - regenerable entries inside the Default profile, e.g. Cache, GPUCache, session storage
+     */
+    private fun createPrototypeCopyFilter(prototypeUserDataDir: Path): FileFilter {
+        val prototypeRoot = prototypeUserDataDir.toAbsolutePath().normalize()
+
+        return FileFilter { file ->
+            val path = file.toPath().toAbsolutePath().normalize()
+            if (Files.isSymbolicLink(path)) {
+                false
+            } else {
+                val relative = prototypeRoot.relativize(path)
+                when (relative.nameCount) {
+                    // top level entries of the user data dir
+                    1 -> {
+                        val name = file.name
+                        name !in REGENERABLE_TOP_LEVEL_ENTRY_NAMES && name !in TRANSIENT_USER_DATA_DIR_ENTRY_NAMES
+                    }
+                    // direct children of the Default profile dir
+                    2 -> {
+                        if (relative.getName(0).toString() == "Default") {
+                            file.name !in REGENERABLE_DEFAULT_PROFILE_ENTRY_NAMES
+                        } else {
+                            true
+                        }
+                    }
+                    else -> true
+                }
+            }
         }
     }
 
