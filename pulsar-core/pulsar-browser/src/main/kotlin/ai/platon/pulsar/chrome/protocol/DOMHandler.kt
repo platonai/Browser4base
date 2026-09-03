@@ -1,5 +1,7 @@
 package ai.platon.pulsar.chrome.protocol
 
+import ai.platon.pulsar.chrome.FrameManager
+import ai.platon.pulsar.chrome.FrameScopeException
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
 import ai.platon.pulsar.chrome.util.CDPReturnError
 import ai.platon.pulsar.chrome.util.ChromeDriverException
@@ -18,7 +20,13 @@ data class LocatorAndCssSelector(
 )
 
 class DOMHandler(
-    private val browserProtocol: BrowserProtocol
+    private val browserProtocol: BrowserProtocol,
+    /**
+     * Optional frame-scope manager. When the driver has switched into an
+     * iframe ([FrameManager.activeFrameId] is set), plain CSS selectors are
+     * resolved inside that frame's document instead of the main frame's.
+     */
+    private val frameManager: FrameManager? = null
 ) {
     private val logger = getLogger(this)
 
@@ -116,6 +124,10 @@ class DOMHandler(
     private suspend fun resolveLocatorAll(locator: String): List<NodeRef>? {
         return try {
             doResolveLocatorAll(locator)
+        } catch (e: FrameScopeException) {
+            // Frame-scope failures are deterministic user-facing errors; they
+            // must surface instead of degrading to element-not-found.
+            throw e
         } catch (e: CDPReturnError) {
             // code: -32000 message: "Could not find node with given id"
             // This exception is expected, will change this log to debug
@@ -138,6 +150,28 @@ class DOMHandler(
         val (l, cssSelector) = normalizeLocator(locator, false) ?: return null
 
         require(Locator.Type.CSS_PATH.text.isEmpty())
+
+        // Frame scope: plain CSS selectors resolve inside the selected frame's
+        // document; XPath is not supported inside a frame (see doResolveLocator).
+        val scopedFrameId = frameManager?.activeFrameId
+        if (scopedFrameId != null) {
+            return when {
+                cssSelector != null -> resolveCSSSelectorAllInFrame(scopedFrameId, cssSelector)
+
+                l.type == Locator.Type.XPATH -> throw FrameScopeException(
+                    "XPath selectors are not supported inside a selected frame (frame " +
+                        "'${frameManager?.activeFrame?.label}'). Switch back to the main frame " +
+                        "(`frameMain()`) or use a CSS selector."
+                )
+
+                l.type == Locator.Type.BACKEND_NODE_ID || l.type == Locator.Type.FRAME_BACKEND_NODE_ID -> {
+                    val nodeRef = resolveUnscopedLocator(l)
+                    if (nodeRef != null) listOf(nodeRef) else null
+                }
+
+                else -> throw UnsupportedOperationException("Unsupported selector $locator")
+            }
+        }
 
         // Determine the type of the locator and resolve accordingly.
         return when {
@@ -248,6 +282,10 @@ class DOMHandler(
     private suspend fun resolveLocator(locator: String): NodeRef? {
         return try {
             doResolveLocator(locator)
+        } catch (e: FrameScopeException) {
+            // Frame-scope failures are deterministic user-facing errors; they
+            // must surface instead of degrading to element-not-found.
+            throw e
         } catch (e: CDPReturnError) {
             // code: -32000 message: "Could not find node with given id"
             // This exception is expected, will change this log to debug
@@ -286,6 +324,26 @@ class DOMHandler(
         // Ensure that the default locator type, CSS_PATH, has no prefix
         require(Locator.Type.CSS_PATH.text.isEmpty())
 
+        // When the driver has switched into a frame, plain CSS selectors and
+        // XPath expressions resolve inside that frame's document (see
+        // FrameManager). Node-based locators (backend ids, fbn) already point
+        // at specific nodes and are resolved unscoped.
+        val scopedFrameId = frameManager?.activeFrameId
+        if (scopedFrameId != null) {
+            val nodeRef = when {
+                cssSelector != null -> resolveCSSSelectorInFrame(scopedFrameId, cssSelector)
+
+                l.type == Locator.Type.XPATH -> throw FrameScopeException(
+                    "XPath selectors are not supported inside a selected frame (frame " +
+                        "'${frameManager?.activeFrame?.label}'). Switch back to the main frame " +
+                        "(`frameMain()`) or use a CSS selector."
+                )
+
+                else -> resolveUnscopedLocator(l)
+            }
+            return nodeRef
+        }
+
         // Determine the type of the locator and resolve accordingly.
         val nodeRef = when {
             // For CSS_PATH type, use querySelectorOrNull to resolve the selector.
@@ -314,6 +372,101 @@ class DOMHandler(
 
         // Return the resolved NodeRef or null if resolution failed.
         return nodeRef
+    }
+
+    /**
+     * Resolve a node-based locator (backend id / fbn) — frame scope does not
+     * apply because these locators identify concrete DOM nodes.
+     */
+    @Throws(ChromeDriverException::class)
+    private suspend fun resolveUnscopedLocator(l: Locator): NodeRef? {
+        return when (l.type) {
+            Locator.Type.BACKEND_NODE_ID -> {
+                val backendNodeId = l.selector.toIntOrNull()
+                if (backendNodeId == null) {
+                    logger.warn("Invalid backend node ID format: '{}'", l.selector)
+                    return null
+                }
+                resolveByBackendNodeId(backendNodeId)
+            }
+
+            Locator.Type.FRAME_BACKEND_NODE_ID -> {
+                val backendNodeId = l.selector.substringAfterLast(",").toIntOrNull() ?: return null
+                resolveByBackendNodeId(backendNodeId)
+            }
+
+            else -> throw UnsupportedOperationException("Unsupported selector ${l.selector}")
+        }
+    }
+
+    /**
+     * Resolve a CSS selector inside the document of the currently selected
+     * frame. Same-process frames (same-origin iframes) expose their document
+     * through the pierced DOM tree; cross-origin frames fail loudly with an
+     * actionable error (see [FrameManager]).
+     */
+    @Throws(ChromeDriverException::class)
+    private suspend fun resolveCSSSelectorInFrame(frameId: String, cssSelector: String): NodeRef? {
+        if (!isActive) return null
+        val frameManager = frameManager ?: return null
+
+        val nodeId = try {
+            frameManager.queryInFrame(frameId, cssSelector)
+        } catch (e: FrameScopeException) {
+            throw e
+        } catch (e: CDPReturnError) {
+            if (e.errorCode != -32000L) {
+                logger.warn(
+                    "Exception from querySelector in frame | selector={}, frameId={}, errorCode={}, errorMessage={} | {}",
+                    cssSelector, frameId, e.errorCode, e.errorMessage, e.brief()
+                )
+            }
+            0
+        } catch (e: Exception) {
+            logger.warn("Unexpected exception from querySelector in frame | selector={}", cssSelector, e)
+            0
+        }
+
+        if (nodeId == 0) {
+            logger.debug("Scoped query missed | frameId={} | selector={}", frameId, cssSelector)
+            return null
+        }
+
+        logger.debug("Scoped query hit | frameId={} | selector={} | nodeId={}", frameId, cssSelector, nodeId)
+        return NodeRef(nodeId, 0, null)
+    }
+
+    /**
+     * Resolve all CSS-selector matches inside the document of the currently
+     * selected frame (see [resolveCSSSelectorInFrame]).
+     */
+    @Throws(ChromeDriverException::class)
+    private suspend fun resolveCSSSelectorAllInFrame(frameId: String, cssSelector: String): List<NodeRef>? {
+        if (!isActive) return null
+        val frameManager = frameManager ?: return null
+
+        val nodeIds = try {
+            frameManager.queryAllInFrame(frameId, cssSelector)
+        } catch (e: FrameScopeException) {
+            throw e
+        } catch (e: CDPReturnError) {
+            if (e.errorCode != -32000L) {
+                logger.warn(
+                    "Exception from querySelectorAll in frame | selector={}, frameId={}, errorCode={}, errorMessage={} | {}",
+                    cssSelector, frameId, e.errorCode, e.errorMessage, e.brief()
+                )
+            }
+            emptyList()
+        } catch (e: Exception) {
+            logger.warn("Unexpected exception from querySelectorAll in frame | selector={}", cssSelector, e)
+            emptyList()
+        }
+
+        if (nodeIds.isEmpty()) {
+            return null
+        }
+
+        return nodeIds.map { nodeId -> NodeRef(nodeId, 0, null) }
     }
 
     @Throws(ChromeDriverException::class)

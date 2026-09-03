@@ -119,7 +119,16 @@ open class PulsarWebDriver constructor(
 
     override val browserType: BrowserType = BrowserType.PULSAR_CHROME
 
-    val page = PageHandler(browserProtocol, settings)
+    /**
+     * Tracks the frame scope selected via [frameSwitch] / [frameMain].
+     *
+     * Created before [page] so the DOM resolution pipeline ([PageHandler.dom])
+     * can resolve CSS selectors inside the selected frame. The scope is reset
+     * whenever the main frame navigates (see [onFrameNavigated0]).
+     */
+    private val frameManager = FrameManager(browserProtocol)
+
+    val page = PageHandler(browserProtocol, settings, frameManager)
 
     private val isolatedWorldManager get() = page.isolatedWorldManager
     private val js get() = page.js
@@ -447,6 +456,22 @@ open class PulsarWebDriver constructor(
         return rpc.invokeOnPage("executeCdpCommand") {
             browserProtocol.executeCdpCommand(method, params)
         }
+    }
+
+    @Throws(WebDriverException::class)
+    override suspend fun frameList(): List<FrameInfo> {
+        return rpc.invokeOnPage("frameList") { frameManager.list() } ?: emptyList()
+    }
+
+    @Throws(WebDriverException::class)
+    override suspend fun frameSwitch(frame: String): FrameInfo {
+        return rpc.invokeOnPage("frameSwitch", message = "frame: [$frame]") { frameManager.switch(frame) }
+            ?: throw WebDriverException("Cannot switch frame: the web driver is unavailable", driver = this)
+    }
+
+    @Throws(WebDriverException::class)
+    override suspend fun frameMain() {
+        rpc.invoke0("frameMain") { frameManager.switchToMainFrame() }
     }
 
     private fun normalizeElementFunctionDeclaration(functionDeclaration: String): String {
@@ -2104,6 +2129,11 @@ open class PulsarWebDriver constructor(
         if (!isMainFrame) {
             return
         }
+
+        // The main frame navigated: the whole frame tree was replaced, so any
+        // frame scope selected via frameSwitch is stale. Reset it so element
+        // operations fall back to the main document.
+        frameManager.reset()
 
         // Clear isolated world contexts on top-level navigation
         isolatedWorldManager.clearContexts()

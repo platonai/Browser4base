@@ -280,5 +280,8 @@ private open class TestWaitDriver(
     override suspend fun stop() = TODO()
     override suspend fun goBack() = TODO()
     override suspend fun goForward() = TODO()
+    override suspend fun frameList() = TODO()
+    override suspend fun frameSwitch(frame: String) = TODO()
+    override suspend fun frameMain() = TODO()
     override fun userTypedUrl(): String = TODO()
 }

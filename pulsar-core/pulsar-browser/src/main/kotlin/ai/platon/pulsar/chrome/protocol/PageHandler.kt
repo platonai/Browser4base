@@ -27,6 +27,12 @@ import ai.platon.pulsar.common.getLogger
 class PageHandler constructor(
     private val browserProtocol: BrowserProtocol,
     private val settings: BrowserSettings,
+    /**
+     * Optional frame-scope manager. When set, plain CSS selectors are resolved
+     * inside the frame selected via `WebDriver.frameSwitch` (see [DOMHandler]
+     * and [ai.platon.pulsar.chrome.FrameManager]).
+     */
+    private val frameManager: ai.platon.pulsar.chrome.FrameManager? = null,
 ) {
     companion object {
         // see org.w3c.dom.Node.ELEMENT_NODE
@@ -43,7 +49,7 @@ class PageHandler constructor(
 
     val snapshot: SnapshotService by lazy { CDPSnapshotService(browserProtocol) }
     val js: JsHandler = JsHandler(browserProtocol, this, isolatedWorldManager)
-    val dom: DOMHandler = DOMHandler(browserProtocol)
+    val dom: DOMHandler = DOMHandler(browserProtocol, frameManager)
     val mouse = Mouse(browserProtocol)
     val keyboard = Keyboard(browserProtocol)
 
