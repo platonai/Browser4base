@@ -390,7 +390,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add VERSION **/pom.xml
+          # Stage all version-bearing files. Quote the glob so git's own pathspec
+          # handles recursion — an unquoted '**/pom.xml' would be expanded by bash
+          # without globstar and only match one directory level, silently leaving
+          # nested module POMs (e.g. pulsar-core/pulsar-common/pom.xml) unstaged.
+          # 'pom.xml' is added explicitly because '**/pom.xml' does not match the
+          # repository root.
+          git add VERSION pom.xml '**/pom.xml'
 
           if git diff --cached --quiet; then
             echo "::notice::No version changes to commit — version may already be bumped."
