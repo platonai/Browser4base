@@ -439,28 +439,63 @@ class FrameManager(private val browserProtocol: BrowserProtocol) {
         scopeId: String,
         frames: List<FrameInfo>
     ): CdpNode? {
-        val documentNodeId = if (scopeId == frames.firstOrNull { it.isMainFrame }?.id) {
+        val mainFrameId = frames.firstOrNull { it.isMainFrame }?.id
+        val documentNodeId = if (scopeId == mainFrameId) {
             // Main frame: plain document root.
             runCatching { browserProtocol.getDocument() }.getOrNull()?.nodeId ?: return null
         } else {
             findFrameDocumentNodeId(scopeId) ?: return null
         }
 
-        val nodeId = try {
-            browserProtocol.querySelector(documentNodeId, target)
-        } catch (e: Exception) {
-            // Invalid or unsupported selector — the caller falls through to
-            // frame-id/name/url matching.
-            logger.debug("querySelector failed for frame target '{}': {}", target, e.message)
-            return null
-        }
-        if (nodeId <= 0) return null
+        val nodeId = queryFrameElementInDocument(documentNodeId, scopeId, target) ?: return null
 
         return try {
             browserProtocol.describeNode(nodeId = nodeId)
         } catch (e: Exception) {
             logger.debug("describeNode failed for frame target '{}': {}", target, e.message)
             null
+        }
+    }
+
+    /**
+     * Queries [target] inside the document [documentNodeId] of frame [scopeId].
+     *
+     * The document node id may come from the per-frame cache
+     * ([frameDocumentNodeIds]); when the query fails with CDP -32000 the id is
+     * stale (the tree was renumbered since it was cached), so the entry is
+     * evicted and the document is resolved once more before giving up — the
+     * same self-healing retry [queryInFrame] performs for scoped element
+     * queries. Without it, nested `frame` switching would spuriously report
+     * "Frame not found" after any operation that renumbered the DOM tree.
+     */
+    private suspend fun queryFrameElementInDocument(
+        documentNodeId: Int,
+        scopeId: String,
+        target: String
+    ): Int? {
+        fun Int.positiveOrNull(): Int? = takeIf { it > 0 }
+        try {
+            return browserProtocol.querySelector(documentNodeId, target).positiveOrNull()
+        } catch (e: CDPReturnError) {
+            if (e.errorCode != -32000L) {
+                logger.debug("querySelector failed for frame target '{}': {}", target, e.message)
+                return null
+            }
+            logger.debug(
+                "Cached document node id stale for frame '{}' (CDP -32000), re-resolving | target={}",
+                scopeId, target
+            )
+            frameDocumentNodeIds.remove(scopeId)
+            val freshDocumentNodeId = findFrameDocumentNodeId(scopeId) ?: return null
+            return try {
+                browserProtocol.querySelector(freshDocumentNodeId, target).positiveOrNull()
+            } catch (e2: Exception) {
+                logger.debug("querySelector failed for frame target '{}': {}", target, e2.message)
+                null
+            }
+        } catch (e: Exception) {
+            logger.debug("querySelector failed for frame target '{}': {}", target, e.message)
+            return null
         }
     }
 

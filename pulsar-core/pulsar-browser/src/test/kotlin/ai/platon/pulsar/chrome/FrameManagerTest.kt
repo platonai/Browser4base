@@ -473,6 +473,54 @@ class FrameManagerTest {
     }
 
     @Test
+    @DisplayName("nested frame switching self-heals when the cached document node id went stale")
+    fun nestedSwitchSelfHealsStaleCachedDocumentNode() {
+        runBlocking {
+            stubTree()
+            // First tree stamps c1's document as node 30; after the tree was
+            // renumbered, the same frame resolves to document node 31 (which now
+            // hosts the iframe#inner element, node 40, owning frame d1).
+            whenever(browserProtocol.getDocument(any(), any()))
+                .thenReturn(
+                    payFrameDom(),
+                    documentNode(
+                        31, frameId = "c1",
+                        children = listOf(
+                            elementNode(
+                                32, "BODY",
+                                children = listOf(
+                                    elementNode(
+                                        40, "IFRAME",
+                                        contentDocument = documentNode(50, frameId = "d1")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            whenever(browserProtocol.querySelector(30, "iframe#inner")).thenThrow(
+                CDPReturnError(
+                    errorCode = -32000,
+                    errorMessage = "Could not find node with given id",
+                    message = "Could not find node with given id"
+                )
+            )
+            whenever(browserProtocol.querySelector(31, "iframe#inner")).thenReturn(40)
+            whenever(browserProtocol.describeNode(40, null, null, null, null))
+                .thenReturn(elementNode(40, "IFRAME", contentDocument = documentNode(50, frameId = "d1")))
+            val manager = FrameManager(browserProtocol)
+            manager.switch("payframe")
+
+            val switched = manager.switch("iframe#inner")
+
+            assertEquals("d1", switched.id)
+            assertEquals("d1", manager.activeFrameId)
+            verify(browserProtocol).querySelector(30, "iframe#inner")
+            verify(browserProtocol).querySelector(31, "iframe#inner")
+        }
+    }
+
+    @Test
     @DisplayName("list clears a stale scope whose frame is no longer in the frame tree")
     fun listClearsScopeWhenSelectedFrameDisappears() = runBlocking {
         stubTree()
