@@ -340,7 +340,7 @@ Browser4 uses a centralized dependency management approach:
 2. Make changes, commit with [conventional commits](#git-conventions)
 3. Run `./mvnw test` to confirm nothing is broken
 4. Push and open a PR against the base branch
-5. CI runs `ci.yml` on push — check the results
+5. Run CI with the default script: `pwsh bin/ci/monitor-ci.ps1` — check the results (see [Local monitor scripts](#local-monitor-scripts-defaults))
 
 ---
 
@@ -369,6 +369,21 @@ CI workflows live in `.github/workflows/`:
 | `ci.yml` | Push/PR to main, 4.9.x | Compile, unit tests, integration tests |
 | `nightly.yml` | Scheduled (daily) | Full build including E2E tests |
 | `release.yml` | Manual / tag | Build, sign, publish to Maven Central |
+
+### Local monitor scripts (defaults)
+
+Agents must run CI and releases **through the PowerShell monitor scripts** — not by hand:
+
+- **Running CI** (default): `pwsh bin/ci/monitor-ci.ps1` — pushes a CI pre-release tag
+  (e.g. `v4.11.11-ci.1`) and monitors the GitHub `ci.yml` workflow until it finishes,
+  exiting with the run's conclusion. Use `-NoWatch` in non-interactive/agent shells.
+- **Releasing a new version** (default): `pwsh bin/release/monitor-release.ps1` — tags
+  the current `VERSION` (e.g. `v4.11.11`), pushes the tag, and monitors the GitHub
+  `release.yml` workflow until it finishes, exiting with the run's conclusion. Pass
+  `-Yes` to skip interactive confirmation prompts and `-NoWatch` in
+  non-interactive/agent shells.
+
+Both require an authenticated `gh` CLI and `pwsh` (PowerShell Core).
 
 ---
 
