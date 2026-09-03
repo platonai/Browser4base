@@ -1,5 +1,6 @@
 package ai.platon.pulsar.chrome.network
 
+import ai.platon.pulsar.chrome.FrameScopeException
 import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.chrome.util.CDPReturnError
 import ai.platon.pulsar.chrome.util.ChromeDriverException
@@ -119,7 +120,14 @@ class RobustRPC(
         url: String? = null,
         message: String? = null,
         block: suspend () -> T
-    ): Boolean = invokeOnPage(action, url, message, block) != null
+    ): Boolean {
+        val result = invokeOnPage(action, url, message, block) ?: return false
+        // Boolean blocks (e.g. WebDriver.isVisible) report their value directly:
+        // a `false` result must not be treated as "predicate passed" merely
+        // because it is non-null. Any other non-null result means the predicate
+        // passed (the historical contract of this method).
+        return if (result is Boolean) result else true
+    }
 
     @Throws(ChromeDriverException::class)
     suspend fun predicateOnElement(
@@ -176,7 +184,13 @@ class RobustRPC(
         return if (driver.quickCheckHealthy(action).isOK) {
             result.getOrElse {
                 when (it) {
+                    // Chrome-level errors are rethrown unchanged; they are already
+                    // driver-facing and carry actionable messages.
                     is ChromeDriverException -> throw it
+                    // WebDriverException is already a user-facing driver error
+                    // (e.g. "Frame not found: ...") — do not hide its message behind
+                    // a generic wrapper.
+                    is WebDriverException -> throw it
                     else -> throw WebDriverException("Unexpected error in [$action]", it, driver = driver)
                 }
             }
@@ -207,6 +221,13 @@ class RobustRPC(
      * - etc.
      */
     private fun isRetryableException(e: Throwable): Boolean {
+        // Deterministic user-facing frame-scope failures (cross-origin iframe,
+        // stale frame) will not resolve by retrying; retrying them only repeats
+        // the expensive pierced-DOM resolution and delays the error.
+        if (e is FrameScopeException) {
+            return false
+        }
+
         // Non-retryable BrowserProtocol errors
         if (e is CDPReturnError) {
             val errorMessage = e.errorMessage?.lowercase() ?: ""

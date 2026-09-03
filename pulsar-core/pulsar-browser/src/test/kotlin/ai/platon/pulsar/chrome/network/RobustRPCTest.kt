@@ -2,6 +2,7 @@ package ai.platon.pulsar.chrome.network
 
 import ai.platon.pulsar.api.AbstractWebDriver
 import ai.platon.pulsar.api.model.IllegalWebDriverStateException
+import ai.platon.pulsar.chrome.FrameScopeException
 import ai.platon.pulsar.chrome.PulsarWebDriver
 import ai.platon.pulsar.chrome.util.CDPReturnError
 import ai.platon.pulsar.chrome.util.ChromeDriverException
@@ -94,6 +95,26 @@ class RobustRPCTest {
     }
 
     @Test
+    @DisplayName("invoke does not retry FrameScopeException (deterministic frame-scope failure)")
+    fun invokeDoesNotRetryFrameScopeException() = runBlocking {
+        whenever(driver.healthy()).thenReturn(CheckState())
+        val calls = AtomicInteger()
+        val rpc = newRpc()
+
+        val thrown = assertThrows(FrameScopeException::class.java) {
+            runBlocking {
+                rpc.invoke("action") {
+                    calls.incrementAndGet()
+                    throw FrameScopeException("The selected frame 'pay' is not reachable")
+                }
+            }
+        }
+
+        assertTrue(thrown.message.orEmpty().contains("not reachable"))
+        assertEquals(1, calls.get())
+    }
+
+    @Test
     @DisplayName("invokeOnPage tracks the last error and rethrows rpc exceptions")
     fun invokeOnPageTracksLastError() = runBlocking {
         val pulsarDriver: PulsarWebDriver = mock()
@@ -161,5 +182,7 @@ class RobustRPCTest {
 
         assertTrue(rpc.predicateOnPage("action") { "found" })
         assertEquals(false, rpc.predicateOnPage<String?>("action") { null })
+        assertEquals(true, rpc.predicateOnPage("action") { true })
+        assertEquals(false, rpc.predicateOnPage("action") { false })
     }
 }
