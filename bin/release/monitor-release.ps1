@@ -104,61 +104,19 @@ if (-not $repoRoot) {
 Set-Location $repoRoot
 
 # ── 0. Preflight: validate the release version ─────────────────────
-# Guard rails for "the release must use the correct version". Maven
-# Central rejects a re-publish of the same version, so an already
-# published, already released or leapfrogged version can only produce a
-# failed release run — fail fast here instead of after a tag push.
+# Guard rails for "the release must use the correct version" — the
+# shared logic lives in bin/common/ReleaseVersion.ps1 (also used by
+# trigger-release.ps1). Maven Central rejects a re-publish of the same
+# version, so an already published, already released or leapfrogged
+# version can only produce a failed release run — fail fast here
+# instead of after a tag push.
+
+. (Join-Path $repoRoot "bin\common\ReleaseVersion.ps1")
 
 gh --version > $null 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "gh CLI is required for the version preflight and workflow monitoring."
+    Write-Error "gh CLI is required for the release version preflight and workflow monitoring."
     exit 1
-}
-
-function Get-ReleaseVersion {
-    param([string]$VersionFile)
-    $raw = (Get-Content $VersionFile -TotalCount 1).Trim()
-    $clean = $raw -replace '-SNAPSHOT$', ''
-    if ($clean -notmatch '^\d+\.\d+\.\d+(?:-rc\.\d+)?$') { return $null }
-    return $clean
-}
-
-function Test-VersionOnMavenCentral {
-    param([string]$Version)
-    $url = "https://repo1.maven.org/maven2/ai/platon/pulsar/pulsar-bom/$Version/pulsar-bom-$Version.pom"
-    try {
-        $resp = Invoke-WebRequest -Uri $url -Method Head -TimeoutSec 30 -UseBasicParsing
-        return ($resp.StatusCode -eq 200)
-    } catch {
-        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { return $false }
-        Write-Warning "Could not reach Maven Central ($url): $($_.Exception.Message)"
-        return $false
-    }
-}
-
-function Get-TagParts {
-    param([string]$Tag)
-    if ($Tag -notmatch '^v(?<v>\d+)\.(?<m>\d+)\.(?<p>\d+)(?:-rc\.(?<rc>\d+))?$') { return $null }
-    $rc = if ($Matches['rc']) { [int]$Matches['rc'] } else { [int]::MaxValue }
-    return [pscustomobject]@{
-        V  = [int]$Matches['v']
-        M  = [int]$Matches['m']
-        P  = [int]$Matches['p']
-        Rc = $rc
-    }
-}
-
-# Returns $true when $Current is strictly older than $Latest (numeric compare).
-function Test-TagLeapfrogged {
-    param([string]$Current, [string]$Latest)
-    if (-not $Current -or -not $Latest) { return $false }
-    $c = Get-TagParts -Tag $Current
-    $l = Get-TagParts -Tag $Latest
-    if (-not $c -or -not $l) { return $false }
-    if ($l.V -ne $c.V) { return $l.V -gt $c.V }
-    if ($l.M -ne $c.M) { return $l.M -gt $c.M }
-    if ($l.P -ne $c.P) { return $l.P -gt $c.P }
-    return $l.Rc -gt $c.Rc
 }
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
@@ -166,7 +124,7 @@ Write-Host "  Step 0/4: Validating release version" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 $versionFile = Join-Path $repoRoot "VERSION"
-$version = Get-ReleaseVersion -VersionFile $versionFile
+$version = Get-ReleaseVersionFromFile -VersionFile $versionFile
 if (-not $version) {
     Write-Error "VERSION does not contain a valid version (expected X.Y.Z or X.Y.Z-SNAPSHOT): '$(Get-Content $versionFile -TotalCount 1)'"
     exit 1
@@ -178,49 +136,8 @@ Write-Host "  Release tag: $newTag"
 Write-Host "  Tag commit:  $headSha"
 Write-Host ""
 
-# 1) Never re-release a version that is already on Maven Central.
-if (Test-VersionOnMavenCentral -Version $version) {
-    Write-Host "[XX] v$version is ALREADY published on Maven Central." -ForegroundColor Red
-    Write-Host "     Central never accepts the same version twice, so this release would only" -ForegroundColor Red
-    Write-Host "     fail during deploy. Bump the version first, e.g.:" -ForegroundColor Yellow
-    Write-Host "       pwsh bin/release/bump-version.ps1 -Part patch" -ForegroundColor Yellow
+if (-not (Assert-ReleaseVersionPublishable -Version $version -Force:$Force)) {
     exit 1
-}
-
-# 2) Is there already a GitHub release for this tag?
-gh release view $newTag 2>$null | Out-Null
-$releaseExists = ($LASTEXITCODE -eq 0)
-
-# 3) Latest release — used for the leapfrog check.
-$latestTag = $null
-$ghLatest = gh release list --limit 1 --json tagName 2>$null
-if ($ghLatest) {
-    $latestObj = $ghLatest | ConvertFrom-Json
-    if ($latestObj -and $latestObj.Count -gt 0) { $latestTag = $latestObj[0].tagName }
-}
-
-if ($releaseExists) {
-    if (-not $Force) {
-        Write-Host ""
-        Write-Host "[XX] GitHub release $newTag already exists." -ForegroundColor Red
-        Write-Host "     Its artifacts are NOT on Maven Central, so this looks like a re-run of a" -ForegroundColor Yellow
-        Write-Host "     release that failed during deploy. Pass -Force to overwrite the tag and" -ForegroundColor Yellow
-        Write-Host "     re-trigger the workflow — without it the preflight refuses to re-release." -ForegroundColor Yellow
-        exit 1
-    }
-    Write-Warning "GitHub release $newTag exists but is not on Maven Central — overwriting (re-run) because -Force was given. The re-triggered workflow may still fail."
-} elseif (Test-TagLeapfrogged -Current $newTag -Latest $latestTag) {
-    Write-Host ""
-    Write-Host "[XX] v$version is OLDER than the latest release ($latestTag) — version drift." -ForegroundColor Red
-    Write-Host "     Bump the version first, e.g.:" -ForegroundColor Yellow
-    Write-Host "       pwsh bin/release/bump-version.ps1 -Part patch" -ForegroundColor Yellow
-    exit 1
-}
-
-if ($latestTag) {
-    Write-Host "[OK] v$version is a valid next release (latest release: $latestTag)." -ForegroundColor Green
-} else {
-    Write-Host "[OK] v$version has no prior releases to conflict with." -ForegroundColor Green
 }
 Write-Host ""
 

@@ -3,7 +3,8 @@
 param(
     [string]$remote = "origin",
     [string]$message = "",
-    [switch]$Yes
+    [switch]$Yes,
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +14,7 @@ Set-Location $repoRoot
 
 # Import common utility script
 . $repoRoot\bin\common\Util.ps1
+. $repoRoot\bin\common\ReleaseVersion.ps1
 
 Fix-Encoding-UTF8
 
@@ -61,10 +63,44 @@ if ($version -notmatch "^\d+\.\d+\.\d+(?:-rc\.\d+)?$") {
 
 $newTag = "v$version"
 
+# ── Release version preflight ──────────────────────────────────────
+# Never create a tag for a version that cannot publish: Maven Central
+# rejects re-publishing the same version, so an already published,
+# already released or leapfrogged version can only produce a failed
+# release. Same gate as monitor-release.ps1 — shared logic lives in
+# bin/common/ReleaseVersion.ps1.
+
+gh --version > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "gh CLI is required for the release version preflight."
+    exit 1
+}
+
+Write-Host ""
+Write-Host "Running release version preflight for v$version ..."
+if (-not (Assert-ReleaseVersionPublishable -Version $version -Force:$Force)) {
+    Write-Host "Cancelled — v$version is not publishable. Bump the version first, e.g.:" -ForegroundColor Yellow
+    Write-Host "  pwsh bin/release/bump-version.ps1 -Part patch" -ForegroundColor Yellow
+    exit 1
+}
+
 # Check if tag already exists
 $existingTag = git tag -l $newTag
 if ($existingTag) {
     Write-Host "Tag '$newTag' already exists"
+
+    # Overwriting a tag that a GitHub release consumed re-triggers
+    # release.yml against a released version and the workflow fails at
+    # deploy. -Force is required even with -Yes: automation must opt in
+    # deliberately instead of auto-confirming the overwrite.
+    $releaseExists = Test-GitHubReleaseExists -Tag $newTag
+    if ($releaseExists -and -not $Force) {
+        Write-Error "GitHub release '$newTag' already exists. Pass -Force to overwrite it — without it the script refuses to touch a released tag (even with -Yes)."
+        exit 1
+    }
+    if ($releaseExists) {
+        Write-Warning "GitHub release '$newTag' exists — overwriting because -Force was given. The re-triggered workflow may still fail if Central already holds the artifacts."
+    }
 
     if (-not $Yes) {
         $confirm = Read-Host "Do you want to overwrite it? (y/n)"
