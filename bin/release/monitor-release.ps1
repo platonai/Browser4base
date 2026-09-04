@@ -13,9 +13,18 @@
     Triggers a release on GitHub via tag push and monitors the workflow until completion.
 
 .DESCRIPTION
+    0. Preflights the release version (Step 0) before anything is pushed: the version in
+       VERSION is checked against the latest GitHub release and Maven Central. Releasing a
+       version that is already on Maven Central, already consumed by a GitHub release, or
+       older than the latest release (leapfrog) aborts immediately — Central never accepts
+       the same version twice, so such a release can only fail during deploy. Overwriting a
+       tag whose GitHub release exists (but whose artifacts never reached Central, i.e. an
+       earlier run failed during deploy) requires an explicit -Force.
     1. Calls trigger-release.ps1 to create and push a release tag (interactive — you will
        be prompted for confirmations, just as with trigger-release.ps1 directly).
-    2. Captures the tag name and locates the triggered Release workflow run.
+    2. Captures the tag name and locates the triggered Release workflow run (matched by tag
+       AND commit SHA, so a stale run from an earlier attempt at the same tag is never
+       reported as this release's run).
     3. Streams the workflow logs in real time.
     4. Reports the final conclusion (success/failure) and exits with the same code.
 
@@ -36,12 +45,31 @@
     Skip interactive `gh run watch` and poll with `gh run list` / `gh run view` instead.
     Useful on CI or non-interactive terminals.
 
+.PARAMETER Yes
+    Skip all interactive confirmation prompts in trigger-release.ps1 (non-interactive and
+    agent use). Does NOT bypass the version preflight.
+
+.PARAMETER Force
+    Allow re-releasing a version whose tag already has a GitHub release. Only meaningful
+    when that release's artifacts never reached Maven Central (the earlier run failed
+    during deploy): the tag is overwritten and release.yml re-triggers. Without -Force the
+    preflight refuses to touch any version already on Central or already released.
+
+.PARAMETER MaxMonitorMinutes
+    Upper bound (in minutes) for the -NoWatch monitor loop. Default 0 = no limit. Use this
+    to guarantee the script eventually exits if a workflow run gets stuck (e.g. a job
+    queued forever). Ignored in interactive (-NoWatch off) mode.
+
 .EXAMPLE
     .\bin\release\monitor-release.ps1
 
     .\bin\release\monitor-release.ps1 -message "Hotfix for login crash"
 
     .\bin\release\monitor-release.ps1 -NoWatch -PollIntervalSeconds 10
+
+    .\bin\release\monitor-release.ps1 -NoWatch -Yes -MaxMonitorMinutes 90
+
+    .\bin\release\monitor-release.ps1 -NoWatch -Yes -Force   # re-run a failed release
 #>
 
 param(
@@ -49,7 +77,9 @@ param(
     [string]$message = "",
     [int]$PollIntervalSeconds = 5,
     [switch]$NoWatch,
-    [switch]$Yes
+    [switch]$Yes,
+    [switch]$Force,
+    [int]$MaxMonitorMinutes = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -73,6 +103,127 @@ if (-not $repoRoot) {
 }
 Set-Location $repoRoot
 
+# ── 0. Preflight: validate the release version ─────────────────────
+# Guard rails for "the release must use the correct version". Maven
+# Central rejects a re-publish of the same version, so an already
+# published, already released or leapfrogged version can only produce a
+# failed release run — fail fast here instead of after a tag push.
+
+gh --version > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "gh CLI is required for the version preflight and workflow monitoring."
+    exit 1
+}
+
+function Get-ReleaseVersion {
+    param([string]$VersionFile)
+    $raw = (Get-Content $VersionFile -TotalCount 1).Trim()
+    $clean = $raw -replace '-SNAPSHOT$', ''
+    if ($clean -notmatch '^\d+\.\d+\.\d+(?:-rc\.\d+)?$') { return $null }
+    return $clean
+}
+
+function Test-VersionOnMavenCentral {
+    param([string]$Version)
+    $url = "https://repo1.maven.org/maven2/ai/platon/pulsar/pulsar-bom/$Version/pulsar-bom-$Version.pom"
+    try {
+        $resp = Invoke-WebRequest -Uri $url -Method Head -TimeoutSec 30 -UseBasicParsing
+        return ($resp.StatusCode -eq 200)
+    } catch {
+        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { return $false }
+        Write-Warning "Could not reach Maven Central ($url): $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Get-TagParts {
+    param([string]$Tag)
+    if ($Tag -notmatch '^v(?<v>\d+)\.(?<m>\d+)\.(?<p>\d+)(?:-rc\.(?<rc>\d+))?$') { return $null }
+    $rc = if ($Matches['rc']) { [int]$Matches['rc'] } else { [int]::MaxValue }
+    return [pscustomobject]@{
+        V  = [int]$Matches['v']
+        M  = [int]$Matches['m']
+        P  = [int]$Matches['p']
+        Rc = $rc
+    }
+}
+
+# Returns $true when $Current is strictly older than $Latest (numeric compare).
+function Test-TagLeapfrogged {
+    param([string]$Current, [string]$Latest)
+    if (-not $Current -or -not $Latest) { return $false }
+    $c = Get-TagParts -Tag $Current
+    $l = Get-TagParts -Tag $Latest
+    if (-not $c -or -not $l) { return $false }
+    if ($l.V -ne $c.V) { return $l.V -gt $c.V }
+    if ($l.M -ne $c.M) { return $l.M -gt $c.M }
+    if ($l.P -ne $c.P) { return $l.P -gt $c.P }
+    return $l.Rc -gt $c.Rc
+}
+
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Host "  Step 0/4: Validating release version" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+
+$versionFile = Join-Path $repoRoot "VERSION"
+$version = Get-ReleaseVersion -VersionFile $versionFile
+if (-not $version) {
+    Write-Error "VERSION does not contain a valid version (expected X.Y.Z or X.Y.Z-SNAPSHOT): '$(Get-Content $versionFile -TotalCount 1)'"
+    exit 1
+}
+$newTag = "v$version"
+$headSha = (git rev-parse HEAD).Trim()
+Write-Host "  Version:     $version"
+Write-Host "  Release tag: $newTag"
+Write-Host "  Tag commit:  $headSha"
+Write-Host ""
+
+# 1) Never re-release a version that is already on Maven Central.
+if (Test-VersionOnMavenCentral -Version $version) {
+    Write-Host "[XX] v$version is ALREADY published on Maven Central." -ForegroundColor Red
+    Write-Host "     Central never accepts the same version twice, so this release would only" -ForegroundColor Red
+    Write-Host "     fail during deploy. Bump the version first, e.g.:" -ForegroundColor Yellow
+    Write-Host "       pwsh bin/release/bump-version.ps1 -Part patch" -ForegroundColor Yellow
+    exit 1
+}
+
+# 2) Is there already a GitHub release for this tag?
+gh release view $newTag 2>$null | Out-Null
+$releaseExists = ($LASTEXITCODE -eq 0)
+
+# 3) Latest release — used for the leapfrog check.
+$latestTag = $null
+$ghLatest = gh release list --limit 1 --json tagName 2>$null
+if ($ghLatest) {
+    $latestObj = $ghLatest | ConvertFrom-Json
+    if ($latestObj -and $latestObj.Count -gt 0) { $latestTag = $latestObj[0].tagName }
+}
+
+if ($releaseExists) {
+    if (-not $Force) {
+        Write-Host ""
+        Write-Host "[XX] GitHub release $newTag already exists." -ForegroundColor Red
+        Write-Host "     Its artifacts are NOT on Maven Central, so this looks like a re-run of a" -ForegroundColor Yellow
+        Write-Host "     release that failed during deploy. Pass -Force to overwrite the tag and" -ForegroundColor Yellow
+        Write-Host "     re-trigger the workflow — without it the preflight refuses to re-release." -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Warning "GitHub release $newTag exists but is not on Maven Central — overwriting (re-run) because -Force was given. The re-triggered workflow may still fail."
+} elseif (Test-TagLeapfrogged -Current $newTag -Latest $latestTag) {
+    Write-Host ""
+    Write-Host "[XX] v$version is OLDER than the latest release ($latestTag) — version drift." -ForegroundColor Red
+    Write-Host "     Bump the version first, e.g.:" -ForegroundColor Yellow
+    Write-Host "       pwsh bin/release/bump-version.ps1 -Part patch" -ForegroundColor Yellow
+    exit 1
+}
+
+if ($latestTag) {
+    Write-Host "[OK] v$version is a valid next release (latest release: $latestTag)." -ForegroundColor Green
+} else {
+    Write-Host "[OK] v$version has no prior releases to conflict with." -ForegroundColor Green
+}
+Write-Host ""
+
 # ── 1. Trigger release ─────────────────────────────────────────────
 
 $triggerScript = Join-Path $repoRoot "bin\release\trigger-release.ps1"
@@ -82,7 +233,7 @@ if (-not (Test-Path $triggerScript)) {
 }
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "  Step 1/3: Triggering release via tag push" -ForegroundColor Cyan
+Write-Host "  Step 1/4: Triggering release via tag push" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 # Build args for trigger-release.ps1 — passthrough of remote and message
@@ -110,7 +261,7 @@ Write-Host "Tag pushed: $tag" -ForegroundColor Green
 # ── 2. Locate the workflow run ─────────────────────────────────────
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "  Step 2/3: Waiting for workflow run to appear" -ForegroundColor Cyan
+Write-Host "  Step 2/4: Waiting for workflow run to appear" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 $workflowFile = "release.yml"
@@ -146,22 +297,31 @@ function Invoke-GhJson {
 function Find-RunByTag {
     param(
         [string]$Tag,
-        [string]$WorkflowFile
+        [string]$WorkflowFile,
+        [string]$HeadSha
     )
+    # gh run list returns newest first; filter by the workflow file, the tag
+    # and the commit the tag points at. Matching the SHA guarantees a stale
+    # run from an earlier attempt at the same tag (e.g. a re-released or
+    # re-run version) is never reported as this release's run.
     $runs = Invoke-GhJson -GhArgs @(
         "run", "list", "--workflow", "$WorkflowFile",
-        "--json", "databaseId,headBranch,status,conclusion,url", "--limit", "5"
+        "--json", "databaseId,headBranch,headSha,status,conclusion,url", "--limit", "20"
     )
 
     if (-not $runs) { return $null }
 
-    $match = $runs | Where-Object { $_.headBranch -eq $Tag } | Select-Object -First 1
-    return $match
+    $candidates = @($runs | Where-Object { $_.headBranch -eq $Tag })
+    if ($HeadSha) {
+        $candidates = @($candidates | Where-Object { $_.headSha -eq $HeadSha })
+    }
+    if ($candidates.Count -eq 0) { return $null }
+    return $candidates | Select-Object -First 1
 }
 
 $run = $null
 do {
-    $run = Find-RunByTag -Tag $tag -WorkflowFile $workflowFile
+    $run = Find-RunByTag -Tag $tag -WorkflowFile $workflowFile -HeadSha $headSha
     if ($run) { break }
 
     Write-Host "  Run not yet visible (${elapsed}s elapsed) — retrying in ${PollIntervalSeconds}s ..."
@@ -183,7 +343,7 @@ Write-Host "  Status: $($run.status)"
 # ── 3. Monitor until completion ────────────────────────────────────
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "  Step 3/3: Monitoring workflow" -ForegroundColor Cyan
+Write-Host "  Step 3/4: Monitoring workflow" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 if ($NoWatch) {
@@ -192,8 +352,17 @@ if ($NoWatch) {
     $done = $false
     $consecutiveFailures = 0
     $maxConsecutiveFailures = 12
+    $monitorStarted = Get-Date
     do {
         Start-Sleep -Seconds $PollIntervalSeconds
+
+        if ($MaxMonitorMinutes -gt 0) {
+            $elapsedMin = ((Get-Date) - $monitorStarted).TotalMinutes
+            if ($elapsedMin -ge $MaxMonitorMinutes) {
+                Write-Host "  ERROR: monitor exceeded -MaxMonitorMinutes ($MaxMonitorMinutes min) — aborting." -ForegroundColor Red
+                exit 1
+            }
+        }
         $info = Invoke-GhJson -GhArgs @(
             "run", "view", "$($run.databaseId)", "--json", "status,conclusion"
         )
