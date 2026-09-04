@@ -390,7 +390,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add VERSION **/pom.xml
+          # Stage the root pom.xml explicitly and the rest via a quoted glob so git's
+          # own pathspec (wildmatch) expands '**' to any depth. Unquoted, bash without
+          # globstar treats '**' as '*' and stages only one-directory-deep poms,
+          # leaving the root parent POM and nested module POMs stale.
+          git add VERSION pom.xml '**/pom.xml'
 
           if git diff --cached --quiet; then
             echo "::notice::No version changes to commit — version may already be bumped."
