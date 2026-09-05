@@ -42,13 +42,18 @@ object AriaSnapshotRenderer {
         val props = renderProps(node, role, accessibleName, options)
         val ref = original.backendNodeId.takeIf { it != null && it > 0 }?.let { "e$it" }
 
-        // --interactive: skip non-interactive nodes, promote their children
-        if (options.interactive && !isInteractiveNode(node, role, props, ref)) {
+        // --interactive: skip non-interactive nodes, promote their children.
+        // Addressability (ref/backendNodeId) is deliberately not a qualifying signal,
+        // see AriaSnapshotFiltering for the shared contract.
+        if (options.interactive && !AriaSnapshotFiltering.isInteractiveNode(role, node.originalNode.isInteractable)) {
             return children
         }
 
-        // --compact: skip generic/group/paragraph nodes that carry no semantic info
-        if (options.compact && shouldCompactNode(role, accessibleName, props, children)) {
+        // --compact: skip generic/group/paragraph nodes that carry no semantic info.
+        // When --interactive is active the filter already removed structural noise, so
+        // compacting a kept (interactive) node would drop genuine click targets
+        // (e.g. a nameless cursor:pointer div).
+        if (!options.interactive && options.compact && shouldCompactNode(role, accessibleName, props, children)) {
             return children
         }
 
@@ -139,18 +144,6 @@ object AriaSnapshotRenderer {
         }
 
         return props
-    }
-
-    private fun isInteractiveNode(
-        node: OptimizedDOMTreeNode,
-        role: String,
-        props: LinkedHashMap<String, String>,
-        ref: String?
-    ): Boolean {
-        if (ref != null) return true
-        if (node.interactiveIndex != null) return true
-        if (node.originalNode.isInteractable == true) return true
-        return role in INTERACTIVE_ROLES
     }
 
     private fun shouldCompactNode(
@@ -312,10 +305,4 @@ object AriaSnapshotRenderer {
         val nodeName = node.nodeName.trim().lowercase(Locale.ROOT)
         return nodeName == "#text" || nodeName == "text"
     }
-
-    private val INTERACTIVE_ROLES = setOf(
-        "button", "link", "textbox", "checkbox", "combobox", "searchbox",
-        "spinbutton", "slider", "radio", "option", "listbox", "menuitem", "tab",
-        "switch", "treeitem", "menuitemcheckbox", "menuitemradio"
-    )
 }

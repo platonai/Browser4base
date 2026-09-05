@@ -7,7 +7,17 @@ package ai.platon.pulsar.chrome.dom.model
  * they do not affect CDP-level data collection (see [ai.platon.pulsar.api.model.SnapshotOptions] for that).
  */
 data class AriaSnapshotOptions(
-    /** Only include interactive elements (buttons, links, inputs, etc.). */
+    /**
+     * Only include interactive elements (buttons, links, inputs, etc.).
+     *
+     * A node qualifies when its role is an interactive widget or it carries an
+     * interactability signal (clickability, cursor:pointer, native control or AX-role
+     * heuristics computed during snapshot collection). Addressability alone — a
+     * backendNodeId-based `ref` — does NOT qualify a node, since backend node ids are
+     * assigned to virtually every DOM node. Non-qualifying nodes are skipped and their
+     * interactive descendants are promoted instead. Both renderers
+     * (viewport/nano and whole-page/full) share the same predicate.
+     */
     val interactive: Boolean = false,
     /** Always include href URLs for link elements (prevent URL-collapse). */
     val urls: Boolean = false,
