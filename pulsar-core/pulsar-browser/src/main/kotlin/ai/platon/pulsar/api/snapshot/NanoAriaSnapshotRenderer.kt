@@ -63,13 +63,17 @@ object NanoAriaSnapshotRenderer {
         val role = role(node, attrs) ?: return children
         val props = renderProps(attrs, role, accessibleName, options)
 
-        // --interactive: skip non-interactive nodes, promote their children
-        if (options.interactive && !isInteractiveNode(node, role, props)) {
+        // --interactive: skip non-interactive nodes, promote their children.
+        // Addressability (locator-based ref) is deliberately not a qualifying signal,
+        // see AriaSnapshotFiltering for the shared contract.
+        if (options.interactive && !AriaSnapshotFiltering.isInteractiveNode(role, node.interactive)) {
             return children
         }
 
-        // --compact: skip generic/group/paragraph nodes that carry no semantic info
-        if (options.compact && shouldCompact(node, role, accessibleName, props, children)) {
+        // --compact: skip generic/group/paragraph nodes that carry no semantic info.
+        // When --interactive is active the filter already removed structural noise, so
+        // compacting a kept (interactive) node would drop genuine click targets.
+        if (!options.interactive && options.compact && shouldCompact(node, role, accessibleName, props, children)) {
             return children
         }
 
@@ -141,16 +145,6 @@ object NanoAriaSnapshotRenderer {
             }
         }
         return props
-    }
-
-    private fun isInteractiveNode(
-        node: NanoDOMTreeNode,
-        role: String,
-        props: LinkedHashMap<String, String>
-    ): Boolean {
-        if (node.ref > 0) return true
-        if (node.interactive == true) return true
-        return role in INTERACTIVE_ROLES
     }
 
     private fun shouldCompact(
@@ -293,10 +287,4 @@ object NanoAriaSnapshotRenderer {
     private fun stringAttributes(node: NanoDOMTreeNode): Map<String, String> {
         return node.attributes.orEmpty().mapValues { (_, value) -> value.toString() }
     }
-
-    private val INTERACTIVE_ROLES = setOf(
-        "button", "link", "textbox", "checkbox", "combobox", "searchbox",
-        "spinbutton", "slider", "radio", "option", "listbox", "menuitem", "tab",
-        "switch", "treeitem", "menuitemcheckbox", "menuitemradio"
-    )
 }

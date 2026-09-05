@@ -6,7 +6,9 @@ import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.PageTarget
 import ai.platon.pulsar.api.model.SnapshotOptions
 import ai.platon.pulsar.chrome.dom.CDPSnapshotService
+import ai.platon.pulsar.chrome.dom.model.AriaSnapshotOptions
 import kotlinx.coroutines.delay
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
@@ -63,6 +65,30 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
         }
 
     @Test
+    @DisplayName("Render strict interactive-only aria snapshot on a real server-hosted page")
+    fun renderInteractiveOnlyAriaSnapshotOnRealFixturePage() =
+        runWebDriverTestAndCompute(rendererFixtureURL) { driver ->
+            assertIs<PulsarWebDriver>(driver)
+            driver.waitForSelector("h1")
+            driver.bringToFront()
+
+            installRendererFixture(driver.browserProtocol)
+            driver.waitForSelector("h1")
+
+            val service = CDPSnapshotService(driver.browserProtocol)
+            val normalized = normalizeRefs(collectInteractiveAriaSnapshot(service)).lowercase()
+
+            assertTrue(normalized.contains("- button \"collapsed button\" [ref=#]"), normalized)
+            assertTrue(normalized.contains("- button \"button\" [ref=#]"), normalized)
+            assertTrue(normalized.contains("- link \"link with a button button\" [ref=#]"), normalized)
+            assertTrue(normalized.contains("- textbox \"search\" [ref=#]"), normalized)
+            assertTrue(normalized.contains("- /placeholder: search docs"), normalized)
+            assertFalse(normalized.contains("- heading"), normalized)
+            assertFalse(normalized.contains("- region"), normalized)
+            assertFalse(normalized.contains("element title"), "Titled generic div should be filtered out: $normalized")
+        }
+
+    @Test
     @DisplayName("Render iframe nodes and nested frame content on a real frames page")
     fun renderIframeNodesAndNestedFrameContentOnRealFramesPage() = runWebDriverTestAndCompute(nestedFramesURL) { driver ->
         assertIs<PulsarWebDriver>(driver)
@@ -110,6 +136,19 @@ class AriaSnapshotRendererE2ETest : WebDriverTestBase() {
 
         assertTrue(domState.ariaSnapshot.isNotBlank(), "Aria snapshot should not be blank")
         return domState.ariaSnapshot
+    }
+
+    private suspend fun collectInteractiveAriaSnapshot(service: CDPSnapshotService): String {
+        val trees = service.buildTargetTrees(target = PageTarget(), options = snapshotOptions)
+        assertTrue(trees.axTree.isNotEmpty(), "AX tree should be collected for aria snapshot rendering")
+
+        val enhancedRoot = collectEnhancedRoot(service, snapshotOptions)
+        val optimizedTree = service.buildOptimizedDOMTreeNode(enhancedRoot)
+        val domState = service.buildDOMState(optimizedTree)
+
+        val snapshot = domState.renderedAriaSnapshot(AriaSnapshotOptions(interactive = true))
+        assertTrue(snapshot.isNotBlank(), "Interactive aria snapshot should not be blank")
+        return snapshot
     }
 
     private fun normalizeRefs(snapshot: String): String {
