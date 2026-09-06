@@ -56,11 +56,17 @@ object NanoAriaSnapshotRenderer {
 
         val attrs = stringAttributes(node)
         val accessibleName = accessibleName(node, attrs)
-        val children = node.children.orEmpty()
+        val rawChildren = node.children.orEmpty()
             .flatMap { child -> toRenderChildren(child, options, depth + 1, counter) }
-            .let { AriaSnapshotFormatting.normalizeChildren(it, accessibleName) }
 
-        val role = role(node, attrs) ?: return children
+        val role = role(node, attrs) ?: return rawChildren
+
+        // Only after the role is known can a sole text child identical to the
+        // accessible name be deduplicated: for presentational nodes (role=none)
+        // the text IS the content and must be promoted, not swallowed (issue #4 —
+        // Chrome marks CSS-hidden/plain tooltip spans as role=none, which used to
+        // erase their text from viewport snapshots even when hover-visible).
+        val children = AriaSnapshotFormatting.normalizeChildren(rawChildren, accessibleName)
         val props = renderProps(attrs, role, accessibleName, options)
 
         // --interactive: skip non-interactive nodes, promote their children.
