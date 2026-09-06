@@ -313,15 +313,81 @@ fun Node.selectImages(query: String, offset: Int = 1, limit: Int = Int.MAX_VALUE
         .filterNotNull()
 }
 
+/**
+ * Append the given element selector to the css query if the query does not already
+ * select that element type, e.g. append `img` to `div.gallery` to select images inside
+ * the gallery: `div.gallery img`.
+ *
+ * Whitespace inside pseudo-class arguments (`:expr(width > 200)`, `:contains(Some Text)`)
+ * and inside quoted attribute values is part of the selector argument, not a selector
+ * separator. Splitting on raw whitespace would rewrite `img:expr(width > 200)` into
+ * `img:expr(width > 200) img`, which silently matches nothing.
+ *
+ * @see <a href="https://github.com/platonai/Browser4base/issues/5">issue #5</a>
+ */
 fun appendSelectorIfMissing(cssQuery: String, appendix: String): String {
-    var q = cssQuery.replace("\\s+".toRegex(), " ").trim()
+    val q = cssQuery.replace("\\s+".toRegex(), " ").trim()
     val ap = appendix.trim()
 
-    val parts = q.split(" ")
+    val parts = topLevelParts(q)
     // consider: body > div:nth-child(10) > ul > li:nth-child(3) > a:nth-child(2)
-    if (!parts[parts.size - 1].startsWith(ap, ignoreCase = true)) {
-        q += " $ap"
+    if (parts.isEmpty() || !parts.last().startsWith(ap, ignoreCase = true)) {
+        return "$q $ap"
     }
 
     return q
+}
+
+/**
+ * Split a css query at whitespace that is not inside parentheses, brackets or quoted
+ * strings. Spaces in pseudo-class arguments and attribute values must be kept intact,
+ * e.g. `img:expr(width > 200)` or `a:contains(Some Text)` must not be split.
+ */
+private fun topLevelParts(cssQuery: String): List<String> {
+    val parts = mutableListOf<String>()
+    val part = StringBuilder()
+    var depth = 0
+    var quote: Char? = null
+
+    for (c in cssQuery) {
+        if (quote != null) {
+            part.append(c)
+            if (c == quote) {
+                quote = null
+            }
+            continue
+        }
+
+        when {
+            c == '"' || c == '\'' -> {
+                quote = c
+                part.append(c)
+            }
+
+            c == '(' || c == '[' -> {
+                ++depth
+                part.append(c)
+            }
+
+            c == ')' || c == ']' -> {
+                if (depth > 0) {
+                    --depth
+                }
+                part.append(c)
+            }
+
+            c == ' ' && depth == 0 -> {
+                parts.add(part.toString())
+                part.setLength(0)
+            }
+
+            else -> part.append(c)
+        }
+    }
+
+    if (part.isNotEmpty()) {
+        parts.add(part.toString())
+    }
+
+    return parts
 }
