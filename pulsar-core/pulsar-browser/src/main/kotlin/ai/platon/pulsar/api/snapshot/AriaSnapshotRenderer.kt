@@ -1,6 +1,7 @@
 package ai.platon.pulsar.api.snapshot
 
 import ai.platon.pulsar.api.model.DOMRect
+import ai.platon.pulsar.api.model.DOMUtils
 import ai.platon.pulsar.api.model.MergedDOMTreeNode
 import ai.platon.pulsar.api.model.NodeType
 import ai.platon.pulsar.api.model.OptimizedDOMTreeNode
@@ -27,6 +28,13 @@ object AriaSnapshotRenderer {
             return emptyList()
         }
 
+        // CSS-hidden content (`display:none` / `visibility:hidden`) must not appear in
+        // snapshot output — prune the whole subtree, mirroring how the nano renderer
+        // prunes `invisible` nodes (Browser4base issue #4).
+        if (DOMUtils.isCssHidden(original)) {
+            return emptyList()
+        }
+
         if (isTextNode(original)) {
             return AriaSnapshotFormatting.normalizeText(original.nodeValue)
                 ?.let { listOf(AriaSnapshotFormatting.RenderChild.Text(it)) }
@@ -34,11 +42,15 @@ object AriaSnapshotRenderer {
         }
 
         val accessibleName = accessibleName(node)
-        val children = node.children
+        val rawChildren = node.children
             .flatMap { child -> toRenderChildren(child, options, depth + 1) }
-            .let { AriaSnapshotFormatting.normalizeChildren(it, accessibleName) }
 
-        val role = role(node) ?: return children
+        val role = role(node) ?: return rawChildren
+
+        // Deduplicate a sole text child identical to the accessible name only after
+        // the role is known: presentational nodes (role=none) must promote their
+        // text as content instead of swallowing it (issue #4).
+        val children = AriaSnapshotFormatting.normalizeChildren(rawChildren, accessibleName)
         val props = renderProps(node, role, accessibleName, options)
         val ref = original.backendNodeId.takeIf { it != null && it > 0 }?.let { "e$it" }
 
@@ -160,18 +172,57 @@ object AriaSnapshotRenderer {
         return true
     }
 
+    /**
+     * Compute the accessible name for snapshot output. CSS visibility must never
+     * leak into names (Browser4base issue #4): Chromium embeds
+     * `visibility:hidden` descendant text in content-derived accessible names, so
+     * when a subtree contains CSS-hidden content the AX name is only trusted for
+     * widgets that are named from an *external* source (label elements,
+     * aria-labelledby) and have no own visible content.
+     */
     private fun accessibleName(node: OptimizedDOMTreeNode): String? {
         val original = node.originalNode
         val role = role(node)
-        val candidates = listOfNotNull(
-            original.axNode?.name,
-            original.attributes["aria-label"],
-            original.attributes["title"],
-            if (role.equals("generic", ignoreCase = true)) original.axNode?.description else null,
-            if (role == "img") original.attributes["alt"] else null,
-            original.textContent()
-        )
-        return candidates.firstNotNullOfOrNull(AriaSnapshotFormatting::normalizeText)
+        val attributes = original.attributes
+        val normalize = AriaSnapshotFormatting::normalizeText
+
+        // 1. Explicit naming attributes never embed the node's own hidden content.
+        normalize(attributes["aria-label"])?.let { return it }
+        normalize(attributes["title"])?.let { return it }
+        if (role == "img") {
+            normalize(attributes["alt"])?.let { return it }
+        }
+
+        val axName = normalize(original.axNode?.name)
+        val axDescription = if (role.equals("generic", ignoreCase = true)) {
+            normalize(original.axNode?.description)
+        } else null
+
+        // 2. aria-labelledby is resolved by the browser against other elements and
+        // may deliberately reference hidden content — the AX name is authoritative.
+        if (!attributes["aria-labelledby"].isNullOrBlank()) {
+            return axName ?: axDescription
+        }
+
+        // 3. Names derived from the node's own subtree must never embed CSS-hidden
+        // text.
+        val visibleText = normalize(DOMUtils.textContent(original, excludeCssHidden = true))
+        val hasCssHiddenContent = DOMUtils.hasCssHiddenContent(original)
+
+        return when {
+            !hasCssHiddenContent -> axName ?: axDescription ?: visibleText
+            isWidgetRole(role) && visibleText == null -> axName ?: axDescription
+            else -> visibleText ?: axDescription
+        }
+    }
+
+    /**
+     * Roles that are typically named from an external source (a <label> element,
+     * aria-labelledby) rather than from their own contents, so their AX name can
+     * be trusted even when their subtree contains CSS-hidden content.
+     */
+    private fun isWidgetRole(role: String?): Boolean {
+        return role != null && role in AriaSnapshotFiltering.INTERACTIVE_ROLES
     }
 
     private fun level(node: OptimizedDOMTreeNode): String? {
