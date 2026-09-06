@@ -63,13 +63,18 @@ class DOMSnapshotHandler(private val bp: BrowserProtocol) {
             val stylesIdx = layout.styles
             val styleMaps: List<Map<String, String>> = if (includeStyles) {
                 stylesIdx.map { idxs ->
-                    val m = mutableMapOf<String, String>()
-                    var i = 0
-                    while (i + 1 < idxs.size) {
-                        val k = strings.getOrNull(idxs[i]) ?: ""
-                        val v = strings.getOrNull(idxs[i + 1]) ?: ""
-                        if (k.isNotEmpty()) m[k] = v
-                        i += 2
+                    // CDP DOMSnapshot returns, per layout row, the computed values of
+                    // the REQUESTED properties in request order — the property names
+                    // are implied by [REQUIRED_COMPUTED_STYLES] and are not repeated
+                    // per row. Zipping request order with the row's string indices
+                    // recovers the property → value map (previously pairs were
+                    // mis-read as (name, value), producing garbage keys that broke
+                    // every style-based visibility/scroll/cursor decision).
+                    val m = linkedMapOf<String, String>()
+                    val n = minOf(computedStyles.size, idxs.size)
+                    for (i in 0 until n) {
+                        val value = strings.getOrNull(idxs[i])
+                        if (!value.isNullOrEmpty()) m[computedStyles[i]] = value
                     }
                     m
                 }

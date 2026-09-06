@@ -453,7 +453,10 @@ object DOMStateBuilder {
             frameId = node.frameId,
             sessionId = node.sessionId,
             isScrollable = node.isScrollable?.takeIf { it },
-            isVisible = node.isVisible?.takeIf { it },
+            // Keep `false` (not just `true`): viewport/nano serialization relies on
+            // `isVisible == false` to mark nodes `invisible` so CSS-hidden content is
+            // pruned from viewport snapshots (Browser4base issue #4).
+            isVisible = node.isVisible,
             isInteractable = node.isInteractable?.takeIf { it },
             xpath = node.xpath,
             elementHash = node.elementHash,
