@@ -876,6 +876,13 @@ FROM DOM_LOAD_AND_SELECT('https://example.com', 'a[href]');
 
 Automatically appends `img` / `a` to the CSS query if not present.
 
+PowerCSS selectors are fully supported in the query argument, including `:expr(...)` with spaces, e.g. select images wider than 200px:
+
+```sql
+SELECT DOM_ALL_IMGS(DOM, 'img:expr(width > 200)') AS wide_images FROM DOM_LOAD('...');
+SELECT DOM_FIRST_IMG(DOM, 'img:expr(width > 200 && height > 200)') AS hero_image FROM DOM_LOAD('...');
+```
+
 ```sql
 -- DOM_ALL_IMGS: All image absolute src URLs
 SELECT DOM_ALL_IMGS(DOM) AS images FROM DOM_LOAD('...');
