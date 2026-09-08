@@ -46,33 +46,33 @@ class PulsarBrowserFactory(
      * */
     @Throws(BrowserLaunchException::class)
     override fun launchSystemDefaultBrowser(): Browser =
-        launcher.launch(BrowserId.SYSTEM_DEFAULT, LauncherOptions(settings), ChromeOptions())
+        launcher.launch(BrowserId.createSystemDefault(), LauncherOptions(settings), ChromeOptions())
 
     /**
      * Launch the default browser, notice, the default browser is not the one you used daily.
      * */
     @Throws(BrowserLaunchException::class)
     override fun launchDefaultBrowser(): Browser =
-        launcher.launch(BrowserId.DEFAULT, LauncherOptions(settings), ChromeOptions())
+        launcher.launch(BrowserId.createDefault(), LauncherOptions(settings), ChromeOptions())
 
     /**
      * Launch the prototype browser, the prototype browser is a browser instance with default settings.
      * */
     @Throws(BrowserLaunchException::class)
     override fun launchPrototypeBrowser(): Browser =
-        launcher.launch(BrowserId.PROTOTYPE, LauncherOptions(settings), ChromeOptions())
+        launcher.launch(BrowserId.createPrototype(), LauncherOptions(settings), ChromeOptions())
 
     /**
      * Launch the next sequential browser, the browser's user data dir rotates between a group of dirs.
      * */
     @Throws(BrowserLaunchException::class)
     override fun launchNextSequentialBrowser(): Browser =
-        launcher.launch(BrowserId.NEXT_SEQUENTIAL, LauncherOptions(settings), ChromeOptions())
+        launcher.launch(BrowserId.createNextSequential(), LauncherOptions(settings), ChromeOptions())
 
     /**
      * Launch a random temporary browser, the browser's user data dir is a random temporary dir.
      * */
     @Throws(BrowserLaunchException::class)
     override fun launchRandomTempBrowser(): Browser =
-        launcher.launch(BrowserId.RANDOM_TEMP, LauncherOptions(settings), ChromeOptions())
+        launcher.launch(BrowserId.createRandomTemp(), LauncherOptions(settings), ChromeOptions())
 }

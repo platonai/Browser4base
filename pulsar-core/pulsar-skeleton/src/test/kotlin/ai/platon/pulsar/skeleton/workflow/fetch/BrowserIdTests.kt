@@ -1,7 +1,6 @@
 package ai.platon.pulsar.skeleton.workflow.fetch
 
 import ai.platon.pulsar.api.BrowserId
-import ai.platon.pulsar.api.BrowserId.Companion.SYSTEM_DEFAULT
 import ai.platon.pulsar.browser.privacy.PrivacyContext
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.browser.BrowserType
@@ -33,7 +32,7 @@ class BrowserIdTests {
 
     @Test
     fun testPrototypeBrowserId() {
-        val id = BrowserId.PROTOTYPE
+        val id = BrowserId.createPrototype()
         printlnPro(id)
         printlnPro(id.contextDir)
         printlnPro(id.userDataDir)
@@ -45,7 +44,7 @@ class BrowserIdTests {
 
     @Test
     fun testDefaultBrowserId() {
-        val id = BrowserId.DEFAULT
+        val id = BrowserId.createDefault()
         printlnPro(id)
         printlnPro(id.contextDir)
         printlnPro(id.userDataDir)
@@ -57,7 +56,7 @@ class BrowserIdTests {
 
     @Test
     fun testSystemDefaultBrowserId() {
-        val id = SYSTEM_DEFAULT
+        val id = BrowserId.createSystemDefault()
         printlnPro(id)
         printlnPro(id.contextDir)
         printlnPro(id.userDataDir)
@@ -70,7 +69,7 @@ class BrowserIdTests {
     @Test
     fun testNextSequentialBrowserId() {
         IntRange(1, 20).forEach { i ->
-            val id = BrowserId.NEXT_SEQUENTIAL
+            val id = BrowserId.createNextSequential()
             val expectedContextBaseDir = AppPaths.CONTEXT_GROUP_BASE_DIR
             printlnPro("\nRound $i")
             printlnPro("Browser Id: $id")
@@ -83,4 +82,3 @@ class BrowserIdTests {
         }
     }
 }
-

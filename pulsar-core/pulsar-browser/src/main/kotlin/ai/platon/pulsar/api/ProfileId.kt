@@ -13,12 +13,21 @@ data class ProfileId(
     val ident = contextDir.last().toString()
 
     val display = when {
+        isExternal -> ident.substringAfter(ProfilePaths.CONTEXT_DIR_PREFIX)
         isSystemDefault -> "system.default"
         isDefault -> "default"
         isPrototype -> "prototype"
         ident.length <= 5 -> ident
         else -> ident.substringAfter(ProfilePaths.CONTEXT_DIR_PREFIX)
     }
+
+    /**
+     * If true, the browser profile belongs to an externally-attached browser (CDP attach,
+     * Chrome extension relay, etc.). The context dir of such a profile is purely virtual:
+     * it is never created on disk and it must never be passed to a browser launcher — the
+     * physical browser owns its own user data dir on its own machine.
+     * */
+    val isExternal get() = contextDir.startsWith(ProfilePaths.EXTERNAL_CONTEXT_DIR)
 
     /**
      * If true, the browser profile opens browser just like a real user does every day.

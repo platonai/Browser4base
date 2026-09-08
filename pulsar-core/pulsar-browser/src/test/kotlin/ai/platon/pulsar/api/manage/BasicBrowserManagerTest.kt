@@ -23,6 +23,12 @@ import java.time.Instant
 
 class BasicBrowserManagerTest {
 
+    // Explicit factory calls: identity values used only for stubbing & lookup.
+    private val systemDefaultId = BrowserId.createSystemDefault()
+    private val defaultId = BrowserId.createDefault()
+    private val prototypeId = BrowserId.createPrototype()
+    private val randomTempId = BrowserId.createRandomTemp()
+
     private val browserFactory = mock<BrowserFactory>()
     private val manager = BasicBrowserManager(browserFactory, ImmutableConfig())
 
@@ -33,7 +39,7 @@ class BasicBrowserManagerTest {
 
     private fun registerPrototypeBrowser(): AbstractBrowser {
         val browser: AbstractBrowser = mock()
-        whenever(browser.id).thenReturn(BrowserId.PROTOTYPE)
+        whenever(browser.id).thenReturn(prototypeId)
         whenever(browserFactory.launch(BrowserProfileMode.PROTOTYPE)).thenReturn(browser)
         return manager.launch(BrowserProfileMode.PROTOTYPE) as AbstractBrowser
     }
@@ -43,18 +49,18 @@ class BasicBrowserManagerTest {
     fun launchProfileModeRegistersBrowser() {
         val browser = registerPrototypeBrowser()
 
-        assertSame(browser, manager.findBrowserOrNull(BrowserId.PROTOTYPE))
-        assertTrue(manager.browsers.containsKey(BrowserId.PROTOTYPE))
+        assertSame(browser, manager.findBrowserOrNull(prototypeId))
+        assertTrue(manager.browsers.containsKey(prototypeId))
     }
 
     @Test
     @DisplayName("launch variants register their browsers")
     fun launchVariantsRegisterBrowsers() {
         val systemDefault: AbstractBrowser = mock()
-        whenever(systemDefault.id).thenReturn(BrowserId.SYSTEM_DEFAULT)
+        whenever(systemDefault.id).thenReturn(systemDefaultId)
         whenever(browserFactory.launchSystemDefaultBrowser()).thenReturn(systemDefault)
         val randomTemp: AbstractBrowser = mock()
-        whenever(randomTemp.id).thenReturn(BrowserId.RANDOM_TEMP)
+        whenever(randomTemp.id).thenReturn(randomTempId)
         whenever(browserFactory.launchRandomTempBrowser()).thenReturn(randomTemp)
 
         assertSame(systemDefault, manager.launchSystemDefaultBrowser())
@@ -65,7 +71,7 @@ class BasicBrowserManagerTest {
     @Test
     @DisplayName("findBrowserOrNull returns null for unknown ids")
     fun findBrowserOrNullReturnsNullForUnknownIds() {
-        assertNull(manager.findBrowserOrNull(BrowserId.PROTOTYPE))
+        assertNull(manager.findBrowserOrNull(prototypeId))
     }
 
     @Test
@@ -73,9 +79,9 @@ class BasicBrowserManagerTest {
     fun closeBrowserRemovesAndCloses() {
         val browser = registerPrototypeBrowser()
 
-        manager.closeBrowser(BrowserId.PROTOTYPE)
+        manager.closeBrowser(prototypeId)
 
-        assertNull(manager.findBrowserOrNull(BrowserId.PROTOTYPE))
+        assertNull(manager.findBrowserOrNull(prototypeId))
         verify(browser).close()
     }
 
@@ -84,7 +90,7 @@ class BasicBrowserManagerTest {
     fun closeClosesAllBrowsers() {
         val prototype = registerPrototypeBrowser()
         val default: AbstractBrowser = mock()
-        whenever(default.id).thenReturn(BrowserId.DEFAULT)
+        whenever(default.id).thenReturn(defaultId)
         whenever(browserFactory.launch(BrowserProfileMode.DEFAULT)).thenReturn(default)
         manager.launch(BrowserProfileMode.DEFAULT)
 
@@ -113,10 +119,10 @@ class BasicBrowserManagerTest {
     fun isActiveReflectsBrowserState() {
         val browser = registerPrototypeBrowser()
         whenever(browser.isActive).thenReturn(true)
-        assertTrue(manager.isActive(BrowserId.PROTOTYPE))
+        assertTrue(manager.isActive(prototypeId))
 
         whenever(browser.isActive).thenReturn(false)
-        assertEquals(false, manager.isActive(BrowserId.PROTOTYPE))
+        assertEquals(false, manager.isActive(prototypeId))
     }
 
     @Test

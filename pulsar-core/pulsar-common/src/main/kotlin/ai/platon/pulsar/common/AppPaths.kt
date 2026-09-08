@@ -165,6 +165,15 @@ object AppPaths {
     val CONTEXT_TMP_DEFAULT_GROUP_DIR = CONTEXT_TMP_GROUP_BASE_DIR.resolve("default")
 
     /**
+     * The virtual context root for externally-attached browsers (CDP attach, browser
+     * extension relay, etc.). This is a logical namespace only: the directory is never
+     * created on disk, because an attached browser owns its own user data dir on its own
+     * machine. Browser ids rooted here are classified as "external" (see ProfileId.isExternal)
+     * and are rejected by the browser launch funnels.
+     * */
+    val CONTEXT_EXTERNAL_DIR: Path = CONTEXT_BASE_DIR.resolve("external")
+
+    /**
      * Proxy directory
      * */
     @RequiredDirectory

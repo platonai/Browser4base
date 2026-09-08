@@ -30,6 +30,33 @@ object ProfilePaths {
     // A random context directory, if you need a random temporary context, use this one
     val RANDOM_TEMP_CONTEXT_DIR: Path get() = BrowserFiles.computeRandomTmpContextDir(browserType = BrowserType.PULSAR_CHROME)
 
+    // The virtual context root of externally-attached browsers (CDP attach, browser extension
+    // relay). Purely logical — never created on disk; the physical browser owns its own user
+    // data dir on its own machine. Context dirs rooted here are classified as external
+    // (ProfileId.isExternal) and must never be passed to a browser launcher.
+    val EXTERNAL_CONTEXT_DIR: Path = AppPaths.CONTEXT_EXTERNAL_DIR
+
+    /**
+     * Compute the virtual context dir of an externally-attached browser.
+     *
+     * @param externalKey A stable, caller-chosen key that identifies the external browser
+     * (e.g. a session id or a CDP endpoint). The same key always yields the same context
+     * dir, hence the same BrowserId/profile identity across reconnects and restarts.
+     * */
+    fun externalContextDir(externalKey: String): Path {
+        val safeKey = sanitizeExternalKey(externalKey)
+        return EXTERNAL_CONTEXT_DIR.resolve("${CONTEXT_DIR_PREFIX}ext.$safeKey")
+    }
+
+    private fun sanitizeExternalKey(externalKey: String): String {
+        require(externalKey.isNotBlank()) { "The external key must not be blank: '$externalKey'" }
+        require(externalKey.length <= 64) { "The external key is too long (>64): '$externalKey'" }
+        require(externalKey.all { it.isLetterOrDigit() || it == '_' || it == '-' || it == '.' || it == ':' }) {
+            "The external key contains invalid characters (only letters, digits, '_', '-', '.', ':' are allowed): '$externalKey'"
+        }
+        return externalKey
+    }
+
     fun createNextSequential(fingerprint: Fingerprint): Path {
         return BrowserFiles.computeNextSequentialContextDir(fingerprint = fingerprint)
     }

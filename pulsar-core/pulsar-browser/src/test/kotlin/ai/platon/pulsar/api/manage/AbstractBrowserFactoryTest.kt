@@ -40,20 +40,20 @@ class AbstractBrowserFactoryTest {
         val factory = RecordingFactory()
 
         factory.launch(BrowserProfileMode.SYSTEM_DEFAULT)
-        assertEquals(BrowserId.SYSTEM_DEFAULT, factory.launched.last().first)
+        assertEquals(BrowserId.createSystemDefault(), factory.launched.last().first)
 
         factory.launch(BrowserProfileMode.DEFAULT)
-        assertEquals(BrowserId.DEFAULT, factory.launched.last().first)
+        assertEquals(BrowserId.createDefault(), factory.launched.last().first)
 
         factory.launch(BrowserProfileMode.PROTOTYPE)
-        assertEquals(BrowserId.PROTOTYPE, factory.launched.last().first)
+        assertEquals(BrowserId.createPrototype(), factory.launched.last().first)
 
         factory.launch(BrowserProfileMode.TEMPORARY)
-        assertNotEquals(BrowserId.PROTOTYPE, factory.launched.last().first)
+        assertNotEquals(BrowserId.createPrototype(), factory.launched.last().first)
         assertEquals(BrowserType.PULSAR_CHROME, factory.launched.last().first.browserType)
 
         factory.launch(BrowserProfileMode.SEQUENTIAL)
-        assertNotEquals(BrowserId.PROTOTYPE, factory.launched.last().first)
+        assertNotEquals(BrowserId.createPrototype(), factory.launched.last().first)
         assertEquals(BrowserType.PULSAR_CHROME, factory.launched.last().first.browserType)
     }
 
@@ -63,19 +63,19 @@ class AbstractBrowserFactoryTest {
         val factory = RecordingFactory()
 
         factory.launchSystemDefaultBrowser()
-        assertEquals(BrowserId.SYSTEM_DEFAULT, factory.launched.last().first)
+        assertEquals(BrowserId.createSystemDefault(), factory.launched.last().first)
 
         factory.launchDefaultBrowser()
-        assertEquals(BrowserId.DEFAULT, factory.launched.last().first)
+        assertEquals(BrowserId.createDefault(), factory.launched.last().first)
 
         factory.launchPrototypeBrowser()
-        assertEquals(BrowserId.PROTOTYPE, factory.launched.last().first)
+        assertEquals(BrowserId.createPrototype(), factory.launched.last().first)
 
         factory.launchNextSequentialBrowser()
-        assertNotEquals(BrowserId.PROTOTYPE, factory.launched.last().first)
+        assertNotEquals(BrowserId.createPrototype(), factory.launched.last().first)
 
         factory.launchRandomTempBrowser()
-        assertNotEquals(BrowserId.PROTOTYPE, factory.launched.last().first)
+        assertNotEquals(BrowserId.createPrototype(), factory.launched.last().first)
     }
 
     @Test
@@ -83,9 +83,9 @@ class AbstractBrowserFactoryTest {
     fun launchByBrowserIdDelegatesWithFactorySettings() {
         val factory = RecordingFactory(settings = BrowserSettings())
 
-        factory.launch(BrowserId.PROTOTYPE)
+        factory.launch(BrowserId.createPrototype())
 
-        assertEquals(BrowserId.PROTOTYPE, factory.launched.single().first)
+        assertEquals(BrowserId.createPrototype(), factory.launched.single().first)
         org.junit.jupiter.api.Assertions.assertSame(factory.settings, factory.launched.single().second.settings)
     }
 }

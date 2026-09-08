@@ -59,8 +59,29 @@ class PulsarBrowser(
         // launcher?.let { PulsarContexts.registerClosable(it, Int.MIN_VALUE) }
     }
 
+    /**
+     * Connect to a Chrome instance that is already running with the DevTools protocol enabled
+     * (e.g. started with `--remote-debugging-port`). The wrapper gets a stable EXTERNAL browser
+     * identity keyed by the port, so re-connecting to the same browser keeps naming it the same
+     * way and no profile directory is ever allocated locally.
+     *
+     * @param port The remote debugging port of the running browser.
+     * @param settings The browser settings.
+     * */
     constructor(port: Int, settings: BrowserSettings = BrowserSettings()) :
-            this(BrowserId.RANDOM_TEMP, ChromeImpl(port = port), settings, null)
+            this(BrowserId.external("attach.port.$port"), ChromeImpl(port = port), settings, null)
+
+    /**
+     * Connect to a Chrome instance that is already running with the DevTools protocol enabled,
+     * with an explicit external browser identity (e.g. a session-scoped key chosen by the
+     * caller, so reconnects of the same session keep the same id).
+     *
+     * @param port The remote debugging port of the running browser.
+     * @param id The identity of the external browser; must have [BrowserId.isExternal] == true.
+     * @param settings The browser settings.
+     * */
+    constructor(port: Int, id: BrowserId, settings: BrowserSettings = BrowserSettings()) :
+            this(id, ChromeImpl(port = port), settings, null)
 
     @Synchronized
     override fun healthy(): CheckState {

@@ -32,6 +32,7 @@ data class BrowserProfile(
     val isGroup get() = id.isGroup
     val isTemporary get() = id.isTemporary
     val isPermanent get() = id.isPermanent
+    val isExternal get() = id.isExternal
 
     constructor(contextDir: Path) : this(contextDir, BrowserType.PULSAR_CHROME)
 
@@ -55,7 +56,16 @@ data class BrowserProfile(
 
         /**
          * The random browser profile opens browser with a random data dir.
+         *
+         * Deprecated: this property allocates a fresh random profile on every access
+         * (and re-configures the runtime profile mode as a side effect). Call the
+         * explicit factory [createRandomTemp] instead, so each allocation is visible.
          * */
+        @Deprecated(
+            "BrowserProfile.RANDOM_TEMP allocates a new random profile on every access. " +
+                "Call the explicit factory BrowserProfile.createRandomTemp() instead.",
+            ReplaceWith("BrowserProfile.createRandomTemp()")
+        )
         val RANDOM_TEMP get() = createRandomTemp()
 
         fun create(contextDir: Path) = create(BrowserType.PULSAR_CHROME, contextDir)

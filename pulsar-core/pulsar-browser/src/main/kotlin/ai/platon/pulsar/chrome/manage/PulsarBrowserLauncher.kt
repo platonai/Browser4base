@@ -23,7 +23,14 @@ open class PulsarBrowserLauncher : BrowserLauncher {
     @Throws(BrowserLaunchException::class)
     override fun launch(
         browserId: BrowserId, launcherOptions: LauncherOptions, launchOptions: ChromeOptions
-    ): Browser = launchPulsarBrowser0(browserId, launcherOptions, launchOptions)
+    ): Browser {
+        require(!browserId.isExternal) {
+            "Cannot launch an external browser id '$browserId' — it names a browser attached " +
+                "from another process (CDP attach or Chrome extension relay). " +
+                "Use connect(port, ...) to attach to the running browser instead of launching a new one."
+        }
+        return launchPulsarBrowser0(browserId, launcherOptions, launchOptions)
+    }
 
     @Throws(BrowserLaunchException::class)
     private fun launchPulsarBrowser0(
