@@ -561,6 +561,11 @@ open class BrowserSettings constructor(
      * Check if user agent overriding is enabled. User agent overriding is disabled by default,
      * because inappropriate user agent overriding can be detected by the website,
      * furthermore, there is no obvious benefits to rotate the user agent.
+     *
+     * Note: this only gates the `userAgentOverride` label on `AbstractBrowser`, a JVM-side value
+     * that never reaches the wire. User agent rotation and the headless-token fix are applied at
+     * launch instead — see [resolveUserAgent], `browser.launch.user.agent` and
+     * `browser.launch.user.agent.stealth`.
      * */
     val isUserAgentOverridingEnabled get() = config.getBoolean(BROWSER_ENABLE_UA_OVERRIDING, false)
 
@@ -641,14 +646,46 @@ open class BrowserSettings constructor(
         // looks like a hang to users (issue: headed window silently missing).
         chromeOptions.noStartupWindow = isHeadless
 
+        // Flags that used to be forced on. They are now driven by configuration so the program
+        // does not "effectively set" the key, which is what let them override
+        // browser.launch.chrome.args. See issue #11 section 6.
+        chromeOptions.disableGpu = launchConfig.disableGpu
+        chromeOptions.hideScrollbars = launchConfig.hideScrollbars
+        chromeOptions.muteAudio = launchConfig.muteAudio
+
+        // Replace the HeadlessChrome token at launch: the only mechanism that reaches every
+        // JavaScript scope (page, iframes, dedicated/shared/service workers) while leaving the
+        // Client Hints intact. See issue #11 section 1.
+        resolveUserAgent()?.let { chromeOptions.userAgent = it }
+
         chromeOptions
             .addArgument("window-position", launchConfig.windowPosition)
             .addArgument("window-size", formatViewPort())
-            .addArgument("pageLoadStrategy", pageLoadStrategy)
-            .addArgument("throwExceptionOnScriptError", launchConfig.throwExceptionOnScriptError.toString())
             .addArgument("disable-blink-features", ChromeDefaults.DISABLE_BLINK_FEATURES)
+        // NOTE: --pageLoadStrategy and --throwExceptionOnScriptError are intentionally NOT added.
+        // They are Selenium capabilities, not Chrome switches; on the command line of a plain
+        // Chrome process they are inert noise that shows up in chrome://version.
 //            .addArgument("start-maximized")
 
         return chromeOptions
+    }
+
+    /**
+     * The user agent to pass to `--user-agent`, or `null` to let Chrome decide.
+     *
+     * A configured [ChromeLaunchConfig.userAgent] wins. Otherwise, when
+     * [ChromeLaunchConfig.userAgentStealth] is enabled, a reduced user agent is derived from the
+     * installed Chrome version so the session does not advertise `HeadlessChrome/<version>`.
+     */
+    open fun resolveUserAgent(): String? {
+        val configured = launchConfig.userAgent.trim().takeIf { it.isNotEmpty() }
+        if (configured != null) {
+            return ReducedUserAgent.reduce(configured)
+        }
+        if (!launchConfig.userAgentStealth) {
+            return null
+        }
+
+        return ReducedUserAgent.buildOrNull()
     }
 }

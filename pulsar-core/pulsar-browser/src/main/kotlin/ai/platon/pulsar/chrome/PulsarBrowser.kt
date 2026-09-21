@@ -276,6 +276,12 @@ class PulsarBrowser(
         val driver = PulsarWebDriver(uniqueID, chromeTab, browserProtocol, this)
         mutableDrivers[chromeTab.id] = driver
 
+        // Post-construction hook: the driver now exists, so per-driver tuning (and the
+        // fingerprintApplier seam) can actually be applied. Invoking this from the constructor
+        // could never work — the hook cannot be set before construction finishes.
+        runCatching { driver.onDriverCreated() }
+            .onFailure { logger.warn("Failed to apply the post-creation hook to the driver", it) }
+
         if (recovered) {
             driver.isRecovered = true
             mutableRecoveredDrivers[chromeTab.id] = driver

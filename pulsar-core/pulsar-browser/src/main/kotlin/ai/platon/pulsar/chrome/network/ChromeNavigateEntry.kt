@@ -67,10 +67,17 @@ class ChromeNavigateEntry(
             )
         }
 
-        if (isMajorRequestWillBeSent(event)) {
+        if (isMainDocumentRequest(event)) {
             val headers = mutableMapOf<String, Any>()
             event.request.headers.forEach { (key, value) -> if (value != null) headers[key] = value }
-            navigateEntry.updateMainRequest(event.requestId, headers)
+
+            if (navigateEntry.mainRequestReceived) {
+                // A redirect hop (or a re-request) of the very same navigation: keep the id of
+                // the request that started it, but follow the chain to the URL that commits.
+                navigateEntry.updateMainDocumentUrl(event.request.url)
+            } else {
+                navigateEntry.updateMainRequest(event.requestId, headers, event.request.url)
+            }
 
             // Extract cookies from extraInfo if available
             extraInfo?.let { info ->
@@ -130,8 +137,30 @@ class ChromeNavigateEntry(
         }
     }
 
-    private fun isMajorRequestWillBeSent(event: RequestWillBeSent): Boolean {
-        return !navigateEntry.mainFrameReceived && event.type == ResourceType.DOCUMENT
+    /**
+     * Whether [event] is a request for the main document of this navigation.
+     *
+     * A subframe navigation is a `DOCUMENT` request too, so once the main frame id is known the
+     * frame id is used to tell them apart. Before that, the first `DOCUMENT` request is taken as
+     * the main document — the same assumption the previous `!mainFrameReceived` check made, but
+     * without letting the arrival order of `Page.frameNavigated` suppress the record for good.
+     *
+     * That ordering is exactly what left `NavigateEntry.mainRequestId` blank for navigations
+     * whose frame event beat the network event (redirects committed from cache, same-document
+     * navigations followed by a real one, late frame events from the previous document), which
+     * in turn made callers reject legitimate redirect captures. See issue #9.
+     */
+    private fun isMainDocumentRequest(event: RequestWillBeSent): Boolean {
+        if (event.type != ResourceType.DOCUMENT) return false
+
+        val mainFrameId = navigateEntry.mainFrameId
+        val eventFrameId = event.frameId
+        if (mainFrameId != null && eventFrameId != null && eventFrameId != mainFrameId) {
+            // A subframe navigation, never the main document.
+            return false
+        }
+
+        return true
     }
 
     private fun isMajorResponseReceived(event: ResponseReceived): Boolean {

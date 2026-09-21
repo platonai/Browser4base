@@ -38,6 +38,19 @@ abstract class AbstractBrowser(
 
     override val userAgent get() = DEFAULT_USER_AGENT
 
+    /**
+     * A randomly chosen user agent, or `null` when user-agent overriding is disabled.
+     *
+     * This is a JVM-side label only: it never reaches the wire. To actually change what the
+     * browser reports, set `browser.launch.user.agent` (or rely on the default reduced user
+     * agent) so the value is applied as a launch-time `--user-agent` switch — the only mechanism
+     * that reaches every JavaScript scope of a session. See [ReducedUserAgent] and issue #11
+     * section 1.
+     */
+    @Deprecated(
+        "This value never reaches the browser. Configure browser.launch.user.agent instead.",
+        ReplaceWith("settings.resolveUserAgent()")
+    )
     var userAgentOverride = getRandomUserAgentOrNull()
 
     override val navigateHistory = NavigateHistory()

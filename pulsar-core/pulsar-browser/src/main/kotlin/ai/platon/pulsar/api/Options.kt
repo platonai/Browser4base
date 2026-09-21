@@ -115,6 +115,15 @@ class ChromeOptions(
     @ChromeParameter("ignore-certificate-errors")
     var ignoreCertificateErrors: Boolean = ChromeDefaults.IGNORE_CERTIFICATE_ERRORS,
     /**
+     * The --user-agent Chrome argument.
+     *
+     * `null` means the program does not set it, so a value from `browser.launch.chrome.args`
+     * still takes effect. A launch-time user agent is the only mechanism that reaches every
+     * JavaScript scope of a session (page, iframes, workers) while keeping `Sec-CH-UA*` intact.
+     */
+    @ChromeParameter("user-agent")
+    var userAgent: String? = null,
+    /**
      * The origin for DevTools Websocket connections must now be specified explicitly from Chrome 111.
      * @see [fluidsonic's pull](https://github.com/kklisura/chrome-devtools-java-client/pull/85)
      * @see [ChromeDriver 111.0.5563.19 unable to establish connection to chrome](https://groups.google.com/g/chromedriver-users/c/xL5-13_qGaA?pli=1)

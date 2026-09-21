@@ -384,4 +384,68 @@ class URLUtilsTest {
         assertEquals(8080, normalized.port)
         assertTrue(normalized.toString().contains("param="))
     }
+
+    // ---------------------------------------------------------------------------
+    // issue #8: a '#' inside the args is an option value character, not a fragment
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("splitUrlArgs should keep a '#' inside the args, it is not a fragment")
+    fun splitUrlArgsShouldKeepHashInsideArgs() {
+        val configuredUrl = "https://www.amazon.com/dp/B0XXXXXXX?th=1" +
+                " -refresh -parse -requireNotBlank '#productTitle' -nMaxRetry 3"
+
+        val (url, args) = URLUtils.splitUrlArgs(configuredUrl)
+
+        assertEquals("https://www.amazon.com/dp/B0XXXXXXX?th=1", url)
+        assertEquals(
+            "-refresh -parse -requireNotBlank '#productTitle' -nMaxRetry 3",
+            args,
+            "everything after the url token must be returned verbatim"
+        )
+    }
+
+    @Test
+    @DisplayName("splitUrlArgs should keep a bare '#' value and the options after it")
+    fun splitUrlArgsShouldKeepBareHashValueAndTrailingOptions() {
+        val configuredUrl = "https://example.com/p -requireNotBlank #productTitle -nMaxRetry 3"
+
+        val (url, args) = URLUtils.splitUrlArgs(configuredUrl)
+
+        assertEquals("https://example.com/p", url)
+        assertEquals("-requireNotBlank #productTitle -nMaxRetry 3", args)
+    }
+
+    @Test
+    @DisplayName("splitUrlArgs should keep a fragment in the url token")
+    fun splitUrlArgsShouldKeepFragmentInUrlToken() {
+        val configuredUrl = "https://example.com/p#section -requireNotBlank '#productTitle'"
+
+        val (url, args) = URLUtils.splitUrlArgs(configuredUrl)
+
+        assertEquals("https://example.com/p#section", url)
+        assertEquals("-requireNotBlank '#productTitle'", args)
+    }
+
+    @Test
+    @DisplayName("normalize should strip the fragment from the url token and keep the args")
+    fun normalizeShouldStripFragmentFromUrlTokenOnly() {
+        val configuredUrl = "https://example.com/p#section -requireNotBlank '#productTitle' -nMaxRetry 3"
+        val (url, _) = URLUtils.splitUrlArgs(configuredUrl)
+
+        val normalized = URLUtils.normalize(url)
+
+        assertEquals("https://example.com/p", normalized.toString())
+        assertFalse(normalized.toString().contains("#"))
+        assertTrue(configuredUrl.endsWith("-requireNotBlank '#productTitle' -nMaxRetry 3"))
+    }
+
+    @Test
+    @DisplayName("normalizeOrNull should keep a '#' query value intact")
+    fun normalizeOrNullShouldKeepHashQueryValue() {
+        val normalized = URLUtils.normalizeOrNull("https://example.com/p?q=a#b")
+
+        assertNotNull(normalized)
+        assertEquals("https://example.com/p?q=a", normalized)
+    }
 }

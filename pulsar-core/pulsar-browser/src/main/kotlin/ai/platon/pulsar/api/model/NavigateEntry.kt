@@ -90,13 +90,31 @@ data class NavigateEntry constructor(
     /**
      * The CDP request id of the main document request.
      *
-     * The main request is the first `DOCUMENT`-type network request that arrives before the main
-     * frame is received. It is currently only set for HTML documents; sub-resources and redirect
-     * chains are not captured here.
-     *
-     * An empty string means the main request has not been received yet.
+     * The main request is the first `DOCUMENT`-type network request that belongs to the main
+     * frame. It is recorded regardless of the order in which the network and frame events
+     * happen to arrive, so a redirect committed before `Page.frameNavigated` no longer leaves
+     * this blank. An empty string means the main request has not been received yet.
      */
     var mainRequestId = ""
+
+    /**
+     * The URL of the main document request, following the redirect chain.
+     *
+     * For a navigation answered with a redirect this ends up as the redirect *target* — the URL
+     * the document was actually committed from — while [userTypedUrl] keeps the URL that was
+     * requested. Callers can use it to accept a legitimate redirect instead of rejecting the
+     * capture as an origin mismatch.
+     */
+    var mainDocumentUrl = ""
+
+    /**
+     * Whether a main-document request has been observed for this navigation.
+     *
+     * Prefer this over [mainFrameReceived] when deciding whether a document belongs to this
+     * navigation: it answers "did this navigation ask the browser for a document?", which is
+     * what a snapshot origin guard actually needs, and it does not depend on frame-event timing.
+     */
+    val mainRequestReceived get() = mainRequestId.isNotBlank()
 
     /**
      * The HTTP request headers of the main document request, as reported by the CDP network layer.
@@ -192,14 +210,21 @@ data class NavigateEntry constructor(
     }
 
     /**
-     * Stores the main document request id and headers.
+     * Stores the main document request id, its URL, and its headers.
      *
      * If a [pageReferrer] is set, both `"referer"` and `"referrer"` keys are injected into the
      * stored headers — some sites (e.g. Amazon) use the misspelled `"referer"` form.
+     *
+     * @param requestId the CDP id of the request that started this navigation
+     * @param headers the request headers as reported by the CDP network layer
+     * @param url the URL of that request; when blank, [mainDocumentUrl] is left untouched
      */
-    fun updateMainRequest(requestId: String, headers: Map<String, Any>) {
+    fun updateMainRequest(requestId: String, headers: Map<String, Any>, url: String = "") {
         mainRequestId = requestId
         mainRequestHeaders = headers
+        if (url.isNotBlank()) {
+            mainDocumentUrl = url
+        }
 
         // Both forms are set because some sites (e.g. Amazon) use "referer" (HTTP spec
         // misspelling) while others may use the correct "referrer" form.
@@ -209,6 +234,20 @@ data class NavigateEntry constructor(
             mutableHeaders["referer"] = referrer
             mutableHeaders["referrer"] = referrer
             mainRequestHeaders = mutableHeaders
+        }
+    }
+
+    /**
+     * Records a redirect hop of the main document.
+     *
+     * [mainRequestId] keeps pointing at the request that started the navigation, while
+     * [mainDocumentUrl] follows the chain to the URL the document finally commits from.
+     *
+     * @param url the URL of the redirect hop; blank values are ignored
+     */
+    fun updateMainDocumentUrl(url: String) {
+        if (url.isNotBlank()) {
+            mainDocumentUrl = url
         }
     }
 

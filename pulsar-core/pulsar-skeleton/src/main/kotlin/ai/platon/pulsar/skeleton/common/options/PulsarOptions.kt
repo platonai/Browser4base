@@ -4,7 +4,6 @@ import ai.platon.pulsar.common.config.Parameterized
 import ai.platon.pulsar.common.options.OptionUtils
 import com.beust.jcommander.JCommander
 import com.beust.jcommander.ParameterException
-import org.apache.commons.lang3.StringUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.regex.Pattern
@@ -34,6 +33,14 @@ open class PulsarOptions(
 
     open var isHelp: Boolean = false
 
+    /**
+     * True if the last [parse] call had to recover from a malformed argument vector, i.e. at
+     * least one option was dropped. Callers must not assume that every requested option took
+     * effect when this is true.
+     * */
+    var hasParseError: Boolean = false
+        protected set
+
     init { addObjects(this) }
 
     constructor(): this(arrayOf())
@@ -52,15 +59,64 @@ open class PulsarOptions(
         objects.toCollection(this.registeredObjects)
     }
 
+    /**
+     * Parse the argument vector.
+     *
+     * A malformed argument vector never degrades silently:
+     * 1. the failure and the offending arguments are logged at WARN/ERROR,
+     * 2. the malformed option is dropped and the remaining options are parsed again, so that
+     *    the options following the malformed one still take effect,
+     * 3. [hasParseError] is set so callers can detect the situation programmatically.
+     *
+     * @return true if the options are applied (possibly after dropping a malformed one),
+     *         false if the whole argument vector had to be discarded
+     * */
     open fun parse(): Boolean {
-        try {
-            doParse()
-        } catch (e: Throwable) {
-            logger.warn("Failed to parse \n$args", e)
-            return false
-        }
+        hasParseError = false
 
-        return true
+        var attempt = argv
+        var dropped = 0
+
+        while (true) {
+            try {
+                doParse(attempt)
+
+                if (dropped > 0) {
+                    hasParseError = true
+                    logger.warn(
+                        "Recovered from a malformed argument vector, {} malformed argument(s) dropped" +
+                                " | effective args: {}", dropped, attempt.toList()
+                    )
+                }
+
+                return true
+            } catch (e: ParameterException) {
+                logger.warn("Failed to parse options | args: {} | {}", attempt.toList(), e.message)
+
+                val offender = missingValueOption(e)
+                if (offender == null || offender !in attempt || dropped >= MAX_DROPPED_ARGS) {
+                    hasParseError = true
+                    logger.error(
+                        "Giving up parsing options, the argument vector is discarded as a whole | args: {}",
+                        argv.toList(), e
+                    )
+                    return false
+                }
+
+                ++dropped
+                // JCommander stops at the first failure, so without this retry every option
+                // after the malformed one would be silently lost.
+                logger.warn(
+                    "Dropping malformed option '{}' which has no value, the remaining options are kept",
+                    offender
+                )
+                attempt = attempt.filterNot { it == offender }.toTypedArray()
+            } catch (e: Throwable) {
+                hasParseError = true
+                logger.warn("Failed to parse options, all options are discarded | args: {}", attempt.toList(), e)
+                return false
+            }
+        }
     }
 
     open fun parseOrExit() {
@@ -82,7 +138,7 @@ open class PulsarOptions(
         }
     }
 
-    private fun doParse() {
+    private fun doParse(args: Array<String> = argv) {
         registeredObjects.add(this)
 
         jc = JCommander.newBuilder()
@@ -91,9 +147,58 @@ open class PulsarOptions(
                 .expandAtSign(expandAtSign).build()
         registeredObjects.forEach { jc.addObject(it) }
 
-        if (argv.isNotEmpty()) {
-            jc.parse(*argv)
+        if (args.isNotEmpty()) {
+            val prepared = prepareArgs(args)
+            validateArgs(prepared)
+            jc.parse(*prepared)
         }
+    }
+
+    /**
+     * Prepare the raw argument vector for JCommander: the surrounding quotes kept by [split] are
+     * removed, so that `-requireNotBlank '#id'` really sets `#id` instead of `'#id'`, and
+     * `-outLink '#main a'` keeps the space instead of being truncated at the space.
+     * */
+    private fun prepareArgs(args: Array<String>): Array<String> {
+        return Array(args.size) { unquote(args[it]) }
+    }
+
+    /**
+     * Validate the argument vector before it is handed to JCommander.
+     *
+     * An implementation can throw a [ParameterException] to reject a malformed argument vector.
+     * [parse] then logs the problem, drops the offending option and parses the remaining options
+     * again, so the options after the malformed one are never lost.
+     *
+     * The default implementation accepts everything; a subclass that knows the arity of its
+     * options should override it, see `LoadOptions.validateArgs`.
+     * */
+    protected open fun validateArgs(args: Array<String>) {
+    }
+
+    /**
+     * Remove the surrounding quotes of a value, both `'` and `"` are supported.
+     * An unbalanced quote is left untouched, the value is never dropped.
+     * */
+    private fun unquote(token: String): String {
+        if (token.length >= 2) {
+            val quote = token.first()
+            if ((quote == '"' || quote == '\'') && token.last() == quote) {
+                return token.substring(1, token.length - 1)
+            }
+        }
+
+        return token
+    }
+
+    /**
+     * Extract the option JCommander complained about, e.g.
+     * `Expected a value after parameter -requireNotBlank` -> `-requireNotBlank`.
+     * */
+    private fun missingValueOption(e: ParameterException): String? {
+        val message = e.message ?: return null
+        val matcher = MISSING_VALUE_PATTERN.matcher(message)
+        return if (matcher.find()) matcher.group(1) else null
     }
 
     open fun usage() {
@@ -137,19 +242,73 @@ open class PulsarOptions(
 
     companion object {
         const val DEFAULT_DELIMETER = " "
-        val CMD_SPLIT_PATTERN = Pattern.compile("\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*\"|\\S+")
+
+        /**
+         * The split pattern of a command line: a double quoted value, a single quoted value,
+         * or a run of non whitespace characters. The quotes are kept in the token and are
+         * removed right before the value is handed to JCommander, see [prepareArgs].
+         * */
+        val CMD_SPLIT_PATTERN = Pattern.compile("\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*\"|'[^']*'|\\S+")
+
+        private val MISSING_VALUE_PATTERN = Pattern.compile("Expected a value after parameter\\s+(\\S+)")
+
+        /**
+         * The maximum number of malformed arguments dropped in one [parse] call.
+         * */
+        private const val MAX_DROPPED_ARGS = 8
 
         /**
          * Normalize the raw arguments, convert old version args to current version
+         *
+         * The separators ([seps]) are replaced by spaces, but a separator inside a quoted value
+         * is part of the value and is kept as is, otherwise `-requireNotBlank '#a, #b'` would be
+         * truncated to `'#a`.
          * */
         @JvmOverloads
         fun normalize(args: String, seps: String = ","): String {
-            var args1 = StringUtils.replaceChars(args, seps, StringUtils.repeat(' ', seps.length))
+            var args1 = replaceSeparatorsOutsideQuotes(args, seps)
             // in old version, -cacheContent has arity 0, but current version is 1, we need a convert
             args1 = OptionUtils.arity0ToArity1(args1, "-cacheContent")
             args1 = OptionUtils.arity0ToArity1(args1, "-storeContent")
 
             return args1
+        }
+
+        /**
+         * Replace every separator in [seps] with a space, except the separators inside a quoted
+         * value. A quote opens a quoted value only at the beginning of a token, so an apostrophe
+         * in the middle of a word (e.g. `don't`) stays a normal character.
+         * */
+        private fun replaceSeparatorsOutsideQuotes(args: String, seps: String): String {
+            if (seps.isEmpty() || args.none { it in seps }) {
+                return args
+            }
+
+            val sb = StringBuilder(args.length)
+            var quote: Char? = null
+            var atTokenStart = true
+
+            for (c in args) {
+                if (quote != null) {
+                    sb.append(c)
+                    if (c == quote) {
+                        quote = null
+                    }
+                    atTokenStart = false
+                } else if ((c == '"' || c == '\'') && atTokenStart) {
+                    quote = c
+                    sb.append(c)
+                    atTokenStart = false
+                } else if (c in seps) {
+                    sb.append(' ')
+                    atTokenStart = true
+                } else {
+                    sb.append(c)
+                    atTokenStart = c.isWhitespace()
+                }
+            }
+
+            return sb.toString()
         }
 
         /**
@@ -165,6 +324,11 @@ open class PulsarOptions(
 
         /**
          * Split a command line into argument vector (argv).
+         *
+         * Single quoted values are kept together as well as double quoted ones, so a value
+         * containing a space survives the split, e.g. `-outLink '#main a'` produces one value
+         * token `'#main a` (the quotes are removed later, see [prepareArgs]).
+         *
          * @see {https://stackoverflow.com/questions/36292591/splitting-a-nested-string-keeping-quotation-marks/36292778}
          */
         fun split(args: String): Array<String> {
