@@ -11,6 +11,7 @@ import ai.platon.pulsar.skeleton.common.ApiPublic
 import ai.platon.pulsar.skeleton.event.PageEventHandlers
 import ai.platon.pulsar.skeleton.event.impl.PageEventHandlersFactory
 import com.beust.jcommander.Parameter
+import com.beust.jcommander.ParameterException
 
 import java.time.Duration
 import java.time.Instant
@@ -745,6 +746,13 @@ open class LoadOptions(
      * 1. Fixes special handling for zero-arity boolean parameters
      * 2. Corrects the outLinkSelector format
      *
+     * A value containing `#` is a plain value, e.g. `-requireNotBlank '#productTitle'`, and is
+     * kept as is; only the url token of a configured url can carry a fragment, and the fragment
+     * is removed by the url normalizer, never by the option parser.
+     *
+     * A malformed value does not discard the options following it, see [PulsarOptions.parse],
+     * the failure is logged and [PulsarOptions.hasParseError] reports it.
+     *
      * @return true if parsing was successful
      */
     override fun parse(): Boolean {
@@ -763,6 +771,29 @@ open class LoadOptions(
             outLinkPattern = correctOutLinkPattern() ?: ".+"
         }
         return b
+    }
+
+    /**
+     * Reject an option that expects a value but is immediately followed by another option.
+     *
+     * JCommander configured with `acceptUnknownOptions` silently consumes the next option as the
+     * value, e.g. `-requireNotBlank -nMaxRetry 3` sets `requireNotBlank` to `-nMaxRetry` and
+     * disables `-nMaxRetry` without any warning, so every option after the malformed one is lost.
+     * Rejecting that argument vector lets [PulsarOptions.parse] drop only the malformed option and
+     * parse the remaining options again.
+     * */
+    override fun validateArgs(args: Array<String>) {
+        val allOptionNames = optionDescriptors.flatMap { it.names }.toSet()
+        val valueOptionNames = optionDescriptors
+            .filter { !it.isArity0Boolean }
+            .flatMap { it.names }
+            .toSet()
+
+        args.forEachIndexed { i, token ->
+            if (i + 1 < args.size && token in valueOptionNames && args[i + 1] in allOptionNames) {
+                throw ParameterException("Expected a value after parameter $token")
+            }
+        }
     }
 
     /**
@@ -984,10 +1015,13 @@ open class LoadOptions(
      * Handles a JCommander bug with quoted options and ensures the selector
      * has the correct form with an "a" tag if needed.
      *
+     * Both quote characters are trimmed, a single quoted selector containing a space
+     * (`-outLink '#main a'`) must not keep the quotes nor be truncated at the space.
+     *
      * @return the corrected selector or null if blank
      */
     private fun correctOutLinkSelector(): String? {
-        return outLinkSelector.trim('"')
+        return outLinkSelector.trim('"', '\'')
             .takeIf { it.isNotBlank() }
             ?.let { appendSelectorIfMissing(it, "a") }
     }

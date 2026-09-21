@@ -223,6 +223,8 @@ object URLUtils {
     @JvmStatic
     @Throws(URISyntaxException::class, IllegalArgumentException::class, MalformedURLException::class)
     fun normalize(url: String, ignoreQuery: Boolean = false): URL {
+        // The url and its argument list are split first, so the fragment is removed from the
+        // url token only, a `#` inside an option value is never touched.
         val (url0, _) = splitUrlArgs(url)
 
         val uriBuilder = URIBuilder(url0)
@@ -410,6 +412,14 @@ object URLUtils {
 
     /**
      * Split url and args
+     *
+     * The configured url is `$url $args`, the url is the first whitespace separated token and
+     * the args are the rest of the string, returned verbatim.
+     *
+     * Note: this method never strips a fragment. A `#` inside the args part is a normal
+     * character of an option value, e.g. `-requireNotBlank '#productTitle'`, and must not be
+     * treated as the start of a fragment. A fragment is removed from the url token only, by
+     * [normalize].
      *
      * @param configuredUrl url and args in `$url $args` format
      * @return url and args pair

@@ -29,6 +29,7 @@ import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.pulsar.api.AbstractWebDriver
 import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.api.model.*
+import ai.platon.pulsar.api.scripting.DualWorldScriptLoader
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.BrowserTab
 import ai.platon.pulsar.api.model.NetworkResourceResponse
@@ -49,6 +50,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
@@ -141,6 +143,16 @@ open class PulsarWebDriver constructor(
     private val networkManager by lazy { NetworkManager(rpc, browserProtocol, browser.chrome is ExtensionChromeService) }
     private val messageWriter = MultiSinkMessageWriter()
 
+    /**
+     * The CDP identifier returned by `Page.addScriptToEvaluateOnNewDocument` for the page-world
+     * (stealth) payload, or `null` while it has not been registered for this target yet.
+     *
+     * Keeping it makes the registration idempotent instead of adding one permanent copy of the
+     * payload per navigation. See [registerPageWorldScript] and issue #11 section 4.
+     */
+    @Volatile
+    private var pageWorldScriptId: String? = null
+
     private val driverHelper get() = WebDriverHelper(this, rpc, page, browserProtocol)
 
     /**
@@ -180,6 +192,16 @@ open class PulsarWebDriver constructor(
 
     val isNetworkIdle get() = networkManager.isIdle
 
+    /**
+     * Hook applied to this driver once it is fully constructed and connected.
+     *
+     * This used to be invoked from the constructor's `init` block, which made it dead by
+     * construction: `init` runs during superclass construction, before any subclass property
+     * initializer or external assignment, so the hook could never be set in time. It is now
+     * invoked from [onDriverCreated], which [PulsarBrowser] calls after the driver is created.
+     *
+     * See issue #11 section 5.
+     */
     var fingerprintApplier: ((WebDriver) -> Unit)? = null
 
     /**
@@ -197,7 +219,14 @@ open class PulsarWebDriver constructor(
 
     override val snapshotService: SnapshotService get() = page.snapshot
 
-    init {
+    /**
+     * Post-construction hook, invoked once the driver exists and its protocol is connected.
+     *
+     * Anything that needs a fully built driver — fingerprint application, per-session tuning —
+     * belongs here rather than in a constructor initializer. Subclasses may override; call
+     * `super.onDriverCreated()` to keep the [fingerprintApplier] seam working.
+     */
+    open fun onDriverCreated() {
         fingerprintApplier?.invoke(this)
     }
 
@@ -1943,7 +1972,16 @@ open class PulsarWebDriver constructor(
         try {
             browserProtocol.pageEnable()
             browserProtocol.domEnable()
-            browserProtocol.runtimeEnable()
+            // Runtime.enable is the canonical CDP-leak signal used by bot detection, and the
+            // driver does not need it structurally: execution context ids come from
+            // Page.createIsolatedWorld and Runtime.evaluate works without it. It stays on by
+            // default so behaviour does not change silently; set
+            // browser.launch.runtime.enable=false to drop it. See issue #11 section 8.
+            if (settings.launchConfig.runtimeEnable) {
+                browserProtocol.runtimeEnable()
+            } else {
+                logger.debug("Runtime.enable is disabled by browser.launch.runtime.enable")
+            }
             browserProtocol.networkEnable()
             browserProtocol.cssEnable()
 
@@ -1975,11 +2013,17 @@ open class PulsarWebDriver constructor(
         // causing the JS config values (viewPortWidth/viewPortHeight) to be
         // out of sync with window.innerWidth/innerHeight.
         val viewport = settings.viewportSize
+        // Report a screen size together with the viewport: leaving screenWidth/screenHeight
+        // unset made the page report innerWidth (1920) > screen.width (1680) on smaller
+        // displays, a combination no real browser produces. See issue #11 section 7.
+        val screen = ScreenMetrics.effectiveScreen(viewport)
         browserProtocol.setDeviceMetricsOverride(
             mobile = false,
             width = viewport.width,
             height = viewport.height,
             deviceScaleFactor = 0.0,
+            screenWidth = screen.width,
+            screenHeight = screen.height,
         )
 
         addScriptToEvaluateOnNewDocument()
@@ -2253,8 +2297,7 @@ open class PulsarWebDriver constructor(
         // 1. Inject Page World scripts (stealth patches)
         val pageWorldJs = loader.getPageWorldJs(false)
         if (pageWorldJs.isNotBlank()) {
-            browserProtocol.addScriptToEvaluateOnNewDocument("\n;;\n$pageWorldJs\n;;\n")
-            logger.debug("Injected Page World scripts (stealth patches)")
+            registerPageWorldScript(loader, pageWorldJs)
         }
 
         // 2. Create isolated world and inject runtime
@@ -2288,6 +2331,39 @@ open class PulsarWebDriver constructor(
         }
     }
 
+    /**
+     * Registers the page-world (stealth) payload with `Page.addScriptToEvaluateOnNewDocument`.
+     *
+     * Registration used to happen on **every** navigation while the returned identifier was
+     * discarded, and nothing ever called `Page.removeScriptToEvaluateOnNewDocument`. After N
+     * navigations in one tab, N permanent copies of the ~140 KB payload were registered and each
+     * of them re-ran on every later document — a memory/latency cost and a behavioural hazard,
+     * because re-running the `Function.prototype.toString` proxy non-deterministically is what
+     * makes the stealth layer look applied-or-not from one load to the next.
+     *
+     * The identifier is kept so the payload is registered at most once per target. The
+     * registration lives in the browser process, tied to the page target rather than to the CDP
+     * session, so it deliberately survives [reconnect]; a [PulsarWebDriver] wraps exactly one tab.
+     *
+     * See issue #11 section 4.
+     */
+    private suspend fun registerPageWorldScript(loader: DualWorldScriptLoader, pageWorldJs: String) {
+        if (!settings.launchConfig.registerScriptOnce) {
+            browserProtocol.addScriptToEvaluateOnNewDocument("\n;;\n$pageWorldJs\n;;\n")
+            logger.debug("Injected Page World scripts (stealth patches), per-navigation registration enabled")
+            return
+        }
+
+        pageWorldScriptId?.let {
+            logger.debug("Page World scripts are already registered (identifier: {}), skipping", it)
+            return
+        }
+
+        val identifier = browserProtocol.addScriptToEvaluateOnNewDocument("\n;;\n$pageWorldJs\n;;\n")
+        pageWorldScriptId = identifier
+        logger.debug("Registered Page World scripts (stealth patches), identifier: {}", identifier)
+    }
+
     private fun reportDualWorldJs(pageWorldJs: String, isolatedWorldJs: String) {
         val dir = AppPaths.REPORT_DIR.resolve("browser/js/injected")
         Files.createDirectories(dir)
@@ -2296,10 +2372,47 @@ open class PulsarWebDriver constructor(
         logger.trace("Dual-world injection report: file://{}", dir)
     }
 
+    /**
+     * Reads the browser cookie jar in a transport-agnostic way.
+     *
+     * The raw CDP payload is preferred over the typed [Cookie] model: over a relayed transport
+     * (e.g. `attach --extension`) the very same response deserializes to generic maps, and
+     * casting those elements to [Cookie] throws `ClassCastException`, which used to make the
+     * whole cookie surface — and therefore `saveStorageState()` — unusable. See issue #10.
+     *
+     * Transports that cannot execute raw CDP commands fall back to the typed read; if that
+     * typed read hits the relay shape, the failure is reported with an actionable message
+     * instead of an opaque error.
+     */
     @Throws(WebDriverException::class)
     private suspend fun getCookies0(): List<Map<String, String>> {
-        val cookies = browserProtocol.getCookies().map { serialize(it) }
-        return cookies
+        var rawPayload: Any? = null
+        var rawPayloadAvailable = false
+
+        try {
+            rawPayload = browserProtocol.executeCdpCommand("Network.getCookies")
+            rawPayloadAvailable = true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.debug("Raw Network.getCookies is unavailable on this transport, falling back to the typed read: {}", e.message)
+        }
+
+        if (rawPayloadAvailable) {
+            return CookiePayloadNormalizer.normalize(rawPayload)
+        }
+
+        return try {
+            browserProtocol.getCookies().map { serialize(it) }
+        } catch (e: ClassCastException) {
+            throw WebDriverException(
+                "Failed to read cookies: this transport returned untyped cookie entries that cannot be " +
+                        "cast to ${Cookie::class.java.name}. Relayed sessions (e.g. attach --extension) " +
+                        "answer raw CDP commands only.",
+                e,
+                driver = this
+            )
+        }
     }
 
     private suspend fun captureCurrentOriginLocalStorage(): Map<String, Any>? {

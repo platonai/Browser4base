@@ -1,7 +1,14 @@
 package ai.platon.pulsar.api
 
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_DISABLE_GPU
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_HIDE_SCROLLBARS
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_MUTE_AUDIO
 import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_PAGE_LOAD_STRATEGY
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_REGISTER_SCRIPT_ONCE
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_RUNTIME_ENABLE
 import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_THROW_EXCEPTION_ON_SCRIPT_ERROR
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_USER_AGENT
+import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_USER_AGENT_STEALTH
 import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_LAUNCH_WINDOW_POSITION
 import ai.platon.pulsar.common.config.ImmutableConfig
 import java.time.Duration
@@ -23,13 +30,30 @@ object ChromeDefaults {
     val PROXY_SERVER: String? = null
     const val HEADLESS = false
     const val INCOGNITO = false
-    const val DISABLE_GPU = true
-    const val HIDE_SCROLLBARS = true
+    /**
+     * `--disable-gpu` is **not** forced by default.
+     *
+     * Forcing it makes Chrome fall back to a software WebGL renderer, which is a strong
+     * headless/VM tell on machines that do have a GPU. Leaving it `false` means the program does
+     * not effectively set the key, so it can be enabled from configuration
+     * (`browser.launch.disable.gpu` or `browser.launch.chrome.args`). See issue #11 section 6.
+     */
+    const val DISABLE_GPU = false
+    /**
+     * `--hide-scrollbars` is **not** forced by default: it makes
+     * `window.innerWidth - document.documentElement.clientWidth == 0`, which the page can
+     * measure. Enable it via `browser.launch.hide.scrollbars` when needed.
+     */
+    const val HIDE_SCROLLBARS = false
     const val REMOTE_DEBUGGING_PORT = 0
     const val NO_DEFAULT_BROWSER_CHECK = true
     const val NO_FIRST_RUN = true
     const val NO_STARTUP_WINDOW = true
-    const val MUTE_AUDIO = true
+    /**
+     * `--mute-audio` is **not** forced by default: a browser that never plays audio is an
+     * unusual configuration. Enable it via `browser.launch.mute.audio` when needed.
+     */
+    const val MUTE_AUDIO = false
     const val DISABLE_BACKGROUND_NETWORKING = true
     const val DISABLE_BACKGROUND_TIMER_THROTTLING = true
     const val DISABLE_CLIENT_SIDE_PHISHING_DETECTION = true
@@ -97,6 +121,32 @@ object ChromeDefaults {
     const val SCREENSHOT_QUALITY = 50
     /** Default user agent at the CDP layer */
     const val DEFAULT_USER_AGENT = "Browser4 Agent/1.0"
+
+    // ------------------------------------------------------------------
+    // Stealth-related launch defaults (see issue #11)
+    // ------------------------------------------------------------------
+    /**
+     * Replace the `HeadlessChrome/<version>` token at launch with a plain `Chrome/<major>.0.0.0`.
+     *
+     * See [ai.platon.pulsar.api.model.ReducedUserAgent] for why the launch switch, and not a CDP
+     * override or a page-world patch, is the mechanism that covers every JavaScript scope.
+     */
+    const val USER_AGENT_STEALTH = true
+    /**
+     * Whether to issue `Runtime.enable` on every navigation.
+     *
+     * `Runtime.enable` is the canonical CDP-leak signal; the driver does not need it, but it
+     * stays enabled by default so that behaviour does not change silently. Set
+     * `browser.launch.runtime.enable=false` to drop it.
+     */
+    const val RUNTIME_ENABLE = true
+    /**
+     * Whether to register the page-world script once per target instead of once per navigation.
+     *
+     * Registering per navigation leaves one permanent copy of the payload per navigation, each
+     * re-running on every later document.
+     */
+    const val REGISTER_SCRIPT_ONCE = true
 }
 
 /**
@@ -113,6 +163,41 @@ data class ChromeLaunchConfig(
     val pageLoadStrategy: String = ChromeDefaults.PAGE_LOAD_STRATEGY,
     /** Value of --throwExceptionOnScriptError, config key browser.launch.throw.exception.on.script.error */
     val throwExceptionOnScriptError: Boolean = ChromeDefaults.THROW_EXCEPTION_ON_SCRIPT_ERROR,
+    /**
+     * The --user-agent argument, config key browser.launch.user.agent.
+     *
+     * Empty means "not configured": a reduced user agent is derived from the installed Chrome
+     * version when [userAgentStealth] is enabled.
+     */
+    val userAgent: String = "",
+    /**
+     * Whether to replace the headless token in the User-Agent at launch,
+     * config key browser.launch.user.agent.stealth.
+     */
+    val userAgentStealth: Boolean = ChromeDefaults.USER_AGENT_STEALTH,
+    /** Value of --disable-gpu, config key browser.launch.disable.gpu */
+    val disableGpu: Boolean = ChromeDefaults.DISABLE_GPU,
+    /** Value of --hide-scrollbars, config key browser.launch.hide.scrollbars */
+    val hideScrollbars: Boolean = ChromeDefaults.HIDE_SCROLLBARS,
+    /** Value of --mute-audio, config key browser.launch.mute.audio */
+    val muteAudio: Boolean = ChromeDefaults.MUTE_AUDIO,
+    /**
+     * Whether to issue `Runtime.enable` on every navigation,
+     * config key browser.launch.runtime.enable.
+     *
+     * `Runtime.enable` is the canonical CDP-leak signal used by bot detection, and the driver
+     * does not need it structurally: execution context ids come from `Page.createIsolatedWorld`
+     * and `Runtime.evaluate` works without it. See issue #11 section 8.
+     */
+    val runtimeEnable: Boolean = ChromeDefaults.RUNTIME_ENABLE,
+    /**
+     * Whether to register the page-world script once per target instead of once per navigation,
+     * config key browser.launch.register.script.once.
+     *
+     * Registering per navigation leaves one permanent copy of the (~140 KB) payload per
+     * navigation, each re-running on every later document. See issue #11 section 4.
+     */
+    val registerScriptOnce: Boolean = ChromeDefaults.REGISTER_SCRIPT_ONCE,
 ) {
     companion object {
         /**
@@ -129,6 +214,19 @@ data class ChromeLaunchConfig(
             throwExceptionOnScriptError = config.getBoolean(
                 BROWSER_LAUNCH_THROW_EXCEPTION_ON_SCRIPT_ERROR,
                 ChromeDefaults.THROW_EXCEPTION_ON_SCRIPT_ERROR
+            ),
+            userAgent = config.get(BROWSER_LAUNCH_USER_AGENT)?.trim().orEmpty(),
+            userAgentStealth = config.getBoolean(
+                BROWSER_LAUNCH_USER_AGENT_STEALTH,
+                ChromeDefaults.USER_AGENT_STEALTH
+            ),
+            disableGpu = config.getBoolean(BROWSER_LAUNCH_DISABLE_GPU, ChromeDefaults.DISABLE_GPU),
+            hideScrollbars = config.getBoolean(BROWSER_LAUNCH_HIDE_SCROLLBARS, ChromeDefaults.HIDE_SCROLLBARS),
+            muteAudio = config.getBoolean(BROWSER_LAUNCH_MUTE_AUDIO, ChromeDefaults.MUTE_AUDIO),
+            runtimeEnable = config.getBoolean(BROWSER_LAUNCH_RUNTIME_ENABLE, ChromeDefaults.RUNTIME_ENABLE),
+            registerScriptOnce = config.getBoolean(
+                BROWSER_LAUNCH_REGISTER_SCRIPT_ONCE,
+                ChromeDefaults.REGISTER_SCRIPT_ONCE
             ),
         )
     }

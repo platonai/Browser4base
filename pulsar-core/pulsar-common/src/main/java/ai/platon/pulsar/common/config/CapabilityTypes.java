@@ -243,8 +243,59 @@ public interface CapabilityTypes {
     String BROWSER_LAUNCH_PAGE_LOAD_STRATEGY = "browser.launch.page.load.strategy";
     /**
      * Whether to add the --throwExceptionOnScriptError Chrome argument, default is true.
+     *
+     * Note: this is a Selenium capability, not a Chrome switch, so it is no longer emitted on
+     * the Chrome command line; the value is kept for callers that build their own capabilities.
      */
     String BROWSER_LAUNCH_THROW_EXCEPTION_ON_SCRIPT_ERROR = "browser.launch.throw.exception.on.script.error";
+    /**
+     * The --user-agent Chrome argument, default is "" (derive a reduced user agent when
+     * {@link #BROWSER_LAUNCH_USER_AGENT_STEALTH} is enabled).
+     *
+     * Headless Chrome advertises itself as {@code HeadlessChrome/<version>}, a deterministic bot
+     * verdict that also contradicts the Client Hints the same browser sends. A launch-time
+     * --user-agent switch is the only mechanism that reaches every JavaScript scope of a session
+     * (page, iframes, dedicated/shared/service workers) while leaving Sec-CH-UA* intact.
+     */
+    String BROWSER_LAUNCH_USER_AGENT = "browser.launch.user.agent";
+    /**
+     * Whether to replace the headless token in the User-Agent at launch, default is true.
+     *
+     * When enabled and {@link #BROWSER_LAUNCH_USER_AGENT} is empty, a reduced desktop user agent
+     * is derived from the installed Chrome version (e.g. {@code Chrome/153.0.0.0}).
+     */
+    String BROWSER_LAUNCH_USER_AGENT_STEALTH = "browser.launch.user.agent.stealth";
+    /**
+     * The --disable-gpu Chrome argument, default is false so Chrome decides.
+     *
+     * Forcing it makes Chrome fall back to a software WebGL renderer, which is a strong
+     * headless/VM tell on machines that do have a GPU.
+     */
+    String BROWSER_LAUNCH_DISABLE_GPU = "browser.launch.disable.gpu";
+    /**
+     * The --hide-scrollbars Chrome argument, default is false so Chrome decides.
+     *
+     * Forcing it makes {@code window.innerWidth - document.documentElement.clientWidth == 0},
+     * which is directly measurable from the page.
+     */
+    String BROWSER_LAUNCH_HIDE_SCROLLBARS = "browser.launch.hide.scrollbars";
+    /**
+     * The --mute-audio Chrome argument, default is false so Chrome decides.
+     */
+    String BROWSER_LAUNCH_MUTE_AUDIO = "browser.launch.mute.audio";
+    /**
+     * Whether to issue Runtime.enable on every navigation, default is true.
+     *
+     * Runtime.enable is the canonical CDP-leak signal used by bot detection, and the driver does
+     * not need it structurally: execution context ids come from Page.createIsolatedWorld and
+     * Runtime.evaluate works without it, so it can be turned off.
+     */
+    String BROWSER_LAUNCH_RUNTIME_ENABLE = "browser.launch.runtime.enable";
+    /**
+     * Whether to register the page-world script once per target instead of once per navigation,
+     * default is true.
+     */
+    String BROWSER_LAUNCH_REGISTER_SCRIPT_ONCE = "browser.launch.register.script.once";
     String POLLING_DRIVER_TIMEOUT = "polling.driver.timeout";
 
     ///////////////////////////////////////////////////////////////////////////
