@@ -54,4 +54,17 @@ class ChromeDefaultsTest {
             ChromeDefaults.SYSTEM_DEFAULT_BROWSER_ARGS
         )
     }
+
+    @Test
+    fun testRuntimeEnableIsOffByDefaultAndCanBeOptedIn() {
+        // Runtime.enable is the canonical CDP-leak signal; the driver does not need it, so it
+        // must not be sent unless a caller explicitly opts in. See issue #11 section 8.
+        assertEquals(false, ChromeDefaults.RUNTIME_ENABLE)
+        assertEquals(false, ChromeLaunchConfig.load(MutableConfig()).runtimeEnable)
+
+        val conf = MutableConfig()
+        conf[CapabilityTypes.BROWSER_LAUNCH_RUNTIME_ENABLE] = "true"
+
+        assertEquals(true, ChromeLaunchConfig.load(conf).runtimeEnable)
+    }
 }

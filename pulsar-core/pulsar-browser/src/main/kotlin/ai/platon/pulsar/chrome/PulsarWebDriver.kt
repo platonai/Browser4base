@@ -1973,14 +1973,15 @@ open class PulsarWebDriver constructor(
             browserProtocol.pageEnable()
             browserProtocol.domEnable()
             // Runtime.enable is the canonical CDP-leak signal used by bot detection, and the
-            // driver does not need it structurally: execution context ids come from
-            // Page.createIsolatedWorld and Runtime.evaluate works without it. It stays on by
-            // default so behaviour does not change silently; set
-            // browser.launch.runtime.enable=false to drop it. See issue #11 section 8.
+            // driver does not need it: execution context ids come from Page.createIsolatedWorld,
+            // Runtime.evaluate works without it, and no Runtime.* event is consumed anywhere in
+            // the library. It is off by default; opt back in with
+            // browser.launch.runtime.enable=true only when relying on Runtime.consoleAPICalled,
+            // Runtime.exceptionThrown or Runtime.executionContextCreated. See issue #11 section 8.
             if (settings.launchConfig.runtimeEnable) {
                 browserProtocol.runtimeEnable()
             } else {
-                logger.debug("Runtime.enable is disabled by browser.launch.runtime.enable")
+                logger.trace("Runtime.enable is off (browser.launch.runtime.enable=false)")
             }
             browserProtocol.networkEnable()
             browserProtocol.cssEnable()
