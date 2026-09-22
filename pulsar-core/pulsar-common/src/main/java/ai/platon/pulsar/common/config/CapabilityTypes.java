@@ -284,11 +284,13 @@ public interface CapabilityTypes {
      */
     String BROWSER_LAUNCH_MUTE_AUDIO = "browser.launch.mute.audio";
     /**
-     * Whether to issue Runtime.enable on every navigation, default is true.
+     * Whether to issue Runtime.enable on every navigation, default is false.
      *
      * Runtime.enable is the canonical CDP-leak signal used by bot detection, and the driver does
-     * not need it structurally: execution context ids come from Page.createIsolatedWorld and
-     * Runtime.evaluate works without it, so it can be turned off.
+     * not need it structurally: execution context ids come from Page.createIsolatedWorld,
+     * Runtime.evaluate works without it, and no Runtime.* event is consumed anywhere in the
+     * library. Set it to true only when relying on Runtime.consoleAPICalled,
+     * Runtime.exceptionThrown or Runtime.executionContextCreated.
      */
     String BROWSER_LAUNCH_RUNTIME_ENABLE = "browser.launch.runtime.enable";
     /**

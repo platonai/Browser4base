@@ -133,13 +133,19 @@ object ChromeDefaults {
      */
     const val USER_AGENT_STEALTH = true
     /**
-     * Whether to issue `Runtime.enable` on every navigation.
+     * Whether to issue `Runtime.enable` on every navigation. **Off by default.**
      *
-     * `Runtime.enable` is the canonical CDP-leak signal; the driver does not need it, but it
-     * stays enabled by default so that behaviour does not change silently. Set
-     * `browser.launch.runtime.enable=false` to drop it.
+     * `Runtime.enable` is the canonical CDP-leak signal used by bot detection — the signal
+     * `rebrowser-patches` exists to remove — and the driver does not need it: execution context
+     * ids come from `Page.createIsolatedWorld`, `Runtime.evaluate` works without it, and nothing
+     * in the library consumes `Runtime.*` events (no console-callback, exception or
+     * execution-context listeners). It is therefore simply not sent unless a caller opts back in
+     * with `browser.launch.runtime.enable=true`, which is only needed when relying on
+     * `Runtime.consoleAPICalled`, `Runtime.exceptionThrown` or `Runtime.executionContextCreated`.
+     *
+     * See issue #11 section 8.
      */
-    const val RUNTIME_ENABLE = true
+    const val RUNTIME_ENABLE = false
     /**
      * Whether to register the page-world script once per target instead of once per navigation.
      *
@@ -183,11 +189,15 @@ data class ChromeLaunchConfig(
     val muteAudio: Boolean = ChromeDefaults.MUTE_AUDIO,
     /**
      * Whether to issue `Runtime.enable` on every navigation,
-     * config key browser.launch.runtime.enable.
+     * config key browser.launch.runtime.enable. **Off by default.**
      *
      * `Runtime.enable` is the canonical CDP-leak signal used by bot detection, and the driver
-     * does not need it structurally: execution context ids come from `Page.createIsolatedWorld`
-     * and `Runtime.evaluate` works without it. See issue #11 section 8.
+     * does not need it structurally: execution context ids come from `Page.createIsolatedWorld`,
+     * `Runtime.evaluate` works without it, and no `Runtime.*` event is consumed anywhere in the
+     * library. Opt back in only if you rely on `Runtime.consoleAPICalled`,
+     * `Runtime.exceptionThrown` or `Runtime.executionContextCreated`.
+     *
+     * See issue #11 section 8.
      */
     val runtimeEnable: Boolean = ChromeDefaults.RUNTIME_ENABLE,
     /**
