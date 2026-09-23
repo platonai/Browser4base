@@ -76,4 +76,19 @@ interface BrowserFactory {
     fun launch(
         browserId: BrowserId, launcherOptions: LauncherOptions, launchOptions: ChromeOptions
     ): Browser
+
+    /**
+     * Launch a browser with the standard launch line of [browserId] plus the extra Chrome
+     * command line options in [extraChromeOptions].
+     *
+     * The browser still gets everything the standard launch line sets (headless, window size,
+     * user agent, the proxy of the browser fingerprint, ...), and the extra options are applied
+     * on top of it following the [ChromeOptions] priority rules: raw arguments fill in keys the
+     * program did not set, additional arguments override the standard value of the same key.
+     *
+     * Use [launch] with an explicit [ChromeOptions] when full control over the whole command
+     * line is needed.
+     * */
+    @Throws(BrowserLaunchException::class)
+    fun launchWithExtraOptions(browserId: BrowserId, extraChromeOptions: ChromeOptions): Browser
 }

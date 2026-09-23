@@ -1,6 +1,7 @@
 package ai.platon.pulsar.skeleton.session
 
 import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.common.CheckState
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.config.VolatileConfig
@@ -608,6 +609,29 @@ interface PulsarSession : AutoCloseable {
      * Create the default driver and bind it to the session.
      */
     fun createBoundDriver(): WebDriver
+
+    /**
+     * Create a driver with the standard launch line plus the extra Chrome launch options, and
+     * bind it to the session.
+     *
+     * The browser is launched with the profile mode of the session (config key
+     * `browser.profile.mode`), so the extra options never affect an already running browser: a
+     * browser process can only be configured when it starts. When a Chrome process is already
+     * running for the same profile, the launcher attaches to it and the extra options are ignored
+     * — use a fresh browser profile (e.g. a temporary browser) when the command line must change.
+     *
+     * ```kotlin
+     * val driver = session.createBoundDriver(ChromeOptions().addArguments("--lang=zh-CN"))
+     * ```
+     *
+     * The extra options are applied on top of the standard launch line following the
+     * [ChromeOptions] priority rules: raw arguments (what [ChromeOptions.addArguments] adds) take
+     * effect only for keys the program did not set, while additional arguments
+     * ([ChromeOptions.addArgument]) override the standard value of the same key.
+     *
+     * @param extraChromeOptions The extra Chrome command line options
+     * */
+    fun createBoundDriver(extraChromeOptions: ChromeOptions): WebDriver
 
     /**
      * Create the default driver and bind it to the session.

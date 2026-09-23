@@ -2,6 +2,7 @@ package ai.platon.pulsar.api
 
 import ai.platon.pulsar.api.model.ProfilePaths
 import ai.platon.pulsar.common.AppPaths
+import ai.platon.pulsar.common.browser.BrowserProfileMode
 import ai.platon.pulsar.common.browser.BrowserType
 import ai.platon.pulsar.common.browser.fingerprint.Fingerprint
 import ai.platon.pulsar.common.proxy.ProxyEntry
@@ -219,6 +220,25 @@ data class BrowserId(
         fun createNextSequential() = BrowserId(BrowserProfile.createNextSequential())
 
         fun createNextSequential(browserType: BrowserType) = BrowserId(BrowserProfile.createNextSequential(browserType))
+
+        /**
+         * Create a browser id for the given profile mode.
+         *
+         * This is the single mapping from a [BrowserProfileMode] to the corresponding explicit
+         * factory above, so callers that resolve a profile mode themselves (e.g. a session that
+         * wants to launch a browser with custom Chrome launch options) do not have to duplicate it.
+         *
+         * Like the explicit factories, this is an allocation for the modes that allocate state:
+         * every call for [BrowserProfileMode.TEMPORARY] or [BrowserProfileMode.SEQUENTIAL]
+         * deliberately creates a new context dir.
+         * */
+        fun create(profileMode: BrowserProfileMode) = when (profileMode) {
+            BrowserProfileMode.SYSTEM_DEFAULT -> createSystemDefault()
+            BrowserProfileMode.DEFAULT -> createDefault()
+            BrowserProfileMode.PROTOTYPE -> createPrototype()
+            BrowserProfileMode.TEMPORARY -> createRandomTemp()
+            BrowserProfileMode.SEQUENTIAL -> createNextSequential()
+        }
 
         /**
          * Create the stable identity of an EXTERNAL browser — a browser that this JVM does not

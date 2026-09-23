@@ -53,6 +53,27 @@ open class BasicBrowserManager(
         }
 
     /**
+     * Launch a browser with an explicit launcher options and Chrome command line, and register the
+     * browser so this manager owns it and closes it with the manager.
+     * */
+    @Throws(BrowserLaunchException::class)
+    override fun launch(
+        browserId: BrowserId, launcherOptions: LauncherOptions, launchOptions: ChromeOptions
+    ): Browser = browserFactory.launch(browserId, launcherOptions, launchOptions).also { browser ->
+        _browsers[browser.id] = browser
+    }
+
+    /**
+     * Launch a browser with the standard launch line plus the extra Chrome options, and register
+     * the browser so this manager owns it and closes it with the manager.
+     * */
+    @Throws(BrowserLaunchException::class)
+    override fun launchWithExtraOptions(browserId: BrowserId, extraChromeOptions: ChromeOptions): Browser =
+        browserFactory.launchWithExtraOptions(browserId, extraChromeOptions).also { browser ->
+            _browsers[browser.id] = browser
+        }
+
+    /**
      * Launch the system default browser, the system default browser is your daily used browser.
      * */
     @Throws(BrowserLaunchException::class)

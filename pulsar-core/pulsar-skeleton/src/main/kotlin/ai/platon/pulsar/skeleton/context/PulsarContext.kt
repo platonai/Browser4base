@@ -1,7 +1,9 @@
 package ai.platon.pulsar.skeleton.context
 
 import ai.platon.pulsar.api.Browser
+import ai.platon.pulsar.api.BrowserId
 import ai.platon.pulsar.api.BrowserManager
+import ai.platon.pulsar.api.ChromeOptions
 import ai.platon.pulsar.api.model.BrowserLaunchException
 import ai.platon.pulsar.common.CheckState
 import ai.platon.pulsar.common.config.ImmutableConfig
@@ -135,6 +137,32 @@ interface PulsarContext : java.lang.AutoCloseable {
      * */
     @Throws(BrowserLaunchException::class)
     fun launchRandomTempBrowser(): Browser = browserManager.launchRandomTempBrowser().also { registerClosable(it) }
+
+    /**
+     * Launch a browser with the standard launch line plus the extra Chrome launch options, and
+     * register it to be closed together with this context.
+     *
+     * ```kotlin
+     * val browser = context.launchBrowser(
+     *     BrowserId.createDefault(),
+     *     ChromeOptions().addArguments("--lang=zh-CN"),
+     * )
+     * val driver = browser.newDriver()
+     * ```
+     *
+     * The extra options are applied on top of the standard launch line following the
+     * [ChromeOptions] priority rules: raw arguments (what [ChromeOptions.addArguments] adds) take
+     * effect only for keys the program did not set, while additional arguments
+     * ([ChromeOptions.addArgument]) override the standard value of the same key. Use
+     * [BrowserManager.launch] with an explicit [ChromeOptions] for full control over the whole
+     * command line.
+     *
+     * @param browserId The browser id, it identifies the browser instance and its user data dir
+     * @param extraChromeOptions The extra Chrome command line options
+     * */
+    @Throws(BrowserLaunchException::class)
+    fun launchBrowser(browserId: BrowserId, extraChromeOptions: ChromeOptions): Browser =
+        browserManager.launchWithExtraOptions(browserId, extraChromeOptions).also { registerClosable(it) }
 
     /**
      * Normalize a url, the url can be in one of the following forms:
