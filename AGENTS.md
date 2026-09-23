@@ -188,8 +188,8 @@ browser4base/
 
 | Category | Annotation | Characteristics | Runs in CI? |
 |----------|-----------|----------------|-------------|
-| Unit | (none) | Fast, no external deps, runs in default profile | Yes, every push |
-| Integration | `@Tag("integration")` | May need browser/Docker, run with `-DrunITs=true` | On PR / main |
+| Unit | `@Tag("Unit")`, `@Tag("Fast")` | Fast, no external deps, runs in default profile | Yes, every push |
+| Integration | `@Tag("Integration")` | May need browser/Docker, run with `-DrunITs=true` | On PR / main |
 | E2E | `@Tag("E2E")` | Full stack, run with `-DrunE2Es=true` | Scheduled |
 | Heavy/Slow | Included by default in IT | Expected to take time | With IT |
 | ManualOnly | Excluded group | Never run in CI | No |
@@ -230,7 +230,7 @@ browser4base/
 
 ### Test Expectations
 
-- **Unit tests must pass without any external services** (no browser, no Docker, no network). If you write a test that needs these, it's an integration test — annotate it with `@Tag("integration")`.
+- **Unit tests must pass without any external services** (no browser, no Docker, no network). If you write a test that needs these, it's an integration test — annotate it with `@Tag("Integration")` (capital `I`: JUnit tag matching is case-sensitive, and the default `surefire.excludedGroups` lists exactly this tag).
 - **Always run unit tests after making changes** — at minimum for the module you touched: `./mvnw test -pl <module>`.
 - **If your change touches multiple modules**, run `./mvnw test` to catch cross-module regressions.
 
@@ -407,7 +407,7 @@ Both require an authenticated `gh` CLI and `pwsh` (PowerShell Core).
 ### Test fails but the logic looks correct
 - Check if the test is an integration test that needs `-DrunITs=true` — running with just `./mvnw test` won't execute it.
 - Check if the test needs external services (browser, Docker, AI service). Unit tests shouldn't.
-- Look for `@Tag("integration")` or `@Tag("E2E")` annotations — these are excluded from the default profile.
+- Look for `@Tag("Integration")` or `@Tag("E2E")` annotations — these are excluded from the default profile.
 
 ### "Unresolved reference" in IDE but Maven compiles fine
 - This project uses `pulsar-dependencies` as a BOM with managed versions. Refresh the Maven project in your IDE.

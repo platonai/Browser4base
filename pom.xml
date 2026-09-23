@@ -646,9 +646,14 @@
              Includes both new taxonomy tags and legacy tags for backward compatibility:
              - New tags: Slow, Heavy, Integration, E2E, SDK, RequiresXYZ, ManualOnly
              - Legacy tags: IntegrationTest, E2ETest, HeavyTest, SkippableLowerLevelTest, TestInfraCheck, OptionalTest
-             Migration: Gradually migrate tests from legacy tags to new taxonomy -->
+             Migration: Gradually migrate tests from legacy tags to new taxonomy
+             Integration-tagged tests need a browser, a server or the network, so a plain
+             "mvnw test" must skip them — they run with -DrunITs=true (tests-integration profile)
+             and in CI, which passes its own -Dsurefire.excludedGroups and overrides this list.
+             Keep the tag names in sync with the code: the tag is "Integration", not
+             "integration" (JUnit tag matching is case-sensitive). -->
         <surefire.excludedGroups>
-            Slow,Heavy,RequiresServer,RequiresBrowser,RequiresAI,RequiresDocker,
+            Slow,Heavy,Integration,RequiresServer,RequiresBrowser,RequiresAI,RequiresDocker,
             E2E,SDK,ManualOnly,
             SkippableLowerLevelTest,TestInfraCheck,OptionalTest,
             IntegrationTest,E2ETest,HeavyTest
