@@ -273,7 +273,7 @@ Browser4 uses a centralized dependency management approach:
 | `application.properties` | Default application configuration | When adding new config keys |
 | `.editorconfig` | Code style rules (EOL, charset, whitespace) | Never (standard config) |
 | `.gitattributes` | Git line-ending and diff settings | When adding file types |
-| `docs/` | QL function reference, load options, PowerDOM guide | When adding/updating features |
+| `docs/` | QL function reference, load options, PowerDOM guide, browser launch options | When adding/updating features |
 
 ---
 
