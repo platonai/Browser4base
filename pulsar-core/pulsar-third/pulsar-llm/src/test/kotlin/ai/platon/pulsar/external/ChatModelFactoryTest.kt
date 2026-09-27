@@ -1703,4 +1703,206 @@ class ChatModelFactoryTest {
         assertEquals("deepseek", selection!!.provider)
         assertFalse(selection.explicit)
     }
+
+    @Test
+    @DisplayName("llm.provider=dashscope should resolve to the bailian provider")
+    fun dashscopeAliasShouldResolveToBailian() {
+        // DASHSCOPE_API_KEY is declared under the canonical name `bailian`, so the
+        // provider name a user reads in the documentation used to be unresolved:
+        // it fell through to "unknown provider" and ignored its own API key.
+        val conf = isolatedConfig("DASHSCOPE_API_KEY").apply {
+            set("DASHSCOPE_API_KEY", "test-dashscope-key-12345")
+            set("llm.provider", "dashscope")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("bailian", selection!!.provider)
+        assertEquals("DASHSCOPE_API_KEY", selection.apiKeyName)
+        assertTrue(selection.explicit)
+    }
+
+    // ---------------------------------------------------------------------------
+    // Cache key isolation, cache bounds, and base URL resolution
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("OpenAI- and Anthropic-compatible models must not share a cache entry")
+    fun compatibleProtocolsShouldNotShareCacheEntries() {
+        // A dual-protocol gateway serves both APIs from one base URL with one key,
+        // which is why the cache key has to name the protocol: it did not, so the
+        // second lookup returned the first protocol's client.
+        val conf = ImmutableConfig()
+        val openAiCompatible = ChatModelFactory.getOrCreateOpenAICompatibleModel(
+            "claude-sonnet-4-6", "test-key-12345", "https://gateway.example.com", conf
+        )
+        val anthropicCompatible = ChatModelFactory.getOrCreateAnthropicCompatibleModel(
+            "claude-sonnet-4-6", "test-key-12345", "https://gateway.example.com", conf
+        )
+
+        assertNotSame(
+            openAiCompatible, anthropicCompatible,
+            "One model name, key and base URL across two protocols must yield two clients"
+        )
+    }
+
+    @Test
+    @DisplayName("An explicitly created built-in provider should honor its configured base URL")
+    fun explicitCreationShouldHonorConfiguredBaseUrl() {
+        val mirror = MutableConfig(false).apply {
+            set("DEEPSEEK_BASE_URL", "https://mirror.example.com/v1")
+        }
+
+        val viaMirror = ChatModelFactory.getOrCreate("deepseek", "deepseek-chat", "test-key-12345", mirror)
+        val viaDefault = ChatModelFactory.getOrCreate("deepseek", "deepseek-chat", "test-key-12345", ImmutableConfig())
+
+        // The base URL used to be dropped from both the client and the cache key,
+        // so these two calls returned one client pointed at the default endpoint.
+        assertNotSame(viaMirror, viaDefault, "The configured base URL must select a distinct client")
+
+        // ...and the cache must still collapse identical requests.
+        val viaMirrorAgain = ChatModelFactory.getOrCreate("deepseek", "deepseek-chat", "test-key-12345", mirror)
+        assertSame(viaMirror, viaMirrorAgain)
+    }
+
+    @Test
+    @DisplayName("MiniMax should honor MINIMAX_BASE_URL instead of the hard-coded endpoint")
+    fun minimaxShouldHonorConfiguredBaseUrl() {
+        val international = MutableConfig(false).apply {
+            set("MINIMAX_BASE_URL", "https://api.minimax.io/anthropic")
+        }
+
+        val viaInternational = ChatModelFactory.getOrCreateMinimaxModel("MiniMax-M3", "test-key-12345", international)
+        val viaDefault = ChatModelFactory.getOrCreateMinimaxModel("MiniMax-M3", "test-key-12345", ImmutableConfig())
+
+        assertNotSame(viaInternational, viaDefault, "MINIMAX_BASE_URL must not be ignored")
+    }
+
+    @Test
+    @DisplayName("The model cache should evict instead of growing without bound")
+    fun modelCacheShouldEvictWhenFull() {
+        val previousLimit = ChatModelFactory.maxCachedModels
+        ChatModelFactory.maxCachedModels = 2
+        try {
+            val conf = ImmutableConfig()
+            // Enough inserts to push every entry created earlier in this JVM out of
+            // a two-entry cache, whatever the other tests left behind.
+            val first = ChatModelFactory.getOrCreate("openai", "cache-bound-model-0", "test-key-12345", conf)
+            var last: BrowserChatModel? = null
+            for (i in 1 until 256) {
+                last = ChatModelFactory.getOrCreate("openai", "cache-bound-model-$i", "test-key-12345", conf)
+            }
+
+            assertNotSame(
+                first,
+                ChatModelFactory.getOrCreate("openai", "cache-bound-model-0", "test-key-12345", conf),
+                "An evicted model must be rebuilt, not kept alive forever"
+            )
+            assertSame(
+                last,
+                ChatModelFactory.getOrCreate("openai", "cache-bound-model-255", "test-key-12345", conf),
+                "The most recent entry must still be cached"
+            )
+        } finally {
+            ChatModelFactory.maxCachedModels = previousLimit
+        }
+    }
+
+    @Test
+    @DisplayName("A missing llm.provider.config.path should fall back to the built-in registry")
+    fun missingOverridePathShouldFallBackToBuiltin() {
+        val conf = MutableConfig(false).apply {
+            set("llm.provider.config.path", "/does/not/exist/providers.json")
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection, "A missing override file must not disable provider detection")
+        assertEquals("deepseek", selection!!.provider)
+    }
+
+    @Test
+    @DisplayName("An edited providers.json should be picked up without resetProviders")
+    fun editedExternalRegistryShouldBeReloaded() {
+        val tempFile = java.io.File.createTempFile("test-providers-reload", ".json")
+        try {
+            // The override path lives in the configuration, not in a system property,
+            // so the test neither depends on nor leaks global state.  The external
+            // registry also replaces the built-in one, which keeps a developer's own
+            // API keys out of the picture.
+            tempFile.writeText(singleProviderRegistry("RELOAD_A_API_KEY", "reload-a-provider"))
+
+            val before = MutableConfig(false).apply {
+                set("llm.provider.config.path", tempFile.absolutePath)
+                set("RELOAD_A_API_KEY", "test-reload-key-a-12345")
+            }
+            assertTrue(
+                ChatModelFactory.isModelConfigured(before, verbose = false),
+                "The first version of the external registry should be used"
+            )
+
+            // Rewrite the file with a different provider — and no resetProviders()
+            // call: an edited file must invalidate the parsed-registry cache itself.
+            // The trailing newline changes the size too, so the reload cannot hinge
+            // on the file system's timestamp granularity.
+            tempFile.writeText(singleProviderRegistry("RELOAD_B_API_KEY", "reload-b-provider") + "\n")
+
+            val after = MutableConfig(false).apply {
+                set("llm.provider.config.path", tempFile.absolutePath)
+                set("RELOAD_B_API_KEY", "test-reload-key-b-12345")
+            }
+            assertTrue(
+                ChatModelFactory.isModelConfigured(after, verbose = false),
+                "The edited external registry should be re-read"
+            )
+        } finally {
+            tempFile.delete()
+            ChatModelFactory.resetProviders()
+        }
+    }
+
+    @Test
+    @DisplayName("Registration should be rejected when the provider name is an alias")
+    fun registrationShouldRejectAliasProviderName() {
+        // `claude` resolves to `anthropic` before any provider lookup, so such a
+        // provider could never be selected — it used to register silently.
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            ChatModelFactory.registerProvider(ProviderConfig(
+                apiKeyName = "ALIAS_CONFLICT_API_KEY",
+                modelNameKey = "ALIAS_CONFLICT_MODEL_NAME",
+                baseUrlKey = "ALIAS_CONFLICT_BASE_URL",
+                defaultModel = "alias-conflict-model",
+                defaultBaseUrl = "https://api.alias-conflict.com/v1",
+                providerName = "claude"
+            ))
+        }
+
+        assertTrue(ex.message!!.contains("alias"), "Message should mention the alias: ${ex.message}")
+        assertTrue(
+            ChatModelFactory.registeredProviders.none { it.providerName == "claude" },
+            "A rejected provider must not be registered"
+        )
+    }
+
+    /** A one-provider registry, used to exercise external-file reloads. */
+    private fun singleProviderRegistry(apiKeyName: String, providerName: String) = """
+        {
+          "providers": [
+            {
+              "apiKeyName": "$apiKeyName",
+              "modelNameKey": "RELOAD_MODEL_NAME",
+              "baseUrlKey": "RELOAD_BASE_URL",
+              "defaultModel": "reload-model",
+              "defaultBaseUrl": "https://api.reload.com/v1",
+              "providerName": "$providerName",
+              "supportVision": true,
+              "apiProtocol": "OPENAI"
+            }
+          ],
+          "aliases": {},
+          "canonicalAliases": {}
+        }
+        """.trimIndent()
 }

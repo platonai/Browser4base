@@ -47,6 +47,9 @@ enum class ApiProtocol {
  * @property providerName   The canonical provider name for use with [getOrCreate] (provider, modelName, apiKey, conf).
  * @property supportVision  Whether the provider's default model supports vision (image input).
  *                          Defaults to `true`; set to `false` for text-only providers.
+ *                          Registry metadata: it is parsed and reported, but the request path
+ *                          does not consult it yet, so an image sent to a text-only provider
+ *                          still fails at the provider rather than here.
  * @property apiProtocol    The API protocol the provider speaks (defaults to [ApiProtocol.OPENAI]).
  */
 data class ProviderConfig(
@@ -107,7 +110,45 @@ data class ProviderSelection(
 object ChatModelFactory {
     private val logger = getLogger(this::class)
     private val throttlingLogger = ThrottlingLogger(logger, ttl = Duration.ofHours(4))
-    private val models = ConcurrentHashMap<String, BrowserChatModel>()
+
+    /**
+     * The number of created models kept alive.
+     *
+     * The cache used to be an unbounded [ConcurrentHashMap]: every distinct
+     * (provider, model, API key, base URL) combination stayed reachable for the
+     * lifetime of the JVM — including keys rotated by an embedder — and the map
+     * keys themselves hold the secrets.  The bound is generous enough that an
+     * ordinary configuration never evicts anything.
+     *
+     * Evicted instances are **not** closed: the factory does not own their
+     * lifecycle and a caller may still hold a reference.  Closing is the job of
+     * whoever obtained the model.
+     */
+    @JvmField
+    var maxCachedModels: Int = 128
+
+    /**
+     * Access-ordered (LRU) model cache, guarded by its own monitor in
+     * [cachedModel].
+     */
+    private val models = object : LinkedHashMap<String, BrowserChatModel>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BrowserChatModel>?): Boolean {
+            return size > maxCachedModels
+        }
+    }
+
+    /**
+     * Look up [key] in the bounded model cache, creating and caching it on a miss.
+     *
+     * The lookup and the creation run under the cache monitor, so concurrent
+     * callers still get one instance per key — what
+     * [ConcurrentHashMap.computeIfAbsent] provided before the cache was bounded.
+     */
+    private fun cachedModel(key: String, create: () -> BrowserChatModel): BrowserChatModel {
+        return synchronized(models) {
+            models[key] ?: create().also { models[key] = it }
+        }
+    }
 
     private val llmGuideReported = AtomicBoolean(false)
 
@@ -123,12 +164,28 @@ object ChatModelFactory {
     private const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 
     /**
+     * The default MiniMax endpoint.
+     *
+     * MiniMax speaks the Anthropic Messages protocol.  The international endpoint
+     * is `https://api.minimax.io/anthropic`; the China endpoint is
+     * `https://api.minimaxi.com/anthropic` and is the default used here.
+     */
+    private const val DEFAULT_MINIMAX_BASE_URL = "https://api.minimaxi.com/anthropic"
+
+    /**
      * Signatures of the provider selections already logged, so that resolving the
      * selection on every LLM call does not turn into a log storm.
      */
     private val reportedSelections = ConcurrentHashMap.newKeySet<String>()
 
-    private val defaultDocumentPath = "https://github.com/platonai/browser4base/blob/master/docs/config/llm/llm-config.md"
+    /**
+     * Bound on [reportedSelections].  Unbounded, a long-lived process that varies
+     * its base URLs would accumulate signatures forever; forgetting one at worst
+     * re-logs a single line.
+     */
+    private const val MAX_REPORTED_SELECTIONS = 512
+
+    private val defaultDocumentPath = "https://github.com/platonai/Browser4base/blob/main/docs/config/llm/llm-config.md"
 
     /**
      * The URL pointing to the LLM configuration documentation.
@@ -174,7 +231,7 @@ object ChatModelFactory {
      */
     @JvmStatic
     fun resetProviders() {
-        defaultRegistry = null
+        ProviderConfigLoader.resetCache()
         cachedSupportedApiKeyNames = null
         cachedApiKeyToProvider = null
         cachedKnownProviderNames = null
@@ -273,33 +330,43 @@ see the [LLM configuration documentation]($${path}).
         get() = synchronized(_registeredProviders) { _registeredProviders.toList() }
 
     /**
-     * The default provider registry, loaded lazily from the built-in classpath
-     * resource (`providers.json`) on first access.  Cached indefinitely unless
-     * [resetProviders] is called.
+     * The built-in provider registry (`providers.json` on the classpath).
      *
-     * Use [getRegistry] for conf-aware loading that supports external overrides
-     * via [LLM_PROVIDER_CONFIG_PATH].
+     * Caching lives in [ProviderConfigLoader], which keeps one parsed registry per
+     * source and re-reads an external file when it changes on disk.  Use
+     * [getRegistry] for conf-aware loading that supports external overrides via
+     * [LLM_PROVIDER_CONFIG_PATH].
      */
-    @Volatile
-    private var defaultRegistry: ProviderConfigLoader.Registry? = null
-
-    /** @see ProviderConfigLoader.loadDefault */
-    private fun getDefaultRegistry(): ProviderConfigLoader.Registry {
-        defaultRegistry?.let { return it }
-        return ProviderConfigLoader.loadDefault().also { defaultRegistry = it }
-    }
+    private fun getDefaultRegistry(): ProviderConfigLoader.Registry = ProviderConfigLoader.loadDefault()
 
     /**
-     * Load the provider registry, preferring an external override file when
-     * [LLM_PROVIDER_CONFIG_PATH] is configured.
+     * The registry [conf] resolves to: the external override file when
+     * [LLM_PROVIDER_CONFIG_PATH] is set and present, the built-in list otherwise.
+     *
+     * Resolving a selection happens on every chat call, so this must stay cached —
+     * it used to re-read and re-parse the JSON file on each call.
      */
-    private fun getRegistry(conf: ImmutableConfig): ProviderConfigLoader.Registry {
-        val overridePath = conf[LLM_PROVIDER_CONFIG_PATH]
-        if (!overridePath.isNullOrBlank()) {
-            return ProviderConfigLoader.load(conf)
+    private fun getRegistry(conf: ImmutableConfig): ProviderConfigLoader.Registry =
+        ProviderConfigLoader.load(conf)
+
+    /**
+     * The provider config registered under [providerName] — registered providers
+     * first, then the built-in ones — or `null` when the name is unknown.
+     */
+    private fun findProviderConfig(providerName: String, conf: ImmutableConfig): ProviderConfig? {
+        val allProviders = synchronized(_registeredProviders) {
+            _registeredProviders + getRegistry(conf).providers
         }
-        return getDefaultRegistry()
+        return allProviders.find { it.providerName.equals(providerName, ignoreCase = true) }
     }
+
+    /** The base URL [config] resolves to for [conf]: the configured override, else its default. */
+    private fun effectiveBaseUrl(config: ProviderConfig, conf: ImmutableConfig): String =
+        conf[config.baseUrlKey]?.takeIf { it.isNotBlank() } ?: config.defaultBaseUrl
+
+    /** The configured base URL for [providerName], or `null` when none is set. */
+    private fun configuredBaseUrl(providerName: String, conf: ImmutableConfig): String? =
+        findProviderConfig(providerName, conf)?.let { conf[it.baseUrlKey]?.takeIf { v -> v.isNotBlank() } }
 
     // ---------------------------------------------------------------------------
     // Cached derived collections (invalidated on provider register/unregister)
@@ -387,8 +454,9 @@ see the [LLM configuration documentation]($${path}).
     fun registerProvider(config: ProviderConfig) {
         val canonical = config.providerName.lowercase().trim()
         synchronized(_registeredProviders) {
+            val registry = getDefaultRegistry()
             // Check against built-in names
-            val builtinNames = getDefaultRegistry().providers.map { it.providerName.lowercase() }.toSet()
+            val builtinNames = registry.providers.map { it.providerName.lowercase() }.toSet()
             require(canonical !in builtinNames) {
                 "Provider '${config.providerName}' conflicts with a built-in provider"
             }
@@ -396,6 +464,13 @@ see the [LLM configuration documentation]($${path}).
             val registeredNames = _registeredProviders.map { it.providerName.lowercase() }
             require(canonical !in registeredNames) {
                 "Provider '${config.providerName}' is already registered"
+            }
+            // A canonical alias is translated before the provider lookup, so a
+            // provider named after one could never be selected — reject the
+            // registration instead of accepting one that silently never wins.
+            require(canonical !in registry.canonicalAliases.keys) {
+                "Provider '${config.providerName}' conflicts with the provider alias " +
+                        "'$canonical' (→ ${registry.canonicalAliases[canonical]}); use a different providerName"
             }
             _registeredProviders.add(config)
             invalidateCaches()
@@ -438,26 +513,33 @@ see the [LLM configuration documentation]($${path}).
      * @return True if the model is configured, false otherwise.
      */
     fun isModelConfigured(conf: ImmutableConfig, verbose: Boolean = true): Boolean {
-        if (!isModelConfigured0(conf)) {
-            if (verbose) {
-                // Config overrides take priority over the field defaults
-                val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE]
-                    ?: llmNotConfiguredMessage
-                val effectiveGuide = conf[LLM_DEVELOPER_GUIDE]?.ifEmpty { null }
-                    ?: llmDeveloperGuide
-
-                if (llmGuideReported.get()) {
-                    throttlingLogger.info(effectiveShortMessage)
-                }
-
-                if (llmGuideReported.compareAndSet(false, true)) {
-                    effectiveGuide?.let { throttlingLogger.info(it) }
-                }
-            }
-            return false
+        if (isModelConfigured0(conf)) {
+            return true
         }
 
-        return true
+        if (verbose) {
+            reportNotConfigured(conf)
+        }
+        return false
+    }
+
+    /**
+     * Report an unconfigured LLM: the short message on every check (throttled),
+     * and the full developer guide once per JVM.
+     *
+     * Config values take priority over the field defaults set by an embedder.
+     */
+    private fun reportNotConfigured(conf: ImmutableConfig) {
+        val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE] ?: llmNotConfiguredMessage
+        val effectiveGuide = conf[LLM_DEVELOPER_GUIDE]?.ifEmpty { null } ?: llmDeveloperGuide
+
+        if (llmGuideReported.get()) {
+            throttlingLogger.info(effectiveShortMessage)
+        }
+
+        if (llmGuideReported.compareAndSet(false, true)) {
+            effectiveGuide?.let { throttlingLogger.info(it) }
+        }
     }
 
     /**
@@ -520,17 +602,16 @@ see the [LLM configuration documentation]($${path}).
     @JvmStatic
     @Throws(IllegalArgumentException::class)
     fun getOrCreate(conf: ImmutableConfig): BrowserChatModel {
-        // Parse deny list once; thread through to avoid redundant re-parsing
+        // Parse the deny list once and resolve the selection once: this used to
+        // resolve twice (isModelConfigured0, then again for the selection) on a
+        // path that runs on every chat call.
         val denyList = parseDenyList(conf)
         val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
+        val selection = resolveSelection(conf, denyList)
 
-        if (!isModelConfigured0(conf, denyList)) {
+        if (selection == null) {
             val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE] ?: llmNotConfiguredMessage
             throw IllegalArgumentException("$effectiveShortMessage — see $effectiveDocumentPath")
-        }
-
-        val selection = requireNotNull(resolveSelection(conf, denyList)) {
-            "No usable LLM provider found in the configuration, see $effectiveDocumentPath"
         }
 
         return createModel(selection, conf)
@@ -570,14 +651,20 @@ see the [LLM configuration documentation]($${path}).
     /**
      * Create a default model, returning null on failure.
      *
+     * This is the entry point behind `PulsarContext.chat()`, so it resolves the
+     * selection once and reuses it — it used to resolve in [isModelConfigured]
+     * and again in [getOrCreate] on every chat call.
+     *
      * @return The created model, or null if not configured or creation fails.
      */
     fun getOrCreateOrNull(conf: ImmutableConfig): BrowserChatModel? {
-        if (!isModelConfigured(conf)) {
+        val selection = resolveSelection(conf, parseDenyList(conf))
+        if (selection == null) {
+            reportNotConfigured(conf)
             return null
         }
 
-        return kotlin.runCatching { getOrCreate(conf) }
+        return kotlin.runCatching { createModel(selection, conf) }
             .onFailure { logger.warn("Failed to create chat model ", it) }
             .getOrNull()
     }
@@ -593,8 +680,11 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateOpenAICompatibleModel(
         modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
-        val key = "$modelName:$apiKey:$baseUrl"
-        return models.computeIfAbsent(key) { createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf) }
+        // Protocol-prefixed: the Anthropic-compatible builder below used to share
+        // this exact key, so a gateway serving both protocols could hand back an
+        // OpenAI client for an Anthropic request.
+        val key = "openai:$modelName:$apiKey:$baseUrl"
+        return cachedModel(key) { createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf) }
     }
 
     /**
@@ -607,8 +697,19 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateAnthropicModel(
         modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
-        val key = "anthropic:$modelName:$apiKey"
-        return models.computeIfAbsent(key) { createAnthropicChatModel(modelName, apiKey, conf) }
+        // ANTHROPIC_BASE_URL is honored on the configuration path, so it must be
+        // honored here too: a gateway configured for the registry used to be
+        // bypassed by this entry point.  When unset, the builder's own default is
+        // kept, because the provider default (`https://api.anthropic.com`) and that
+        // default are not guaranteed to be spelled the same way.
+        val configuredBaseUrl = configuredBaseUrl("anthropic", conf)
+        if (configuredBaseUrl == null) {
+            val key = "anthropic:$modelName:$apiKey"
+            return cachedModel(key) { createAnthropicChatModel(modelName, apiKey, conf) }
+        }
+
+        val key = "anthropic:$modelName:$apiKey:$configuredBaseUrl"
+        return cachedModel(key) { createAnthropicCompatibleModel0(modelName, apiKey, configuredBaseUrl, conf) }
     }
 
     /**
@@ -621,8 +722,12 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateGeminiModel(
         modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
-        val key = "gemini:$modelName:$apiKey"
-        return models.computeIfAbsent(key) { createGeminiChatModel(modelName, apiKey, conf) }
+        // Only an explicitly configured endpoint is passed through: the builder's
+        // own default already carries the right API version, and re-stating the
+        // registry default here could silently drop it.
+        val configuredBaseUrl = configuredBaseUrl("gemini", conf)
+        val key = "gemini:$modelName:$apiKey:${configuredBaseUrl ?: ""}"
+        return cachedModel(key) { createGeminiChatModel(modelName, apiKey, configuredBaseUrl, conf) }
     }
 
     /**
@@ -630,16 +735,21 @@ see the [LLM configuration documentation]($${path}).
      *
      * MiniMax uses the Anthropic Messages protocol (not OpenAI-compatible),
      * so this builds an [AnthropicChatModel] pointed at MiniMax's endpoint.
+     * The endpoint is [DEFAULT_MINIMAX_BASE_URL] unless `MINIMAX_BASE_URL` selects
+     * the international one — the China endpoint used to be hard-coded here, so
+     * the key worked on the registry path but not through this entry point.
      *
-     * @param modelName The MiniMax model name (e.g. "MiniMax-M2.5").
+     * @param modelName The MiniMax model name (e.g. "MiniMax-M3").
      * @param apiKey The MiniMax API key.
      * @param conf The immutable configuration.
      */
     fun getOrCreateMinimaxModel(
         modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
-        val key = "minimax:$modelName:$apiKey"
-        return models.computeIfAbsent(key) { createMinimaxChatModel(modelName, apiKey, conf) }
+        val config = findProviderConfig("minimax", conf)
+        val baseUrl = config?.let { effectiveBaseUrl(it, conf) } ?: DEFAULT_MINIMAX_BASE_URL
+        val key = "minimax:$modelName:$apiKey:$baseUrl"
+        return cachedModel(key) { createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf) }
     }
 
     /**
@@ -656,8 +766,10 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateAnthropicCompatibleModel(
         modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
-        val key = "$modelName:$apiKey:$baseUrl"
-        return models.computeIfAbsent(key) { createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf) }
+        // Must stay distinct from the OpenAI-compatible key for the same tuple: a
+        // gateway can serve both protocols under one base URL and one key.
+        val key = "anthropic:$modelName:$apiKey:$baseUrl"
+        return cachedModel(key) { createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf) }
     }
 
     // ---------------------------------------------------------------------------
@@ -715,10 +827,6 @@ see the [LLM configuration documentation]($${path}).
         return null
     }
 
-    private fun isModelConfigured0(conf: ImmutableConfig): Boolean {
-        return isModelConfigured0(conf, parseDenyList(conf))
-    }
-
     /**
      * A provider is configured exactly when [resolveSelection] can select one.
      *
@@ -726,8 +834,8 @@ see the [LLM configuration documentation]($${path}).
      * is used?" from ever disagreeing — the split between them is what made an
      * empty key report as configured while another provider did the routing.
      */
-    private fun isModelConfigured0(conf: ImmutableConfig, denyList: Set<String>): Boolean {
-        return resolveSelection(conf, denyList) != null
+    private fun isModelConfigured0(conf: ImmutableConfig): Boolean {
+        return resolveSelection(conf, parseDenyList(conf)) != null
     }
 
     /** A provider together with one of the configuration keys that can supply its API key. */
@@ -773,8 +881,7 @@ see the [LLM configuration documentation]($${path}).
             provider = winner.config.providerName,
             modelName = conf[winner.config.modelNameKey]?.takeIf { it.isNotBlank() }
                 ?: winner.config.defaultModel,
-            baseUrl = conf[winner.config.baseUrlKey]?.takeIf { it.isNotBlank() }
-                ?: winner.config.defaultBaseUrl,
+            baseUrl = effectiveBaseUrl(winner.config, conf),
             apiKeyName = winner.apiKeyName,
             apiProtocol = winner.config.apiProtocol,
             explicit = false,
@@ -838,8 +945,7 @@ see the [LLM configuration documentation]($${path}).
         return ProviderSelection(
             provider = canonical,
             modelName = modelName,
-            baseUrl = config?.let { conf[it.baseUrlKey]?.takeIf { v -> v.isNotBlank() } ?: it.defaultBaseUrl }
-                ?: DEFAULT_OPENAI_BASE_URL,
+            baseUrl = config?.let { effectiveBaseUrl(it, conf) } ?: DEFAULT_OPENAI_BASE_URL,
             apiKeyName = apiKeyName,
             apiProtocol = config?.apiProtocol ?: ApiProtocol.OPENAI,
             explicit = true,
@@ -884,6 +990,9 @@ see the [LLM configuration documentation]($${path}).
     private fun reportSelection(selection: ProviderSelection) {
         val signature = "${selection.provider}|${selection.modelName}|${selection.baseUrl}|" +
                 "${selection.apiKeyName}|${selection.explicit}"
+        if (reportedSelections.size > MAX_REPORTED_SELECTIONS) {
+            reportedSelections.clear()
+        }
         if (!reportedSelections.add(signature)) {
             return
         }
@@ -940,8 +1049,15 @@ see the [LLM configuration documentation]($${path}).
             )
         }
 
-        val key = "$canonical:$modelName:$apiKey"
-        return models.computeIfAbsent(key) { doCreateModel(canonical, modelName, apiKey, conf) }
+        // Resolve the endpoint and the protocol before the cache lookup: the key
+        // used to be provider + model + key only, so a configured base URL was
+        // ignored (a built-in provider always got its default endpoint) and a
+        // provider that changed protocol on a registry reload kept its old client.
+        val config = findProviderConfig(canonical, conf)
+        val baseUrl = config?.let { effectiveBaseUrl(it, conf) } ?: DEFAULT_OPENAI_BASE_URL
+
+        val key = "$canonical:${config?.apiProtocol ?: ApiProtocol.OPENAI}:$modelName:$apiKey:$baseUrl"
+        return cachedModel(key) { doCreateModel(canonical, config, modelName, apiKey, baseUrl, conf) }
     }
 
     /**
@@ -951,45 +1067,42 @@ see the [LLM configuration documentation]($${path}).
      * "claude" / "google" are resolved by [getOrCreateModel0] via
      * [resolveCanonicalProviderName]).
      *
-     * - Known providers are looked up in the combined registry and dispatched
-     *   according to their [ProviderConfig.apiProtocol].
+     * [config] is the registry entry the cache key was derived from: the protocol
+     * is read from it rather than re-resolved, so the client can never disagree
+     * with the key that produced it.
+     *
+     * - Known providers are dispatched according to their [ProviderConfig.apiProtocol].
      * - Unknown providers fall back to OpenAI-compatible as a best-effort default.
      */
     private fun doCreateModel(
-        provider: String, modelName: String, apiKey: String, conf: ImmutableConfig
+        provider: String, config: ProviderConfig?, modelName: String, apiKey: String,
+        baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
         logger.info(
             "Creating LLM with provider and model name | {} {} {}",
             provider, modelName, encodeSecretKey(apiKey)
         )
 
-        // Look up in the combined registry (registered first, then built-in)
-        val allProviders = synchronized(_registeredProviders) {
-            _registeredProviders + getRegistry(conf).providers
-        }
-        val config = allProviders.find {
-            it.providerName.equals(provider, ignoreCase = true)
-        }
-        if (config != null) {
-            return dispatchProtocol(config.apiProtocol, modelName, apiKey, config.defaultBaseUrl, conf)
+        if (config == null) {
+            // Unknown provider — best-effort: treat as OpenAI-compatible with a
+            // generic base URL; the caller is responsible for ensuring correctness.
+            logger.warn(
+                "Unknown provider '{}', treating as OpenAI-compatible. " +
+                        "Set the base URL via configuration or use getOrCreateOpenAICompatibleModel().",
+                provider
+            )
         }
 
-        // Unknown provider — best-effort: treat as OpenAI-compatible with a
-        // generic base URL; the caller is responsible for ensuring correctness.
-        logger.warn(
-            "Unknown provider '{}', treating as OpenAI-compatible. " +
-                    "Set the base URL via configuration or use getOrCreateOpenAICompatibleModel().",
-            provider
-        )
-        return createOpenAICompatibleModel0(modelName, apiKey, DEFAULT_OPENAI_BASE_URL, conf)
+        return dispatchProtocol(config?.apiProtocol ?: ApiProtocol.OPENAI, modelName, apiKey, baseUrl, conf)
     }
 
     /**
      * Dispatch model creation to the correct builder based on [ApiProtocol].
      *
-     * Bypasses the public [models] cache — callers are responsible for caching.
-     * This is intentional because [doCreateModel] is called inside
-     * [ConcurrentHashMap.computeIfAbsent], which forbids recursive updates.
+     * Bypasses the model cache — callers are responsible for caching.  This is
+     * intentional: every creation is already keyed by its caller, and building a
+     * nested cache entry while the cache monitor is held would only invite
+     * surprises.
      */
     private fun dispatchProtocol(
         protocol: ApiProtocol, modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
@@ -997,7 +1110,8 @@ see the [LLM configuration documentation]($${path}).
         return when (protocol) {
             ApiProtocol.OPENAI -> createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf)
             ApiProtocol.ANTHROPIC -> createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf)
-            ApiProtocol.GEMINI -> createGeminiChatModel(modelName, apiKey, conf)
+            ApiProtocol.GEMINI ->
+                createGeminiChatModel(modelName, apiKey, configuredBaseUrl("gemini", conf), conf)
         }
     }
 
@@ -1045,35 +1159,25 @@ see the [LLM configuration documentation]($${path}).
     /**
      * Google Gemini via the native [GoogleAiGeminiChatModel].
      *
+     * [baseUrl] is applied only when non-null, so the builder keeps its own
+     * default otherwise.  A value must include the API version path.
+     *
      * @see <a href="https://ai.google.dev/gemini-api/docs">Gemini API</a>
      */
     private fun createGeminiChatModel(
-        modelName: String, apiKey: String, conf: ImmutableConfig
+        modelName: String, apiKey: String, baseUrl: String?, conf: ImmutableConfig
     ): BrowserChatModel {
-        val lm = GoogleAiGeminiChatModel.builder()
+        val builder = GoogleAiGeminiChatModel.builder()
             .apiKey(apiKey)
             .modelName(modelName)
+        if (baseUrl != null) {
+            builder.baseUrl(baseUrl)
+        }
+        val lm = builder
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
             .build()
         return CachedBrowserChatModel(lm, conf)
-    }
-
-    /**
-     * MiniMax via [AnthropicChatModel].
-     *
-     * MiniMax uses the Anthropic Messages protocol.  International endpoint is
-     * `https://api.minimax.io/anthropic/v1`; China endpoint is
-     * `https://api.minimaxi.com/anthropic/v1`.  The China endpoint is the default.
-     *
-     * @see <a href="https://platform.minimax.io/docs">MiniMax API</a>
-     */
-    private fun createMinimaxChatModel(
-        modelName: String, apiKey: String, conf: ImmutableConfig
-    ): BrowserChatModel {
-        return createAnthropicCompatibleModel0(
-            modelName, apiKey, "https://api.minimaxi.com/anthropic", conf
-        )
     }
 
     /**

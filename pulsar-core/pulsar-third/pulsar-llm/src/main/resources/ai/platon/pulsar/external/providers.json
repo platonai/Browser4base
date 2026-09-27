@@ -221,6 +221,7 @@
   },
   "canonicalAliases": {
     "claude": "anthropic",
-    "google": "gemini"
+    "google": "gemini",
+    "dashscope": "bailian"
   }
 }

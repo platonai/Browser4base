@@ -348,7 +348,7 @@ public interface CapabilityTypes {
     String LLM_PROVIDER_DENY_LIST = "llm.provider.deny.list";
     /**
      * Override the URL pointing to LLM configuration documentation.
-     * Default: https://github.com/platonai/browser4base/blob/master/docs/config/llm/llm-config.md
+     * Default: https://github.com/platonai/Browser4base/blob/main/docs/config/llm/llm-config.md
      */
     String LLM_DOCUMENT_PATH = "llm.document.path";
     /**
