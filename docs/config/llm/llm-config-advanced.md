@@ -207,29 +207,14 @@ Default settings applied to all providers:
 
 ## Context Window Sizes
 
-| Provider | Model | Context Window |
-|----------|-------|----------------|
-| OpenAI | gpt-4o | 128K |
-| Anthropic | Claude Sonnet 4/4.5 | 200K |
-| Google | Gemini 2.0 Flash | 1M |
-| Google | Gemini 2.5 Pro | 1M |
-| DeepSeek | deepseek-chat | 64K |
-| Alibaba | qwen-plus | 131K |
-| ByteDance | doubao-1.5-pro | 256K |
-| Zhipu | glm-4-plus | 128K |
-| Moonshot | moonshot-v1-8k | 32K |
-| Baichuan | Baichuan4 | 32K |
-| 01.AI | yi-large | 32K |
-| MiniMax | MiniMax-M2.5 | 1M |
-| StepFun | step-1-8k | 8K |
-| Tencent | hunyuan-pro | 32K |
-| Baidu | ernie-4.0-8k | 8K |
-| Groq | llama-3.3-70b | 128K |
-| Together | Llama 3.3 70B | 128K |
-| Mistral | mistral-large | 128K |
-| xAI | grok-2-1212 | 128K |
-| Perplexity | sonar | 128K |
-| Fireworks | llama-v3p3 | 128K |
+Context windows belong to the model, not to Browser4, and the shipped defaults move faster than
+this page.  The authoritative list is the registry itself —
+[`providers.json`](../../../pulsar-core/pulsar-third/pulsar-llm/src/main/resources/ai/platon/pulsar/external/providers.json) —
+and `ChatModelFactory.describeActiveProvider(conf)` reports the model a configuration resolves to.
+
+Rough sizes of the shipped defaults, for planning: Gemini and MiniMax ~1M; Volcengine ~256K;
+Anthropic ~200K; DashScope ~131K; OpenAI, Groq, Together, Mistral, xAI, Perplexity, Fireworks and
+Zhipu ~128K; DeepSeek ~64K; Moonshot, Baichuan, Yi and Hunyuan ~32K; StepFun and Qianfan ~8K.
 
 Override via:
 

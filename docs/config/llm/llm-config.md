@@ -100,7 +100,7 @@ openai.model.name=gpt-4o
 openai.base.url=https://api.openai.com/v1
 ```
 
-Default model: `gpt-4o`
+Default model: `gpt-5.6-sol`
 Context window: 128K tokens
 
 #### Groq — Fast Inference
@@ -139,7 +139,7 @@ xai.api.key=your-key
 xai.model.name=grok-2-1212
 ```
 
-Default model: `grok-2-1212`
+Default model: `grok-4.5`
 Base URL: `https://api.x.ai/v1`
 Context window: 128K tokens
 
@@ -172,17 +172,20 @@ deepseek.model.name=deepseek-chat
 deepseek.base.url=https://api.deepseek.com/v1
 ```
 
-Default model: `deepseek-chat`
+Default model: `deepseek-v4-flash`
 Context window: 64K tokens
 
 #### Alibaba DashScope / Qwen (阿里云-百炼)
+The canonical provider name is **`bailian`** (the configuration key is `DASHSCOPE_API_KEY`).
+`dashscope` is accepted as an alias, so `llm.provider=dashscope` also selects it.
+
 ```properties
 dashscope.api.key=sk-your-key
-dashscope.model.name=qwen-plus
+dashscope.model.name=qwen3.6-plus
 dashscope.base.url=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
-Default model: `qwen-plus`
+Default model: `qwen3.6-plus`
 Context window: 131K tokens
 
 #### ByteDance Volcengine / Doubao (字节跳动-火山引擎)
@@ -192,7 +195,7 @@ volcengine.model.name=doubao-1.5-pro-32k-250115
 volcengine.base.url=https://ark.cn-beijing.volces.com/api/v3
 ```
 
-Default model: `doubao-1.5-pro-32k-250115`
+Default model: `doubao-seed-2-0-pro-260215`
 Context window: 256K tokens
 
 #### Zhipu AI / GLM (智谱AI)
@@ -202,7 +205,7 @@ zhipu.model.name=glm-4-plus
 zhipu.base.url=https://open.bigmodel.cn/api/paas/v4/
 ```
 
-Default model: `glm-4-plus`
+Default model: `glm-5.1`
 Context window: 128K tokens
 
 #### Moonshot / Kimi (月之暗面)
@@ -214,7 +217,7 @@ moonshot.model.name=moonshot-v1-8k
 moonshot.base.url=https://api.moonshot.cn/v1
 ```
 
-Default model: `moonshot-v1-8k`
+Default model: `kimi-k2.6`
 Context window: 32K tokens
 
 #### Baichuan (百川智能)
@@ -260,7 +263,7 @@ stepfun.model.name=step-1-8k
 stepfun.base.url=https://api.stepfun.com/v1
 ```
 
-Default model: `step-1-8k`
+Default model: `step-3.5-flash`
 Context window: 8K tokens
 
 #### Tencent Hunyuan (腾讯混元)
@@ -310,11 +313,11 @@ google.generative.ai.api.key=your-key
 # gemini.api.key=your-key
 # google.api.key=your-key
 gemini.model.name=gemini-3.1-flash-lite
-gemini.base.url=https://generativelanguage.googleapis.com
+# Optional, and applied only when set explicitly: include the API version,
+# e.g. gemini.base.url=https://generativelanguage.googleapis.com/v1beta
 ```
 
 Default model: `gemini-3.1-flash-lite`
-Base URL: `https://generativelanguage.googleapis.com`
 Context window: 1M tokens
 
 ## Configuration Format
@@ -366,9 +369,13 @@ llm.api.key=my-api-key
 
 `llm.provider` is an explicit choice: it wins over every auto-detected provider key, so it is
 also the way to pin a *built-in* provider when another provider's key is also configured
-(`llm.provider=deepseek` + `llm.name=deepseek-v4-pro`).  A provider that is not in the registry
-is treated as OpenAI-compatible (`https://api.openai.com/v1`); set the endpoint with the
-provider's `*.base.url` key, or register it with `ChatModelFactory.registerProvider()`.
+(`llm.provider=deepseek` + `llm.name=deepseek-v4-pro`).  The name may be written as a provider
+alias (`claude`, `google`, `dashscope`) or as an API key name (`DEEPSEEK_API_KEY`).
+
+A provider that is **not** in the registry is treated as OpenAI-compatible with the generic
+endpoint `https://api.openai.com/v1`.  An unknown name has no configuration keys, so there is no
+`*.base.url` key to point at a custom endpoint: use `ChatModelFactory.registerProvider(...)`, or
+`getOrCreateOpenAICompatibleModel(model, key, baseUrl, conf)`.
 
 ## Advanced: Overriding the Built-in Provider List (JSON)
 
@@ -415,6 +422,15 @@ At runtime, call `ChatModelFactory.resetProviders()` after changing the path:
 System.setProperty("llm.provider.config.path", "/new/path/providers.json")
 ChatModelFactory.resetProviders()
 ```
+
+Two behaviours worth knowing:
+
+- The registry is parsed once and cached.  An edit to the **same path** is picked up on the
+  next provider resolution — the loader notices the new size/mtime, so neither a restart nor
+  a `resetProviders()` call is needed.  `resetProviders()` is for switching the path, or for
+  forcing a re-read of a file replaced with identical size and timestamp.
+- A configured path that does not exist logs a warning and falls back to the built-in list,
+  so a typo shows up in the log instead of looking like "my override changed nothing".
 
 > **Tip:** To add providers without replacing the entire list, use
 > [`ChatModelFactory.registerProvider()`](#registering-a-provider-kotlin) instead.
@@ -535,8 +551,11 @@ Config values take priority over the programmatic defaults set via
 
 Alternatively, set these at runtime from code:
 
-This URL appears in exception messages when the LLM is not configured, and in the
-developer guide logged on first detection.
+```kotlin
+// Shown in exception messages when the LLM is not configured, and in the
+// developer guide logged on first detection.
+ChatModelFactory.documentPath = "https://docs.yourcompany.com/llm-setup"
+```
 
 ### Custom "Not Configured" Message
 
@@ -593,6 +612,16 @@ LLM responses are cached to reduce costs and latency:
 # Cache TTL in seconds (default: 600 = 10 minutes)
 llm.response.cache.ttl=600
 ```
+
+## Model Cache
+
+Created clients are cached per (provider, protocol, model, API key, base URL) combination and
+reused, so a given selection is built once even when it is resolved on every chat call.
+
+The cache is a bounded LRU: at most `ChatModelFactory.maxCachedModels` instances (default 128)
+are kept, and the least recently used one is evicted beyond that.  Evicted instances are not
+closed — the factory does not own their lifecycle — so an embedder that rotates keys should
+hold references only as long as it needs them, and close them itself.
 
 ## Verification
 

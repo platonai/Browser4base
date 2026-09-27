@@ -1,7 +1,7 @@
 # ChatModelFactory — How-To Guide
 
 The `ChatModelFactory` is the central entry point for creating and managing LLM chat models in Browser4.
-It supports **26+ providers** across three protocols (OpenAI-compatible, Anthropic, Gemini) through a
+It supports **21 providers** (27 configurable key names, aliases included) across three protocols (OpenAI-compatible, Anthropic, Gemini) through a
 unified, data-driven registry — no provider-specific code paths needed.
 
 This guide demonstrates every way to use it, from the simplest auto-detection to custom provider registration.
@@ -95,6 +95,15 @@ Several alias key names are supported, mapped to canonical providers:
 | `GEMINI_API_KEY`    | gemini             |
 | `GOOGLE_API_KEY`    | gemini             |
 
+Provider *names* have their own aliases, accepted wherever a provider is named (`llm.provider`,
+the `provider` argument of `getOrCreate`, and the deny list):
+
+| Provider alias | Canonical provider |
+|----------------|--------------------|
+| `claude`       | anthropic          |
+| `google`       | gemini             |
+| `dashscope`    | bailian            |
+
 ### Configuring specific keys
 
 Set API keys via environment variables, system properties, or config files:
@@ -146,6 +155,10 @@ openai.api.key=sk-your-key
 openai.model.name=gpt-4o
 openai.base.url=https://your-proxy.example.com/v1
 ```
+
+These keys apply to every entry point.  `getOrCreate("openai", model, key, conf)` resolves the
+endpoint from `OPENAI_BASE_URL` (or the provider default) exactly as auto-detection does, so the
+endpoint never depends on which way the model was created.
 
 ---
 
@@ -361,8 +374,9 @@ val response = runBlocking {
 }
 ```
 
-> **Note:** Vision support depends on the provider and model. Use `ProviderConfig.supportVision`
-> to declare whether a provider supports image inputs.
+> **Note:** Vision support depends on the provider and model.  `ProviderConfig.supportVision`
+> records that fact for the registry, but the request path does not enforce it yet — sending an
+> image to a text-only provider fails at the provider, not in Browser4.
 
 ### LangChain4j Native API
 
@@ -757,13 +771,21 @@ println(model1 === model3)  // false — different model name
 
 **Cache key format (by method):**
 
-| Method                              | Cache Key                                     |
-|-------------------------------------|-----------------------------------------------|
-| `getOrCreate(provider, model, key)` | `{canonical-provider}:{model}:{key}`          |
-| `getOrCreateOpenAICompatibleModel()`| `{model}:{key}:{baseUrl}`                     |
-| `getOrCreateAnthropicCompatibleModel()`| `{model}:{key}:{baseUrl}`                   |
-| `getOrCreateAnthropicModel()`       | `anthropic:{model}:{key}`                     |
-| `getOrCreateGeminiModel()`          | `gemini:{model}:{key}`                        |
+| Method                                  | Cache Key                                                 |
+|-----------------------------------------|-----------------------------------------------------------|
+| `getOrCreate(provider, model, key)`     | `{canonical-provider}:{protocol}:{model}:{key}:{baseUrl}` |
+| `getOrCreateOpenAICompatibleModel()`    | `openai:{model}:{key}:{baseUrl}`                          |
+| `getOrCreateAnthropicCompatibleModel()` | `anthropic:{model}:{key}:{baseUrl}`                       |
+| `getOrCreateAnthropicModel()`           | `anthropic:{model}:{key}` (+ `:{baseUrl}` when configured) |
+| `getOrCreateGeminiModel()`              | `gemini:{model}:{key}` (+ `:{baseUrl}` when configured)    |
+| `getOrCreateMinimaxModel()`             | `minimax:{model}:{key}:{baseUrl}`                         |
+
+Every key names the protocol and the endpoint, so two protocols or two endpoints never share an
+entry — a dual-protocol gateway can serve OpenAI and Anthropic requests under one host and one key
+without the two clients being confused for each other.
+
+The cache is a bounded LRU: at most `ChatModelFactory.maxCachedModels` (default 128) instances are
+kept and the least recently used one is evicted.  Evicted instances are not closed.
 
 This makes repeated calls cheap — no model objects are recreated.
 
