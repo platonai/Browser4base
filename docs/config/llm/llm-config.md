@@ -52,13 +52,30 @@ The system scans for known API keys in this order — the first one found wins:
 | 21 | **MiniMax** | `MINIMAX_API_KEY` | `MINIMAX_MODEL_NAME` | `MINIMAX_BASE_URL` |
 
 > **Notes:**
+> - **`llm.provider` is checked first.** When it names a provider (or an alias, or an API
+>   key name such as `DEEPSEEK_API_KEY`) that has a usable key — its own key or the generic
+>   `llm.apiKey` — that provider is used and the table below is not consulted.  A denied or
+>   key-less `llm.provider` logs a warning and falls back to auto-detection.
+> - A key that is absent, blank, or shorter than 6 characters does not participate.  A
+>   leftover `deepseek.api.key=` placeholder therefore never shadows a valid key of another
+>   provider (it used to).
+> - When several providers are configured the winner is logged once
+>   (`Using LLM provider | provider=… model=… baseUrl=… apiKey=…`) and the ignored keys are
+>   reported in the same message, so the routing is never a silent surprise.
 > - OpenAI is checked after dedicated provider keys so that a generic `OPENAI_API_KEY`
->   doesn't shadow providers like Groq or Together.
+>   doesn't shadow providers like Groq or Together — which also means a leftover dedicated
+>   key (DeepSeek, for instance) wins over a freshly configured `OPENAI_API_KEY`.  Use
+>   `llm.provider` to choose explicitly, or `llm.provider.deny.list` to skip a provider.
 > - **Custom registered providers** (via `ChatModelFactory.registerProvider()`) are checked
 >   **before** all built-in providers and take priority.
 > - Providers on the `llm.provider.deny.list` are skipped during auto-detection.
 > - Anthropic, Gemini, and MiniMax are checked last — they use their own API protocols
 >   (not OpenAI-compatible) and are dispatched accordingly via `ApiProtocol`.
+> - **Diagnostics:** `ChatModelFactory.describeActiveProvider(conf)` returns the resolved
+>   selection (provider, model, base URL, the configuration key that supplied the API key,
+>   whether it was explicit, and the configured keys that were ignored) without creating a
+>   client.  Applications such as `Browser4`'s `doctor` endpoint report it instead of
+>   re-implementing the detection rules.
 
 ## Provider Details
 
@@ -321,6 +338,12 @@ llm.provider=my-provider
 llm.name=my-model
 llm.api.key=my-api-key
 ```
+
+`llm.provider` is an explicit choice: it wins over every auto-detected provider key, so it is
+also the way to pin a *built-in* provider when another provider's key is also configured
+(`llm.provider=deepseek` + `llm.name=deepseek-v4-pro`).  A provider that is not in the registry
+is treated as OpenAI-compatible (`https://api.openai.com/v1`); set the endpoint with the
+provider's `*.base.url` key, or register it with `ChatModelFactory.registerProvider()`.
 
 ## Advanced: Overriding the Built-in Provider List (JSON)
 

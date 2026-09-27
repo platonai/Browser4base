@@ -59,6 +59,41 @@ data class ProviderConfig(
 )
 
 /**
+ * The provider selection that [ChatModelFactory] resolves for a configuration.
+ *
+ * The same resolution is used both to create the model ([ChatModelFactory.getOrCreate])
+ * and to report it ([ChatModelFactory.describeActiveProvider]), so the provider a
+ * user is told about is always the provider that will be called.
+ *
+ * This is the answer to "why did my request go there?": the selection names the
+ * provider, the model, the base URL, and the configuration key that won.
+ *
+ * @property provider     The canonical provider name (e.g. `"deepseek"`, `"openai"`).
+ * @property modelName    The model name the client will request.
+ * @property baseUrl      The API base URL the client will call.
+ * @property apiKeyName   The configuration key that supplied the API key, e.g.
+ *                        `"DEEPSEEK_API_KEY"` or `"llm.apiKey"`.
+ * @property apiProtocol  The protocol the client is built with.
+ * @property explicit     `true` when the provider was named by `llm.provider`,
+ *                        `false` when it was auto-detected from the configured keys.
+ * @property otherConfiguredApiKeyNames API key names that are configured but were
+ *                        **not** selected, in priority order.  A non-empty value
+ *                        means the effective routing depends on the built-in
+ *                        priority list — the classic surprise when a leftover key
+ *                        of another provider shadows the provider the user just
+ *                        configured.
+ */
+data class ProviderSelection(
+    val provider: String,
+    val modelName: String,
+    val baseUrl: String,
+    val apiKeyName: String,
+    val apiProtocol: ApiProtocol,
+    val explicit: Boolean = false,
+    val otherConfiguredApiKeyNames: List<String> = emptyList(),
+)
+
+/**
  * The factory to create models.
  *
  * Supports all major LLM providers through a data-driven registry keyed by
@@ -73,6 +108,23 @@ object ChatModelFactory {
     private val models = ConcurrentHashMap<String, BrowserChatModel>()
 
     private val llmGuideReported = AtomicBoolean(false)
+
+    /**
+     * The minimum length an API key must have to be considered usable.
+     *
+     * A key that is absent, blank, or shorter than this is treated as "not
+     * configured" — see [isUsableApiKey].
+     */
+    private const val MIN_API_KEY_LENGTH = 5
+
+    /** The generic OpenAI base URL used for unknown OpenAI-compatible providers. */
+    private const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+
+    /**
+     * Signatures of the provider selections already logged, so that resolving the
+     * selection on every LLM call does not turn into a log storm.
+     */
+    private val reportedSelections = ConcurrentHashMap.newKeySet<String>()
 
     private val defaultDocumentPath = "https://github.com/platonai/browser4base/blob/master/docs/config/llm/llm-config.md"
 
@@ -428,11 +480,18 @@ see the [LLM configuration documentation]($${path}).
     /**
      * Create a default model by scanning the configuration for known API keys.
      *
-     * Checks providers in this order:
-     * 1. Registered + built-in providers — by API key presence, dispatched by
-     *    [ProviderConfig.apiProtocol] (OpenAI, Anthropic, or Gemini)
-     * 2. Alias key resolution (e.g. `GEMINI_API_KEY` → gemini, `KIMI_API_KEY` → moonshot)
-     * 3. Generic fallback via `LLM_PROVIDER` / `LLM_NAME` / `LLM_API_KEY`
+     * The provider is resolved by [describeActiveProvider], in this order:
+     * 1. `llm.provider` — the explicit selection always wins when it names a
+     *    provider that has a usable API key
+     * 2. Registered + built-in providers — the first provider with a usable API
+     *    key wins, dispatched by [ProviderConfig.apiProtocol] (OpenAI, Anthropic,
+     *    or Gemini)
+     * 3. Alias key resolution (e.g. `GEMINI_API_KEY` → gemini, `KIMI_API_KEY` → moonshot)
+     *
+     * A key that is absent, blank, or too short never participates, so a
+     * placeholder such as `deepseek.api.key=` cannot shadow a valid key of
+     * another provider.  When more than one provider is configured, the winner
+     * is logged together with the ignored keys.
      *
      * @return The created model.
      * @throws IllegalArgumentException If the configuration is not configured.
@@ -442,59 +501,37 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreate(conf: ImmutableConfig): BrowserChatModel {
         // Parse deny list once; thread through to avoid redundant re-parsing
         val denyList = parseDenyList(conf)
+        val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
 
         if (!isModelConfigured0(conf, denyList)) {
             val effectiveShortMessage = conf[LLM_NOT_CONFIGURED_MESSAGE] ?: llmNotConfiguredMessage
-            val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
             throw IllegalArgumentException("$effectiveShortMessage — see $effectiveDocumentPath")
         }
 
-        // 1. Check all providers (data-driven, all protocols):
-        //    registered first (higher priority), then built-in
-        val registry = getRegistry(conf)
-        val allProviders = synchronized(_registeredProviders) {
-            _registeredProviders + registry.providers
-        }
-        for (provider in allProviders) {
-            if (provider.providerName in denyList) continue
-            val apiKey = conf[provider.apiKeyName] ?: continue
-            val modelName = conf[provider.modelNameKey] ?: provider.defaultModel
-            val baseURL = conf[provider.baseUrlKey] ?: provider.defaultBaseUrl
-            return when (provider.apiProtocol) {
-                ApiProtocol.OPENAI -> getOrCreateOpenAICompatibleModel(modelName, apiKey, baseURL, conf)
-                ApiProtocol.ANTHROPIC -> getOrCreateAnthropicCompatibleModel(modelName, apiKey, baseURL, conf)
-                ApiProtocol.GEMINI -> getOrCreateGeminiModel(modelName, apiKey, conf)
-            }
+        val selection = requireNotNull(resolveSelection(conf, denyList)) {
+            "No usable LLM provider found in the configuration, see $effectiveDocumentPath"
         }
 
-        // 1b. Alias resolution (check alternate key names)
-        for ((aliasKey, canonicalName) in registry.aliases) {
-            if (canonicalName in denyList) continue
-            val key = conf[aliasKey] ?: continue
-            val config = registry.providers.find { it.providerName == canonicalName }!!
-            val modelName = conf[config.modelNameKey] ?: config.defaultModel
-            val baseURL = conf[config.baseUrlKey] ?: config.defaultBaseUrl
-            return when (config.apiProtocol) {
-                ApiProtocol.OPENAI -> getOrCreateOpenAICompatibleModel(modelName, key, baseURL, conf)
-                ApiProtocol.ANTHROPIC -> getOrCreateAnthropicCompatibleModel(modelName, key, baseURL, conf)
-                ApiProtocol.GEMINI -> getOrCreateGeminiModel(modelName, key, conf)
-            }
-        }
-
-        // 2. Generic fallback via LLM_PROVIDER / LLM_NAME / LLM_API_KEY
-        val effectiveDocumentPath = conf[LLM_DOCUMENT_PATH] ?: documentPath
-        val provider = requireNotNull(conf[LLM_PROVIDER]) {
-            "$LLM_PROVIDER is not set, see $effectiveDocumentPath"
-        }
-        val modelName = requireNotNull(conf[LLM_NAME]) {
-            "$LLM_NAME is not set, see $effectiveDocumentPath"
-        }
-        val apiKey = requireNotNull(conf[LLM_API_KEY]) {
-            "$LLM_API_KEY is not set, see $effectiveDocumentPath"
-        }
-
-        return getOrCreateModel0(provider, modelName, apiKey, conf, denyList)
+        return createModel(selection, conf)
     }
+
+    /**
+     * Describe the provider that [getOrCreate] would select for [conf], without
+     * creating a model and without any network access.
+     *
+     * Diagnostics (`doctor`, health endpoints, CLI output) should use this instead
+     * of re-implementing the detection rules: it reports the effective provider,
+     * model, base URL, and the configuration key that won the selection, plus the
+     * configured keys that were ignored.  It is the authoritative answer to
+     * "which provider will my requests actually go to?".
+     *
+     * @param conf The configuration to resolve.
+     * @return The resolved [ProviderSelection], or `null` when no provider is
+     *         configured, or every configured provider is on the deny list.
+     */
+    @JvmStatic
+    fun describeActiveProvider(conf: ImmutableConfig): ProviderSelection? =
+        resolveSelection(conf, parseDenyList(conf))
 
     /**
      * Create a model from explicit provider parameters.
@@ -661,40 +698,213 @@ see the [LLM configuration documentation]($${path}).
         return isModelConfigured0(conf, parseDenyList(conf))
     }
 
+    /**
+     * A provider is configured exactly when [resolveSelection] can select one.
+     *
+     * Sharing the resolution keeps "is the LLM configured?" and "which provider
+     * is used?" from ever disagreeing — the split between them is what made an
+     * empty key report as configured while another provider did the routing.
+     */
     private fun isModelConfigured0(conf: ImmutableConfig, denyList: Set<String>): Boolean {
-        val minKeyLen = 5
-        val registry = getRegistry(conf)
+        return resolveSelection(conf, denyList) != null
+    }
 
-        // Check registered + built-in provider API keys
+    /** A provider together with one of the configuration keys that can supply its API key. */
+    private data class ProviderCandidate(val config: ProviderConfig, val apiKeyName: String)
+
+    /**
+     * Resolve the effective provider selection for [conf].
+     *
+     * Precedence — first match wins:
+     * 1. `llm.provider` (explicit), when it names a provider with a usable API key
+     * 2. Providers in registry order (registered first, then built-in), by usable
+     *    API key presence
+     * 3. Provider aliases (`KIMI_API_KEY` → moonshot, ...) in registry order
+     *
+     * Providers on the deny list never win.  A denied or key-less `llm.provider`
+     * logs a warning and falls back to auto-detection instead of failing a
+     * configuration that used to work.
+     *
+     * @return The selection, or `null` when nothing usable is configured.
+     */
+    private fun resolveSelection(conf: ImmutableConfig, denyList: Set<String>): ProviderSelection? {
+        val registry = getRegistry(conf)
         val allProviders = synchronized(_registeredProviders) {
             _registeredProviders + registry.providers
         }
-        for (provider in allProviders) {
-            if (provider.providerName in denyList) continue
-            val apiKey = conf[provider.apiKeyName] ?: ""
-            if (apiKey.length > minKeyLen) return true
-        }
 
-        // Check alias keys (e.g. KIMI_API_KEY → moonshot)
-        for ((aliasKey, canonicalName) in registry.aliases) {
-            if (canonicalName in denyList) continue
-            val apiKey = conf[aliasKey] ?: ""
-            if (apiKey.length > minKeyLen) return true
-        }
-
-        // Check legacy configuration
-        val provider = conf[LLM_PROVIDER]
-        val llm = conf[LLM_NAME]
-        val apiKey = conf[LLM_API_KEY] ?: ""
-
-        if (provider != null && llm != null && apiKey.length > minKeyLen) {
-            val canonicalProvider = resolveCanonicalProviderName(provider, conf) ?: provider.lowercase()
-            if (canonicalProvider !in denyList) {
-                return true
+        // Providers first, aliases after — the same order as the documented
+        // priority list, so the first usable key wins.
+        val candidates = buildList {
+            allProviders.forEach { add(ProviderCandidate(it, it.apiKeyName)) }
+            registry.aliases.forEach { (aliasKey, canonicalName) ->
+                allProviders.find { it.providerName == canonicalName }
+                    ?.let { add(ProviderCandidate(it, aliasKey)) }
             }
         }
+        val configured = candidates.filter { conf.usableApiKey(it.apiKeyName) != null }
 
-        return false
+        resolveExplicitSelection(conf, allProviders, configured, denyList)?.let { return it }
+
+        val winner = configured.firstOrNull { it.config.providerName !in denyList } ?: return null
+
+        return ProviderSelection(
+            provider = winner.config.providerName,
+            modelName = conf[winner.config.modelNameKey]?.takeIf { it.isNotBlank() }
+                ?: winner.config.defaultModel,
+            baseUrl = conf[winner.config.baseUrlKey]?.takeIf { it.isNotBlank() }
+                ?: winner.config.defaultBaseUrl,
+            apiKeyName = winner.apiKeyName,
+            apiProtocol = winner.config.apiProtocol,
+            explicit = false,
+            otherConfiguredApiKeyNames = configured.filter { it !== winner }.map { it.apiKeyName },
+        )
+    }
+
+    /**
+     * Resolve an explicit `llm.provider` selection.
+     *
+     * For a known provider the provider's own key (or `llm.apiKey`) supplies the
+     * API key, `llm.name` overrides the model, and the configured base URL of the
+     * provider overrides its default.  For an unknown provider the generic
+     * `llm.provider` + `llm.name` + `llm.apiKey` form is honored and treated as
+     * OpenAI-compatible.
+     *
+     * @return The selection, or `null` to let auto-detection decide.
+     */
+    private fun resolveExplicitSelection(
+        conf: ImmutableConfig,
+        allProviders: List<ProviderConfig>,
+        configured: List<ProviderCandidate>,
+        denyList: Set<String>,
+    ): ProviderSelection? {
+        val requested = conf[LLM_PROVIDER]?.takeIf { it.isNotBlank() } ?: return null
+        val canonical = resolveCanonicalProviderName(requested, conf) ?: requested.lowercase().trim()
+
+        if (canonical in denyList) {
+            logger.warn(
+                "{} is set to '{}' which is on the deny list ({}); falling back to auto-detection",
+                LLM_PROVIDER, requested, LLM_PROVIDER_DENY_LIST
+            )
+            return null
+        }
+
+        val config = allProviders.find { it.providerName.equals(canonical, ignoreCase = true) }
+
+        // A known provider prefers its own key name; the generic key is accepted as a fallback.
+        val keyNames = if (config != null) listOf(config.apiKeyName, LLM_API_KEY) else listOf(LLM_API_KEY)
+        val apiKeyName = keyNames.firstOrNull { conf.usableApiKey(it) != null }
+        if (apiKeyName == null) {
+            logger.warn(
+                "{} is set to '{}' but no usable API key is configured for it ({}); " +
+                        "falling back to auto-detection",
+                LLM_PROVIDER, requested, keyNames.joinToString(", ")
+            )
+            return null
+        }
+
+        val modelName = conf[LLM_NAME]?.takeIf { it.isNotBlank() }
+            ?: config?.let { conf[it.modelNameKey]?.takeIf { v -> v.isNotBlank() } ?: it.defaultModel }
+        if (modelName == null) {
+            logger.warn(
+                "{} is set to '{}' but {} is not set and the provider is unknown; " +
+                        "falling back to auto-detection",
+                LLM_PROVIDER, requested, LLM_NAME
+            )
+            return null
+        }
+
+        return ProviderSelection(
+            provider = canonical,
+            modelName = modelName,
+            baseUrl = config?.let { conf[it.baseUrlKey]?.takeIf { v -> v.isNotBlank() } ?: it.defaultBaseUrl }
+                ?: DEFAULT_OPENAI_BASE_URL,
+            apiKeyName = apiKeyName,
+            apiProtocol = config?.apiProtocol ?: ApiProtocol.OPENAI,
+            explicit = true,
+            otherConfiguredApiKeyNames = configured.filter { it.apiKeyName != apiKeyName }.map { it.apiKeyName },
+        )
+    }
+
+    /**
+     * Build — or fetch from the cache — the client described by [selection].
+     *
+     * The selected provider is logged once per distinct selection, together with
+     * the keys that lost, so the effective routing is always discoverable without
+     * enabling debug logging.
+     */
+    private fun createModel(selection: ProviderSelection, conf: ImmutableConfig): BrowserChatModel {
+        reportSelection(selection)
+
+        val apiKey = conf.usableApiKey(selection.apiKeyName)
+        if (apiKey == null) {
+            // Only reachable when the configuration is mutated between resolution and
+            // creation; fail loudly instead of silently calling with an empty key.
+            throw IllegalArgumentException(
+                "The API key '${selection.apiKeyName}' of the selected LLM provider " +
+                        "'${selection.provider}' disappeared before the client was created"
+            )
+        }
+
+        return when (selection.apiProtocol) {
+            ApiProtocol.OPENAI ->
+                getOrCreateOpenAICompatibleModel(selection.modelName, apiKey, selection.baseUrl, conf)
+            ApiProtocol.ANTHROPIC ->
+                getOrCreateAnthropicCompatibleModel(selection.modelName, apiKey, selection.baseUrl, conf)
+            ApiProtocol.GEMINI ->
+                getOrCreateGeminiModel(selection.modelName, apiKey, conf)
+        }
+    }
+
+    /**
+     * Log the resolved selection once, and warn when several providers are
+     * configured so that the ignored keys are never a silent surprise.
+     */
+    private fun reportSelection(selection: ProviderSelection) {
+        val signature = "${selection.provider}|${selection.modelName}|${selection.baseUrl}|" +
+                "${selection.apiKeyName}|${selection.explicit}"
+        if (!reportedSelections.add(signature)) {
+            return
+        }
+
+        logger.info(
+            "Using LLM provider | provider={} model={} baseUrl={} apiKey={} selectedBy={}",
+            selection.provider,
+            selection.modelName,
+            selection.baseUrl,
+            selection.apiKeyName,
+            if (selection.explicit) LLM_PROVIDER else "auto-detection"
+        )
+
+        if (selection.otherConfiguredApiKeyNames.isNotEmpty()) {
+            logger.warn(
+                "Multiple LLM providers are configured; the first key in the built-in priority list wins | " +
+                        "using={} ({}); ignored={} | set {} to choose explicitly, or add the unused " +
+                        "provider to {}",
+                selection.provider,
+                selection.apiKeyName,
+                selection.otherConfiguredApiKeyNames.joinToString(", "),
+                LLM_PROVIDER,
+                LLM_PROVIDER_DENY_LIST
+            )
+        }
+    }
+
+    /**
+     * An API key is usable when it is present, not blank, and long enough to be a
+     * real key.
+     *
+     * Configuration templates routinely ship empty placeholders
+     * (`deepseek.api.key=`, or an unresolved `${DEEPSEEK_API_KEY}`), and a blank
+     * value must never win the auto-detection race and shadow a valid key.
+     */
+    private fun isUsableApiKey(apiKey: String?): Boolean {
+        return !apiKey.isNullOrBlank() && apiKey.length > MIN_API_KEY_LENGTH
+    }
+
+    /** The configured API key for [keyName], or `null` when it is missing or unusable. */
+    private fun ImmutableConfig.usableApiKey(keyName: String): String? {
+        return this[keyName]?.takeIf { isUsableApiKey(it) }
     }
 
     private fun getOrCreateModel0(
@@ -750,7 +960,7 @@ see the [LLM configuration documentation]($${path}).
                     "Set the base URL via configuration or use getOrCreateOpenAICompatibleModel().",
             provider
         )
-        return createOpenAICompatibleModel0(modelName, apiKey, "https://api.openai.com/v1", conf)
+        return createOpenAICompatibleModel0(modelName, apiKey, DEFAULT_OPENAI_BASE_URL, conf)
     }
 
     /**

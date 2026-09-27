@@ -1,6 +1,7 @@
 package ai.platon.pulsar.external
 
 import ai.platon.pulsar.common.config.ImmutableConfig
+import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.external.impl.CachedBrowserChatModel
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
@@ -1463,5 +1464,222 @@ class ChatModelFactoryTest {
         } finally {
             tempFile.delete()
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Effective provider selection (describeActiveProvider)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * A configuration in which only [allowedKeys] can take part in provider
+     * detection: every other provider key is denied, and no properties file is
+     * loaded.  A developer machine with real keys in its environment therefore
+     * cannot change the outcome of a selection test.
+     */
+    private fun isolatedConfig(vararg allowedKeys: String): MutableConfig =
+        MutableConfig(false).apply {
+            set(
+                "llm.provider.deny.list",
+                ChatModelFactory.SUPPORTED_API_KEY_NAMES
+                    .filterNot { it in allowedKeys }
+                    .joinToString(",")
+            )
+        }
+
+    @Test
+    @DisplayName("describeActiveProvider should report the selected provider, model, base URL and key")
+    fun describeActiveProviderShouldReportSelection() {
+        val conf = isolatedConfig("OPENAI_API_KEY").apply {
+            set("OPENAI_API_KEY", "test-openai-key-12345")
+            set("OPENAI_MODEL_NAME", "gpt-5.4")
+            set("OPENAI_BASE_URL", "https://api.deepinfra.com/v1/openai")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("openai", selection!!.provider)
+        assertEquals("gpt-5.4", selection.modelName)
+        assertEquals("https://api.deepinfra.com/v1/openai", selection.baseUrl)
+        assertEquals("OPENAI_API_KEY", selection.apiKeyName)
+        assertFalse(selection.explicit, "auto-detected selection is not explicit")
+    }
+
+    @Test
+    @DisplayName("describeActiveProvider should return null when nothing is configured")
+    fun describeActiveProviderShouldReturnNullWhenNotConfigured() {
+        val conf = isolatedConfig()
+
+        assertNull(ChatModelFactory.describeActiveProvider(conf))
+        assertFalse(ChatModelFactory.isModelConfigured(conf, verbose = false))
+    }
+
+    @Test
+    @DisplayName("A blank API key should not shadow a valid key of another provider")
+    fun blankApiKeyShouldNotShadowAnotherProvider() {
+        // Configuration templates ship blank placeholders such as
+        // `deepseek.api.key=`; before the fix that empty value won the
+        // auto-detection race (deepseek precedes openai) and silently hijacked the
+        // routing of a perfectly valid key of another provider.
+        val conf = isolatedConfig("DEEPSEEK_API_KEY", "OPENAI_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "")
+            set("OPENAI_API_KEY", "test-openai-key-12345")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("openai", selection!!.provider)
+        assertEquals("OPENAI_API_KEY", selection.apiKeyName)
+    }
+
+    @Test
+    @DisplayName("A configured key should win over a blank key that precedes it")
+    fun configuredKeyShouldWinOverBlankKey() {
+        val conf = isolatedConfig("DEEPSEEK_API_KEY", "OPENAI_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+            set("OPENAI_API_KEY", "")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("deepseek", selection!!.provider)
+        assertEquals("deepseek-v4-flash", selection.modelName)
+        assertEquals("https://api.deepseek.com/v1", selection.baseUrl)
+    }
+
+    @Test
+    @DisplayName("A blank key alone should leave the LLM unconfigured")
+    fun blankKeyAloneShouldNotBeConfigured() {
+        val conf = isolatedConfig("OPENAI_API_KEY").apply { set("OPENAI_API_KEY", "") }
+
+        assertFalse(ChatModelFactory.isModelConfigured(conf, verbose = false))
+        assertNull(ChatModelFactory.describeActiveProvider(conf))
+        assertNull(ChatModelFactory.getOrCreateOrNull(conf))
+    }
+
+    @Test
+    @DisplayName("Auto-detection should report the ignored keys of the losing providers")
+    fun autoDetectionShouldReportIgnoredKeys() {
+        val conf = isolatedConfig("DEEPSEEK_API_KEY", "OPENAI_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+            set("OPENAI_API_KEY", "test-openai-key-12345")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        // deepseek precedes openai in the built-in priority list
+        assertEquals("deepseek", selection!!.provider)
+        assertTrue(
+            selection.otherConfiguredApiKeyNames.contains("OPENAI_API_KEY"),
+            "the ignored key must be reported, actual: ${selection.otherConfiguredApiKeyNames}"
+        )
+    }
+
+    @Test
+    @DisplayName("llm.provider should win over another provider's configured key")
+    fun explicitProviderShouldWinOverConfiguredKey() {
+        val conf = isolatedConfig("DEEPSEEK_API_KEY", "OPENAI_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+            set("OPENAI_API_KEY", "test-openai-key-12345")
+            set("llm.provider", "openai")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("openai", selection!!.provider)
+        assertEquals("OPENAI_API_KEY", selection.apiKeyName)
+        assertTrue(selection.explicit)
+        assertTrue(selection.otherConfiguredApiKeyNames.contains("DEEPSEEK_API_KEY"))
+
+        val model = ChatModelFactory.getOrCreate(conf)
+        assertNotNull(model)
+    }
+
+    @Test
+    @DisplayName("llm.provider should accept aliases and API key names")
+    fun explicitProviderShouldAcceptAliasesAndKeyNames() {
+        val byAlias = isolatedConfig("ANTHROPIC_API_KEY").apply {
+            set("ANTHROPIC_API_KEY", "test-anthropic-key-12345")
+            set("llm.provider", "claude")
+        }
+        assertEquals("anthropic", ChatModelFactory.describeActiveProvider(byAlias)?.provider)
+
+        val byKeyName = isolatedConfig("DEEPSEEK_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+            set("llm.provider", "DEEPSEEK_API_KEY")
+        }
+        assertEquals("deepseek", ChatModelFactory.describeActiveProvider(byKeyName)?.provider)
+    }
+
+    @Test
+    @DisplayName("llm.provider should supply the model from llm.name and the key from llm.apiKey")
+    fun explicitProviderShouldSupportGenericForm() {
+        val conf = isolatedConfig("DEEPSEEK_API_KEY").apply {
+            set("llm.provider", "deepseek")
+            set("llm.name", "deepseek-v4-pro")
+            set("llm.apiKey", "test-deepseek-generic-key-12345")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("deepseek", selection!!.provider)
+        assertEquals("deepseek-v4-pro", selection.modelName)
+        assertEquals("https://api.deepseek.com/v1", selection.baseUrl)
+        assertEquals("llm.apiKey", selection.apiKeyName)
+        assertTrue(selection.explicit)
+    }
+
+    @Test
+    @DisplayName("An unknown llm.provider should be treated as OpenAI-compatible")
+    fun unknownExplicitProviderShouldFallBackToOpenAI() {
+        val conf = isolatedConfig().apply {
+            set("llm.provider", "my-provider")
+            set("llm.name", "my-model")
+            set("llm.apiKey", "test-my-provider-key-12345")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("my-provider", selection!!.provider)
+        assertEquals("my-model", selection.modelName)
+        assertEquals("https://api.openai.com/v1", selection.baseUrl)
+        assertEquals("llm.apiKey", selection.apiKeyName)
+    }
+
+    @Test
+    @DisplayName("A denied llm.provider should fall back to auto-detection")
+    fun deniedExplicitProviderShouldFallBackToAutoDetection() {
+        val conf = isolatedConfig("DEEPSEEK_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+            set("llm.provider", "openai")
+            set("llm.provider.deny.list", "openai")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("deepseek", selection!!.provider)
+        assertFalse(selection.explicit)
+    }
+
+    @Test
+    @DisplayName("llm.provider without a key should fall back to auto-detection")
+    fun explicitProviderWithoutKeyShouldFallBackToAutoDetection() {
+        val conf = isolatedConfig("DEEPSEEK_API_KEY", "OPENAI_API_KEY").apply {
+            set("DEEPSEEK_API_KEY", "test-deepseek-key-12345")
+            set("llm.provider", "openai")
+        }
+
+        val selection = ChatModelFactory.describeActiveProvider(conf)
+
+        assertNotNull(selection)
+        assertEquals("deepseek", selection!!.provider)
+        assertFalse(selection.explicit)
     }
 }
