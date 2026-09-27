@@ -143,4 +143,13 @@ object AppFiles {
     fun disableConfig(fileName: String) {
         CONFIG_ENABLED_DIR.resolve(fileName).deleteIfExists()
     }
+
+    /**
+     * The conventional private overlay of the configuration directories.
+     *
+     * It is the file applications tell their users to put secrets in, and the one
+     * [ai.platon.pulsar.common.config.LocalResourceProperties] loads from
+     * `conf-enabled/` next to `application.properties`.
+     */
+    const val CONFIG_FILE_NAME = "application-private.properties"
 }

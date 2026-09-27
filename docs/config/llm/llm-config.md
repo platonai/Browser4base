@@ -328,6 +328,31 @@ openrouter.api.key=sk-...
 openrouter-api-key=sk-...
 ```
 
+## Configuration Files
+
+Precedence, and the only product-managed location:
+
+1. `-D` system properties
+2. environment variables
+3. `application.properties` / `application-private.properties` in the working directory,
+   `./config/`, and the project root
+4. **`${PULSAR_DATA_HOME}/config/conf-enabled/application-private.properties`**
+   (e.g. `~/.browser4/config/conf-enabled/application-private.properties`)
+
+The file in location 4 is read **once, at startup**, so a change needs a restart. It is the
+location applications point their users at — the `conf-enabled/` directory is pre-created, while
+the file itself is not shipped. An application that wants to hand its users a file instead of a
+path to guess ships a commented template on the classpath, writes it into `conf-available/`, and
+enables it with [AppFiles.enableConfig]:
+
+```kotlin
+// Copies <config>/conf-available/<file> into <config>/conf-enabled/<file>,
+// leaving an existing file untouched:
+AppFiles.enableConfig(AppFiles.CONFIG_FILE_NAME)
+```
+
+`browser4-cli doctor --fix` (in Browser4) does exactly that with the template it bundles.
+
 ## Advanced: Generic Provider Configuration
 
 For providers not in the built-in registry, use the generic configuration format.

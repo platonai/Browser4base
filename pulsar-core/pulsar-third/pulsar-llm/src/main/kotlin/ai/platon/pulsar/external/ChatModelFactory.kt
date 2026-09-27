@@ -1,5 +1,7 @@
 package ai.platon.pulsar.external
 
+import ai.platon.pulsar.common.AppFiles
+import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.config.CapabilityTypes.*
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.getLogger
@@ -180,6 +182,12 @@ object ChatModelFactory {
 
     @PublishedApi
     internal fun buildDefaultDeveloperGuide(path: String): String {
+        // The file that is actually read: configuration is loaded once, at startup,
+        // from <config>/conf-enabled/ — a path a user cannot guess, and the reason
+        // this guide names it instead of a relative "config/application.properties".
+        val configFilePath = AppPaths.CONFIG_ENABLED_DIR.resolve(AppFiles.CONFIG_FILE_NAME)
+        val configAvailableDir = AppPaths.CONFIG_AVAILABLE_DIR
+
         return $$"""
 The LLM is not configured — AI-powered features are disabled.
 
@@ -224,11 +232,24 @@ docker run -d -p 8082:8082 \
 
 ### Use a Configuration File
 
-Place your API key in `config/application.properties`:
+Place your API key in:
+
+```
+$$configFilePath
+```
 
 ```properties
 openrouter.api.key=sk-or-v1-your-key-here
 ```
+
+That file is read once, when the application starts, so restart it afterwards.
+A commented template can be written there and enabled with:
+
+```
+browser4-cli doctor --fix
+```
+
+(or by copying a file from `$$configAvailableDir` into its `conf-enabled` sibling).
 
 For a complete list of supported providers and advanced configuration,
 see the [LLM configuration documentation]($${path}).

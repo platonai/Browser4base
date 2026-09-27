@@ -1,5 +1,6 @@
 package ai.platon.pulsar.external
 
+import ai.platon.pulsar.common.AppFiles
 import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.printlnPro
 import ai.platon.pulsar.common.config.ImmutableConfig
@@ -22,7 +23,7 @@ class ChatModelTestBase {
                 printlnPro("=========================== LLM NOT CONFIGURED ==========================================")
                 printlnPro("> Skip the tests because the API key is not set")
                 printlnPro("> Please set the API key in the properties file or environment variable")
-                printlnPro("> You can copy application.properties to " + AppPaths.CONFIG_ENABLED_DIR)
+                printlnPro("> You can copy ${AppFiles.CONFIG_FILE_NAME} to " + AppPaths.CONFIG_ENABLED_DIR)
                 Assumptions.assumeTrue(false, "LLM not configured")
                 return
             }

@@ -1,5 +1,7 @@
 package ai.platon.pulsar.external
 
+import ai.platon.pulsar.common.AppFiles
+import ai.platon.pulsar.common.AppPaths
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.external.impl.CachedBrowserChatModel
@@ -1464,6 +1466,25 @@ class ChatModelFactoryTest {
         } finally {
             tempFile.delete()
         }
+    }
+
+    @Test
+    @DisplayName("The default developer guide should name the configuration file that is actually loaded")
+    fun defaultDeveloperGuideShouldNameTheLoadedConfigFile() {
+        // A relative `config/application.properties` is not what the loader reads: the
+        // only product-managed location is <app data dir>/config/conf-enabled/, and a
+        // user (or an agent) cannot guess that from the environment variable hints.
+        val guide = ChatModelFactory.buildDefaultDeveloperGuide("https://example.com/llm-config.md")
+
+        val expected = AppPaths.CONFIG_ENABLED_DIR.resolve(AppFiles.CONFIG_FILE_NAME).toString()
+        assertTrue(guide.contains(expected), "the guide must name $expected")
+        assertTrue(guide.contains("conf-enabled"), "the guide must name the conf-enabled directory")
+        assertTrue(guide.contains(AppFiles.CONFIG_FILE_NAME), "the guide must name the private file")
+        assertFalse(
+            guide.contains("`config/application.properties`"),
+            "the guide must not point at the relative path the loader ignores"
+        )
+        assertTrue(guide.contains("doctor --fix"), "the guide must name the template command")
     }
 
     // ---------------------------------------------------------------------------
