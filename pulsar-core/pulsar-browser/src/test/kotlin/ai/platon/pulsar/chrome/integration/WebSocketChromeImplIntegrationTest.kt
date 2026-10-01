@@ -84,19 +84,52 @@ class WebSocketChromeImplIntegrationTest {
                     "navigation over the synthesized page socket did not take effect: $title"
                 )
 
-                // Tab lifecycle over the same browser socket.
+                // Tab lifecycle over the same browser socket. Both ends are
+                // asynchronous — `Target.createTarget`/`Target.closeTarget`
+                // return before `Target.getTargets` reflects the change — so
+                // wait for the state instead of asserting on the instant after
+                // the command.
                 val extra = chrome.createTab("about:blank")
                 chrome.activateTab(extra)
                 assertTrue(
-                    chrome.listTabs().any { candidate -> candidate.id == extra.id },
+                    awaitTabListing(chrome, extra.id, present = true),
                     "the tab created over the browser socket must be listed"
                 )
                 chrome.closeTab(extra)
-                assertFalse(
-                    chrome.listTabs().any { candidate -> candidate.id == extra.id },
+                assertTrue(
+                    awaitTabListing(chrome, extra.id, present = false),
                     "closeTab must remove target ${extra.id}"
                 )
             }
+        }
+    }
+
+    /**
+     * Waits until [tabId] is listed (`present = true`) or gone
+     * (`present = false`) in `Target.getTargets`.
+     *
+     * CDP target creation and destruction are asynchronous: `closeTarget`
+     * returns as soon as the browser accepts the command, and the target
+     * disappears from `getTargets` a moment later. Asserting on the instant
+     * after the call is a race a loaded CI runner loses — the HTTP-based
+     * [ai.platon.pulsar.chrome.protocol.transport.ChromeImpl.closeTab] has the
+     * same fire-and-forget contract.
+     */
+    private fun awaitTabListing(
+        chrome: WebSocketChromeImpl,
+        tabId: String,
+        present: Boolean,
+        timeoutMillis: Long = 15_000,
+    ): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (true) {
+            if (chrome.listTabs().any { candidate -> candidate.id == tabId } == present) {
+                return true
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                return false
+            }
+            Thread.sleep(200)
         }
     }
 }
