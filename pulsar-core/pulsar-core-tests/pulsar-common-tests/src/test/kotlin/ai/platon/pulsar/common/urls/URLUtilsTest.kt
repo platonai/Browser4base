@@ -473,4 +473,102 @@ class URLUtilsTest {
             URLUtils.normalize("http://example.com/path&%!({{")
         }
     }
+
+    @Test
+    @DisplayName("isStandard and normalizeOrNull answer the same question")
+    fun isStandardAgreesWithNormalizeOrNull() {
+        // They used to answer from two different parsers — okhttp for isStandard, httpcore5 for the
+        // normalization — and 9 of these inputs got *opposite* verdicts: a url could pass the gate
+        // and then normalize to null (which the load path turns into a NIL page), or be refused by
+        // the gate while it normalized perfectly well.
+        listOf(
+            "https://example.com/a",
+            "https://example.com/a#100%",
+            "https://example.com/a#x#y",
+            "https://example.com/a%",
+            "https://example.com/a%zz",
+            "https://example.com:99999/a",
+            "https://example.com/a b",
+            "example.com/a",
+            "//example.com/a",
+            "about:blank",
+            "chrome://version",
+            "data:text/html,x",
+            "ftp://example.com/a",
+            "mailto:a@b.com",
+            "file:///C:/tmp/a.html",
+            "",
+            "not a url",
+            "https://example.com/a?x=1#f"
+        ).forEach { input ->
+            assertEquals(
+                URLUtils.normalizeOrNull(input) != null,
+                URLUtils.isStandard(input),
+                "isStandard and normalizeOrNull disagree about <$input>"
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("normalize folds the spellings that are provably one resource")
+    fun normalizeFoldsEquivalentSpellings() {
+        // normalize is what the page store, the page cache and every url-keyed lookup are keyed by,
+        // so "the same normalized string" is the definition of "the same resource".
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/a"),
+            URLUtils.normalizeOrNull("HTTPS://Example.COM/a")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/a"),
+            URLUtils.normalizeOrNull("https://example.com:443/a")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/"),
+            URLUtils.normalizeOrNull("https://example.com")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/a/c"),
+            URLUtils.normalizeOrNull("https://example.com/a/./b/../c")
+        )
+    }
+
+    @Test
+    @DisplayName("normalize keeps the spellings that are not provably one resource")
+    fun normalizeKeepsSpellingsThatAreNotEquivalent() {
+        // Pinned because folding any of these would change what the server is asked for, and this
+        // url is the one the browser is *sent to*, not only a key: a trailing slash and a repeated
+        // separator are distinct routes on plenty of servers, and an escape or a query order is
+        // covered by a signed url.  The crawl folds the first two for its own, coarser identity
+        // (CrawlSupport.normalizeForVisit).
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/p"),
+            URLUtils.normalizeOrNull("https://example.com/p/")
+        )
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/a/b"),
+            URLUtils.normalizeOrNull("https://example.com/a//b")
+        )
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/~user"),
+            URLUtils.normalizeOrNull("https://example.com/%7Euser")
+        )
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/a?x=1&y=2"),
+            URLUtils.normalizeOrNull("https://example.com/a?y=2&x=1")
+        )
+    }
+
+    @Test
+    @DisplayName("normalize refuses a scheme that is not a document")
+    fun normalizeRefusesNonDocumentSchemes() {
+        // A local file is a document this library has always normalized (see
+        // testNormalize_WindowsFileURI); `ftp:` and `mailto:` parse but are not documents this
+        // pipeline fetches, and admitting them would make isStandard true for them — turning every
+        // `mailto:` anchor into a link a crawl tries to follow.
+        assertTrue(URLUtils.isStandard("file:///C:/tmp/a.html"))
+        assertNull(URLUtils.normalizeOrNull("ftp://example.com/a"))
+        assertNull(URLUtils.normalizeOrNull("mailto:a@b.com"))
+        assertNull(URLUtils.normalizeOrNull("data:text/html,x"))
+        assertNull(URLUtils.normalizeOrNull("javascript:void(0)"))
+    }
 }

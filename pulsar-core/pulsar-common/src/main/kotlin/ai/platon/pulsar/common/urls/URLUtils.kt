@@ -179,12 +179,20 @@ object URLUtils {
     /**
      * Test if the str is a standard URL.
      *
+     * A url is standard when it can be **normalized** — that is the one definition the gates of this
+     * codebase have to agree on: [isStandard] decides what may be accepted (a discovered href, a
+     * crawl seed, a command), and [normalize] decides what the page store and the page cache are
+     * keyed by.  They used to answer from two different parsers — okhttp for this one, httpcore5 for
+     * the normalization — so 9 of 23 measured inputs got *opposite* verdicts: a url could pass this
+     * gate and then normalize to null, which the load path turns into a NIL page, and a url could be
+     * refused here while it normalized perfectly well.
+     *
      * @param  str   The string to test
      * @return true if the given str is a standard URL, false otherwise
      * */
     @JvmStatic
     fun isStandard(str: String?): Boolean {
-        return getURLOrNull2(str) != null
+        return normalizeOrNull(str) != null
     }
 
     /**
@@ -232,12 +240,99 @@ object URLUtils {
         // which turned a url every browser loads happily into a normalization failure — the
         // fragment is removed before the uri is parsed, so only the part that survives the
         // normalization has to be well formed.
-        val uriBuilder = URIBuilder(url0.substringBefore('#'))
+        val withoutFragment = url0.substringBefore('#')
+
+        // Only the schemes that identify a *document* this library handles: the two the pipeline
+        // fetches over the network, plus a local file (which it has always normalized — see
+        // testNormalize_WindowsFileURI).  `mailto:`, `ftp:` and `data:` parse too, but they are not
+        // documents this pipeline fetches, and admitting them would turn every `mailto:` anchor into
+        // a link a crawl tries to follow.
+        val scheme = withoutFragment.substringBefore(':').lowercase(Locale.getDefault())
+        require(scheme == "http" || scheme == "https" || scheme == "file") {
+            "Not a fetchable url: <$url>"
+        }
+
+        val uriBuilder = URIBuilder(canonicalize(withoutFragment))
         if (ignoreQuery) {
             uriBuilder.removeQuery()
         }
 
         return uriBuilder.build().toURL()
+    }
+
+    /**
+     * The canonical spelling of [url].
+     *
+     * [normalize] is what the page store, the page cache and every url-keyed lookup are keyed by, so
+     * "the same normalized string" **is** the definition of "the same resource" for the whole
+     * pipeline.  Four spelling differences are folded here; each one is the same resource by the RFC
+     * and identical on the wire:
+     *
+     *  * the scheme and the host are case insensitive (`HTTP://Example.com`),
+     *  * a default port is the same as no port (`:80` on http, `:443` on https),
+     *  * an empty path is `/` (RFC 3986 §6.2.3),
+     *  * `.` and `..` segments resolve away (`/a/./b/../c` is `/a/c`).
+     *
+     * Four more are deliberately **not** folded, because they are not provably the same resource and
+     * this url is the one the browser is *sent to*, not only a lookup key:
+     *
+     *  * a trailing slash on a non-root path (`/p` and `/p/` are different resources on plenty of
+     *    servers, and a cache key or a redirect chain can depend on it),
+     *  * repeated separators (`/a//b` is a distinct route in more than one framework),
+     *  * an escape of an unreserved character (`%7E` is `~` per the RFC, but a signed url covers the
+     *    spelling rather than the character),
+     *  * the order of the query parameters (same reason).
+     *
+     * The crawl folds the trailing slash and the query for its *own* identity
+     * (`normalizeForVisit`), which answers a coarser question — "is this href worth queueing" — and
+     * the difference is deliberate.
+     */
+    private fun canonicalize(url: String): String {
+        val uri = URI(url)
+        val scheme = (uri.scheme ?: return url).lowercase(Locale.getDefault())
+        val host = (uri.host ?: return url).lowercase(Locale.getDefault())
+        val port = uri.port.takeUnless { it == defaultPortOf(scheme) } ?: -1
+        val userInfo = uri.rawUserInfo?.let { "$it@" } ?: ""
+        val authority = if (port < 0) "$userInfo$host" else "$userInfo$host:$port"
+        val path = resolveDotSegments(uri.rawPath ?: "").ifEmpty { "/" }
+        val query = uri.rawQuery
+
+        return buildString {
+            append(scheme).append("://").append(authority).append(path)
+            if (query != null) append('?').append(query)
+        }
+    }
+
+    /** The port a scheme implies when the url names none. */
+    private fun defaultPortOf(scheme: String): Int = when (scheme) {
+        "http" -> 80
+        "https" -> 443
+        else -> -1
+    }
+
+    /**
+     * Resolve the `.` and `..` segments of [path].
+     *
+     * Nothing else is touched: the separators stay as they are (`/a//b` is not `/a/b` for `URI`
+     * either) and so does every escape, so `%7E` stays `%7E`.
+     */
+    private fun resolveDotSegments(path: String): String {
+        if (!path.contains('.')) {
+            return path
+        }
+
+        val out = ArrayDeque<String>()
+        for (part in path.split('/')) {
+            when (part) {
+                "." -> Unit
+                // Never pop the root marker (the empty leading segment), or `..` would climb out of
+                // an absolute path.
+                ".." -> if (out.isNotEmpty() && out.last().isNotEmpty()) out.removeLast()
+                else -> out.addLast(part)
+            }
+        }
+
+        return out.joinToString("/")
     }
 
     /**
