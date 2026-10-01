@@ -255,9 +255,14 @@ data class BrowserId(
          *   `connect`/attach flows instead.
          *
          * @param externalKey A stable, caller-chosen key that uniquely identifies the external
-         * browser — typically the session id or the CDP endpoint of the attachment. Only
-         * letters, digits, '_', '-', '.' and ':' are allowed (at most 64 chars).
+         * browser — typically the session id or the CDP endpoint of the attachment. The key
+         * becomes the last segment of the virtual context dir name (`cx.ext.<key>`), so it must
+         * be a legal file name on every OS: ASCII letters, digits, '_', '-' and '.' only, at most
+         * 64 of them, and no trailing '.'. Anything else — ':' included, so do **not** pass
+         * `host:port` — is rejected with an `IllegalArgumentException` here, on every platform
+         * alike (see `ProfilePaths.requireLegalExternalKey`).
          * @param browserType The browser type/channel of the external browser.
+         * @throws IllegalArgumentException if [externalKey] cannot be a portable file name.
          * */
         fun external(externalKey: String, browserType: BrowserType = BrowserType.PULSAR_CHROME): BrowserId {
             val contextDir = ProfilePaths.externalContextDir(externalKey)

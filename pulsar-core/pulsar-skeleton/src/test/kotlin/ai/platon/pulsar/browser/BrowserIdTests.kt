@@ -173,6 +173,15 @@ class BrowserIdTests {
         assertFailsWith<IllegalArgumentException> { BrowserId.external("a\\b") }
         assertFailsWith<IllegalArgumentException> { BrowserId.external("a b") }
         assertFailsWith<IllegalArgumentException> { BrowserId.external("x".repeat(65)) }
+        // The key becomes a directory name: ':' is illegal in a Windows file name, so a
+        // host:port key must be rejected on every platform instead of failing inside the
+        // platform path parser on Windows only.
+        assertFailsWith<IllegalArgumentException> { BrowserId.external("a:b") }
+        assertFailsWith<IllegalArgumentException> { BrowserId.external("attach.ws.127.0.0.1:9222") }
+        // Win32 strips a trailing dot, which would alias 'session-1.' to 'session-1'.
+        assertFailsWith<IllegalArgumentException> { BrowserId.external("session-1.") }
+        // Non-ASCII names are normalized (NFD) by macOS, so spellings would alias there.
+        assertFailsWith<IllegalArgumentException> { BrowserId.external("sessie-één") }
     }
 
     @Test

@@ -271,6 +271,9 @@ internal class WebSocketChromeImpl(
     companion object {
         private val MAPPER = ObjectMapper()
 
+        /** Every character an external key — and hence a directory name — may not contain. */
+        private val UNSAFE_HOST_CHAR = Regex("[^A-Za-z0-9.-]")
+
         const val ABOUT_BLANK_PAGE = "about:blank"
 
         /** Default CDP port when a WebSocket URL carries none. */
@@ -297,6 +300,29 @@ internal class WebSocketChromeImpl(
         /** `host:port` of a browser-level CDP WebSocket URL. */
         fun hostPortOf(browserWebSocketUrl: String): String =
             "${hostOf(browserWebSocketUrl)}:${portOf(browserWebSocketUrl)}"
+
+        /**
+         * Path-safe external identity key for a browser socket, e.g.
+         * `attach.ws.127.0.0.1.9222`.
+         *
+         * The key becomes a directory name under the external context dir
+         * (`cx.ext.<key>`), so it must satisfy the external-key grammar of
+         * `ProfilePaths`: ASCII letters, digits, `_`, `-` and `.` only. Hence dots
+         * instead of the `host:port` form [hostPortOf] returns, and hence
+         * [fileSafeHost] flattens an IPv6 literal (`[::1]` -> `--1`).
+         */
+        fun externalKeyOf(browserWebSocketUrl: String): String =
+            "attach.ws.${fileSafeHost(hostOf(browserWebSocketUrl))}.${portOf(browserWebSocketUrl)}"
+
+        /**
+         * Flatten a URL host into an external-key-safe token by replacing every
+         * character the key grammar rejects with `-`, so `[::1]` becomes `--1`.
+         * Only the key is flattened: the host kept for the page socket URLs
+         * (`ws://[::1]:9222/...`) must stay a legal URL host, which is what
+         * [hostOf] returns.
+         */
+        private fun fileSafeHost(host: String): String =
+            UNSAFE_HOST_CHAR.replace(host.removeSurrounding("[", "]"), "-")
 
         /**
          * Map one `Target.getTargets` entry to a [BrowserTab].

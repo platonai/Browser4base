@@ -106,7 +106,7 @@ class PulsarBrowser(
      * */
     constructor(browserWebSocketUrl: String, settings: BrowserSettings = BrowserSettings()) :
             this(
-                BrowserId.external("attach.ws.${WebSocketChromeImpl.hostPortOf(browserWebSocketUrl)}"),
+                BrowserId.external(WebSocketChromeImpl.externalKeyOf(browserWebSocketUrl)),
                 WebSocketChromeImpl(
                     host = WebSocketChromeImpl.hostOf(browserWebSocketUrl),
                     port = WebSocketChromeImpl.portOf(browserWebSocketUrl),

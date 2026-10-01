@@ -44,6 +44,37 @@ class WebSocketChromeImplTest {
     }
 
     @Test
+    fun externalKeyOfJoinsHostAndPortWithDots() {
+        // The key becomes a directory name, so the ':' of the host:port form is not allowed.
+        val url = "ws://127.0.0.1:51343/devtools/browser/8b91cacf-d8aa-4fa3-8b45-687c7de7af8a"
+        assertEquals("attach.ws.127.0.0.1.51343", WebSocketChromeImpl.externalKeyOf(url))
+    }
+
+    @Test
+    fun externalKeyOfFlattensAnIpv6LiteralHost() {
+        // URI.host keeps the brackets and the ':' separators, neither of which is legal in a
+        // Windows file name; the host used for page sockets must stay untouched.
+        val loopback = "ws://[::1]:9222/devtools/browser/x"
+
+        assertEquals("[::1]", WebSocketChromeImpl.hostOf(loopback), "the page-socket host keeps its brackets")
+        assertEquals("attach.ws.--1.9222", WebSocketChromeImpl.externalKeyOf(loopback))
+        assertEquals(
+            "attach.ws.2001-db8--1.9222",
+            WebSocketChromeImpl.externalKeyOf("ws://[2001:db8::1]:9222/devtools/browser/x")
+        )
+        assertTrue(
+            WebSocketChromeImpl.externalKeyOf(loopback).matches(Regex("[A-Za-z0-9.-]+")),
+            "the key must stay inside the external-key grammar"
+        )
+    }
+
+    @Test
+    fun externalKeyOfDefaultsLikeHostAndPortDo() {
+        assertEquals("attach.ws.127.0.0.1.9222", WebSocketChromeImpl.externalKeyOf("not a url"))
+        assertEquals("attach.ws.localhost.9222", WebSocketChromeImpl.externalKeyOf("ws://localhost/devtools/browser/x"))
+    }
+
+    @Test
     fun browserTabOfMapsPageTargetsAndSynthesizesThePageSocket() {
         val node = mapper.readTree(
             """{"targetId":"A1B2","type":"page","title":"Example","url":"https://example.com/","attached":false}"""
