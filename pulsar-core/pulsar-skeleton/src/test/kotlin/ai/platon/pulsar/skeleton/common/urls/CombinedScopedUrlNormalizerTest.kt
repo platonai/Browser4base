@@ -117,10 +117,10 @@ class CombinedScopedUrlNormalizerTest {
     }
 
     @Test
-        @DisplayName("test normalize with special characters in url not supported")
+        @DisplayName("test normalize with special characters in url: only the fragment is discarded")
     fun testNormalizeWithSpecialCharactersInUrlNotSupported() {
         val urlAware = mock(UrlAware::class.java)
-        `when`(urlAware.url).thenReturn("http://example.com/!@#$%^&*()")
+        `when`(urlAware.url).thenReturn("http://example.com/!@#\$%^&*()")
 
         val options = LoadOptions.parse("")
 
@@ -128,7 +128,11 @@ class CombinedScopedUrlNormalizerTest {
         val result = normalizer.normalize(urlAware, options, false)
 
         assertNotNull(result)
-        assertTrue { result.isNil }
+        // The unparseable `%`/second `#` live in the fragment, which normalize()
+        // discards before parsing, so what survives (`http://example.com/!@`) is
+        // well formed and the url is kept instead of collapsing to a NIL page.
+        assertFalse(result.isNil, "a discarded fragment must not reject the url")
+        assertEquals("http://example.com/!@", result.url.toString())
     }
 
     @Test
