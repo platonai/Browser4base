@@ -35,10 +35,12 @@ data class NavigateEntry constructor(
      * The raw URL as entered by the user or extracted from a link's `href` attribute.
      *
      * This is the un-normalized form and may carry query parameters such as tracking ids or timestamps
-     * (e.g. `"https://www.example.com?timestamp=11712067353"`). It serves as the source of truth for
-     * locating the corresponding WebPage in the database.
+     * (e.g. `"https://www.example.com?timestamp=11712067353"`), and it is the address the browser is
+     * actually sent to, **verbatim**: navigation must not go through normalization, which exists for
+     * the identity a page is stored under and would strip the fragment a same-document jump depends
+     * on.  (`InteractiveBrowserEmulator` resolves the address as `fetchTask.href ?: fetchTask.url`.)
      *
-     * Use [pageUrl] for the canonical, normalized form.
+     * Use [pageUrl] for the canonical, normalized form the WebPage is looked up by.
      */
     val userTypedUrl: String,
     /**
@@ -49,6 +51,8 @@ data class NavigateEntry constructor(
     /**
      * The canonical, normalized URL used to look up the WebPage in the database.
      * This is typically the [userTypedUrl] stripped of transient query parameters.
+     *
+     * It is the *identity* of the page, not an address — navigation always uses [userTypedUrl].
      *
      * An empty string means no WebPage is associated.
      */

@@ -209,6 +209,17 @@ object URLUtils {
     /**
      * Normalize a url spec.
      *
+     * **Normalization produces an identity, never an address.**  Its result is what the page store,
+     * the page cache and every url-keyed lookup are keyed by, and it must not be the url a browser is
+     * sent to: this method drops the fragment (so a same-document jump such as `…#section` is gone),
+     * drops the trailing argument list, and — with [ignoreQuery] — the query as well.  Keep the
+     * spelling the caller gave (a link's `href`, or what a user typed) and navigate to that; use this
+     * result to look the page up.
+     *
+     * Concretely: `NormURL` carries exactly that pair — `url` for the key and `href` for the address,
+     * with `href` preferred for navigation — `NavigateEntry` spells it `pageUrl` and `userTypedUrl`,
+     * and `InteractiveBrowserEmulator` resolves it as `fetchTask.href ?: fetchTask.url`.
+     *
      * A URL may have appended to it a "fragment", also known as a "ref" or a "reference".
      * The fragment is indicated by the sharp sign character "#" followed by more characters.
      * For example: http://java.sun.com/index.html#chapter1
@@ -222,7 +233,7 @@ object URLUtils {
      * @param ignoreQuery
      *        If true, the result url does not contain a query string
      *
-     * @return The normalized URL
+     * @return The normalized URL, an identity to look a page up by — not an address to navigate to
      * @throws URISyntaxException
      *         If the given string violates RFC&nbsp;2396
      * @throws MalformedURLException
