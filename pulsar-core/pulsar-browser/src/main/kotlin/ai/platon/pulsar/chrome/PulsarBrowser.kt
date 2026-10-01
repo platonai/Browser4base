@@ -1,6 +1,7 @@
 package ai.platon.pulsar.chrome
 
 import ai.platon.pulsar.chrome.protocol.transport.ChromeImpl
+import ai.platon.pulsar.chrome.protocol.transport.WebSocketChromeImpl
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.chrome.protocol.transport.ChromeImpl.Companion.ABOUT_BLANK_PAGE
 import ai.platon.pulsar.chrome.util.ChromeDriverException
@@ -82,6 +83,38 @@ class PulsarBrowser(
      * */
     constructor(port: Int, id: BrowserId, settings: BrowserSettings = BrowserSettings()) :
             this(id, ChromeImpl(port = port), settings, null)
+
+    /**
+     * Connect to an already-running browser through its **browser-level CDP
+     * WebSocket**, without relying on the DevTools HTTP endpoints
+     * (`/json/version`, `/json/list`).
+     *
+     * Required for browsers that publish a WebSocket-only endpoint: Chrome's
+     * built-in remote debugging (`chrome://inspect/#remote-debugging`, recent
+     * Chrome versions) writes the browser socket to `DevToolsActivePort` while
+     * answering every `/json*` request with HTTP 404, so [ChromeImpl] can never
+     * find a page target. Other CDP providers that hand out a
+     * `ws://…/devtools/browser/<uuid>` URL work the same way.
+     *
+     * Pages are discovered with `Target.getTargets` over the given socket and
+     * driven through `ws://<host>:<port>/devtools/page/<targetId>` — the
+     * per-page socket Chrome serves in both remote-debugging modes.
+     *
+     * @param browserWebSocketUrl The browser-level CDP WebSocket URL, e.g.
+     *   `ws://127.0.0.1:9222/devtools/browser/<uuid>`.
+     * @param settings The browser settings.
+     * */
+    constructor(browserWebSocketUrl: String, settings: BrowserSettings = BrowserSettings()) :
+            this(
+                BrowserId.external("attach.ws.${WebSocketChromeImpl.hostPortOf(browserWebSocketUrl)}"),
+                WebSocketChromeImpl(
+                    host = WebSocketChromeImpl.hostOf(browserWebSocketUrl),
+                    port = WebSocketChromeImpl.portOf(browserWebSocketUrl),
+                    browserWebSocketUrl = browserWebSocketUrl.trim(),
+                ),
+                settings,
+                null
+            )
 
     @Synchronized
     override fun healthy(): CheckState {
