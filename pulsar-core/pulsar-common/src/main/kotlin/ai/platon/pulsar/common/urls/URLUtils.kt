@@ -227,8 +227,12 @@ object URLUtils {
         // url token only, a `#` inside an option value is never touched.
         val (url0, _) = splitUrlArgs(url)
 
-        val uriBuilder = URIBuilder(url0)
-        uriBuilder.fragment = null
+        // The fragment is discarded by this method, so it must not be able to reject the url.
+        // A bare `%` or a second `#` inside it (`...#100%`, `...#x#y`) is rejected by `URI`,
+        // which turned a url every browser loads happily into a normalization failure — the
+        // fragment is removed before the uri is parsed, so only the part that survives the
+        // normalization has to be well formed.
+        val uriBuilder = URIBuilder(url0.substringBefore('#'))
         if (ignoreQuery) {
             uriBuilder.removeQuery()
         }

@@ -448,4 +448,29 @@ class URLUtilsTest {
         assertNotNull(normalized)
         assertEquals("https://example.com/p?q=a", normalized)
     }
+
+    @Test
+    @DisplayName("a fragment that normalize discards must not be able to reject the url")
+    fun normalizeShouldSurviveInvalidFragment() {
+        // `#100%` (a bare escape) and `#x#y` (a second sharp) are both accepted by a
+        // browser, while `URI` rejects them.  Because the fragment is removed by this
+        // method, it cannot be a reason to refuse the url: before the fix every one of
+        // these returned null, and a loadable page normalized to NIL.
+        assertEquals("https://example.com/a", URLUtils.normalizeOrNull("https://example.com/a#100%"))
+        assertEquals("https://example.com/a", URLUtils.normalizeOrNull("https://example.com/a#x#y"))
+        assertEquals("https://example.com/a", URLUtils.normalizeOrNull("https://example.com/a#"))
+        assertEquals("https://example.com/a", URLUtils.normalizeOrNull("https://example.com/a#x#y", true))
+    }
+
+    @Test
+    @DisplayName("an invalid escape in the part that survives the normalization is still rejected")
+    fun normalizeShouldStillRejectInvalidEscapeInPath() {
+        // The fix removes the fragment before the uri is parsed; everything else keeps
+        // its old, strict behaviour.
+        assertNull(URLUtils.normalizeOrNull("https://example.com/a%"))
+        assertNull(URLUtils.normalizeOrNull("https://example.com/a%zz"))
+        assertThrows(URISyntaxException::class.java) {
+            URLUtils.normalize("http://example.com/path&%!({{")
+        }
+    }
 }
