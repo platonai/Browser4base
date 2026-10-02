@@ -24,6 +24,19 @@ object URLUtils {
      */
     val INTERNAL_URLS = listOf("about:blank")
 
+    /** A run of `/` separators — collapsed into one by the path canonicalization of [normalize]. */
+    private val MULTIPLE_SEPARATORS = Regex("/{2,}")
+
+    /**
+     * RFC 3986 §2.3: the characters that never need an escape, so an escape of one of them is the same
+     * resource as the character itself, and [normalize] writes the character.
+     */
+    private const val UNRESERVED_CHARACTERS =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+
+    /** The largest value a `%XX` escape can stand for in a url this library handles. */
+    private const val MAX_ASCII = 127
+
     /**
      * Test if the url is an internal URL. Internal URLs are URLs that are used to identify internal resources and
      * will never be fetched from the internet.
@@ -276,27 +289,33 @@ object URLUtils {
      *
      * [normalize] is what the page store, the page cache and every url-keyed lookup are keyed by, so
      * "the same normalized string" **is** the definition of "the same resource" for the whole
-     * pipeline.  Four spelling differences are folded here; each one is the same resource by the RFC
-     * and identical on the wire:
+     * pipeline.  Five spelling differences are folded here because the RFC says they are the same
+     * resource (§6.2.2, §6.2.3):
      *
      *  * the scheme and the host are case insensitive (`HTTP://Example.com`),
      *  * a default port is the same as no port (`:80` on http, `:443` on https),
-     *  * an empty path is `/` (RFC 3986 §6.2.3),
-     *  * `.` and `..` segments resolve away (`/a/./b/../c` is `/a/c`).
+     *  * an empty path is `/`,
+     *  * `.` and `..` segments resolve away (`/a/./b/../c` is `/a/c`),
+     *  * an escape of an unreserved character is that character (`%7E` is `~`, in either case).
      *
-     * Four more are deliberately **not** folded, because they are not provably the same resource and
-     * this url is the one the browser is *sent to*, not only a lookup key:
+     * Three more are folded **by policy**: they are the same resource on the servers this pipeline
+     * meets, and keeping them apart splits one page across several store rows, so the second visit
+     * misses the first one's copy.
      *
-     *  * a trailing slash on a non-root path (`/p` and `/p/` are different resources on plenty of
-     *    servers, and a cache key or a redirect chain can depend on it),
-     *  * repeated separators (`/a//b` is a distinct route in more than one framework),
-     *  * an escape of an unreserved character (`%7E` is `~` per the RFC, but a signed url covers the
-     *    spelling rather than the character),
-     *  * the order of the query parameters (same reason).
+     *  * a trailing slash on a non-root path (`/p/` is `/p`),
+     *  * repeated separators (`/a//b` is `/a/b`),
+     *  * the order of the query parameters (`?b=2&a=1` is `?a=1&b=2`; a *repeated* name keeps its
+     *    relative order, so `?a=1&a=2` stays distinct from `?a=2&a=1` — the server may care which
+     *    comes first, while the set of parameters is the same either way).
      *
-     * The crawl folds the trailing slash and the query for its *own* identity
-     * (`normalizeForVisit`), which answers a coarser question — "is this href worth queueing" — and
-     * the difference is deliberate.
+     * **Folding a spelling changes the key, never the address.**  This result is not what a browser is
+     * sent to: `NormURL` carries the caller's spelling beside it as `href`, `NavigateEntry` spells it
+     * `userTypedUrl`, and `InteractiveBrowserEmulator` resolves the address as
+     * `fetchTask.href ?: fetchTask.url`.  A page reached as `/p/` is therefore still *fetched* as
+     * `/p/` — only the row it is stored under is `/p`.
+     *
+     * The crawl keeps its own, coarser identity for the "is this href worth queueing" question
+     * (`normalizeForVisit`); the difference between the two is deliberate.
      */
     private fun canonicalize(url: String): String {
         val uri = URI(url)
@@ -305,13 +324,88 @@ object URLUtils {
         val port = uri.port.takeUnless { it == defaultPortOf(scheme) } ?: -1
         val userInfo = uri.rawUserInfo?.let { "$it@" } ?: ""
         val authority = if (port < 0) "$userInfo$host" else "$userInfo$host:$port"
-        val path = resolveDotSegments(uri.rawPath ?: "").ifEmpty { "/" }
-        val query = uri.rawQuery
+        val path = canonicalPath(resolveDotSegments(uri.rawPath ?: "").ifEmpty { "/" })
 
         return buildString {
             append(scheme).append("://").append(authority).append(path)
-            if (query != null) append('?').append(query)
+            canonicalQuery(uri.rawQuery)?.let { append('?').append(it) }
         }
+    }
+
+    /**
+     * The canonical spelling of a path: an escape of an unreserved character becomes that character,
+     * repeated separators become one, and a trailing slash on a non-root path goes away.
+     *
+     * The root stays `/`: a single separator is a path, no path at all, and — for the schemes this
+     * library fetches — the server's own default document.
+     */
+    private fun canonicalPath(path: String): String {
+        val decoded = decodeUnreservedEscapes(path)
+        val collapsed = decoded.replace(MULTIPLE_SEPARATORS, "/")
+        return if (collapsed.length > 1) collapsed.trimEnd('/').ifEmpty { "/" } else collapsed
+    }
+
+    /**
+     * The canonical spelling of a query string: an escape of an unreserved character becomes that
+     * character (in the name and in the value), and the parameters are ordered by name — a stable
+     * sort, so parameters that share a name keep the order they were written in.
+     *
+     * Nothing else is normalized: `?debug` (a bare name) and `?param=` (an empty value) are different
+     * spellings and reach the server as they are, and so does the case of an escape of a *reserved*
+     * character (`%2F` stays `%2F`, because decoding it would change how the url is parsed).
+     */
+    private fun canonicalQuery(query: String?): String? {
+        if (query.isNullOrEmpty()) {
+            return query
+        }
+
+        return query.split('&')
+            .map { param ->
+                val eq = param.indexOf('=')
+                val name = decodeUnreservedEscapes(if (eq < 0) param else param.substring(0, eq))
+                val value = if (eq < 0) null else decodeUnreservedEscapes(param.substring(eq + 1))
+                name to value
+            }
+            .sortedBy { it.first }
+            .joinToString("&") { (name, value) -> if (value == null) name else "$name=$value" }
+    }
+
+    /**
+     * Decode every escape of an unreserved character: `%7E` is `~`, `%41` is `A` (RFC 3986 §6.2.2.2).
+     *
+     * Nothing else is touched — an escape of a reserved character (`%2F`, `%3F`) stays escaped, in the
+     * case it was written in, and so does a `%` that does not start a valid escape.
+     */
+    private fun decodeUnreservedEscapes(text: String): String {
+        if (!text.contains('%')) {
+            return text
+        }
+
+        val out = StringBuilder(text.length)
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (c == '%' && i + 2 < text.length) {
+                val decoded = hexValue(text[i + 1]) * 16 + hexValue(text[i + 2])
+                if (decoded in 0..MAX_ASCII && UNRESERVED_CHARACTERS.contains(decoded.toChar())) {
+                    out.append(decoded.toChar())
+                    i += 3
+                    continue
+                }
+            }
+            out.append(c)
+            ++i
+        }
+
+        return out.toString()
+    }
+
+    /** The value of a hex digit, or -1 when [c] is not one. */
+    private fun hexValue(c: Char): Int = when (c) {
+        in '0'..'9' -> c - '0'
+        in 'a'..'f' -> c - 'a' + 10
+        in 'A'..'F' -> c - 'A' + 10
+        else -> -1
     }
 
     /** The port a scheme implies when the url names none. */
@@ -324,8 +418,9 @@ object URLUtils {
     /**
      * Resolve the `.` and `..` segments of [path].
      *
-     * Nothing else is touched: the separators stay as they are (`/a//b` is not `/a/b` for `URI`
-     * either) and so does every escape, so `%7E` stays `%7E`.
+     * Only those two segments are touched here: the separators stay as they are and so does every
+     * escape.  Collapsing `//` and decoding `%7E` happen later, in [canonicalPath], so each step of
+     * the canonical form stays readable on its own.
      */
     private fun resolveDotSegments(path: String): String {
         if (!path.contains('.')) {

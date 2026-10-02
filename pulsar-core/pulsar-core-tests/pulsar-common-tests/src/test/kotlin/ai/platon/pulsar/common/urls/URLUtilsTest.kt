@@ -513,7 +513,10 @@ class URLUtilsTest {
     @DisplayName("normalize folds the spellings that are provably one resource")
     fun normalizeFoldsEquivalentSpellings() {
         // normalize is what the page store, the page cache and every url-keyed lookup are keyed by,
-        // so "the same normalized string" is the definition of "the same resource".
+        // so "the same normalized string" is the definition of "the same resource".  The first five are
+        // the RFC's own equivalences; the rest are folded by policy, and folding them is safe because
+        // it touches the KEY only — the address the browser is sent to keeps the caller's spelling
+        // (NormURL.href, NavigateEntry.userTypedUrl).
         assertEquals(
             URLUtils.normalizeOrNull("https://example.com/a"),
             URLUtils.normalizeOrNull("HTTPS://Example.COM/a")
@@ -530,31 +533,69 @@ class URLUtilsTest {
             URLUtils.normalizeOrNull("https://example.com/a/c"),
             URLUtils.normalizeOrNull("https://example.com/a/./b/../c")
         )
-    }
-
-    @Test
-    @DisplayName("normalize keeps the spellings that are not provably one resource")
-    fun normalizeKeepsSpellingsThatAreNotEquivalent() {
-        // Pinned because folding any of these would change what the server is asked for, and this
-        // url is the one the browser is *sent to*, not only a key: a trailing slash and a repeated
-        // separator are distinct routes on plenty of servers, and an escape or a query order is
-        // covered by a signed url.  The crawl folds the first two for its own, coarser identity
-        // (CrawlSupport.normalizeForVisit).
-        assertNotEquals(
-            URLUtils.normalizeOrNull("https://example.com/p"),
-            URLUtils.normalizeOrNull("https://example.com/p/")
-        )
-        assertNotEquals(
-            URLUtils.normalizeOrNull("https://example.com/a/b"),
-            URLUtils.normalizeOrNull("https://example.com/a//b")
-        )
-        assertNotEquals(
+        assertEquals(
             URLUtils.normalizeOrNull("https://example.com/~user"),
             URLUtils.normalizeOrNull("https://example.com/%7Euser")
         )
-        assertNotEquals(
+        // The escape's hex digits are case insensitive too, so `%7e` is the same escape as `%7E`.
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/~user"),
+            URLUtils.normalizeOrNull("https://example.com/%7euser")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/p"),
+            URLUtils.normalizeOrNull("https://example.com/p/")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/a/b"),
+            URLUtils.normalizeOrNull("https://example.com/a//b")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/a/b"),
+            URLUtils.normalizeOrNull("https://example.com/a///b/")
+        )
+        assertEquals(
             URLUtils.normalizeOrNull("https://example.com/a?x=1&y=2"),
             URLUtils.normalizeOrNull("https://example.com/a?y=2&x=1")
+        )
+        assertEquals(
+            URLUtils.normalizeOrNull("https://example.com/p?x=1"),
+            URLUtils.normalizeOrNull("https://example.com/p/?x=1")
+        )
+    }
+
+    @Test
+    @DisplayName("normalize keeps the differences that are not just spelling")
+    fun normalizeKeepsRealDifferences() {
+        // A different query is a different page, and the *order* of a repeated parameter is the
+        // server's business: the sort is stable, so `a=1&a=2` is not folded into `a=2&a=1`.
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/a?x=1"),
+            URLUtils.normalizeOrNull("https://example.com/a?x=2")
+        )
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/a?a=1&a=2"),
+            URLUtils.normalizeOrNull("https://example.com/a?a=2&a=1")
+        )
+        // An escape of a *reserved* character is not that character: `%2F` is a path segment, `/` is a
+        // separator, and decoding the escape would change how the url parses.
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/a%2Fb"),
+            URLUtils.normalizeOrNull("https://example.com/a/b")
+        )
+        // A path is case sensitive, a non-default port is part of the origin, and the scheme picks the
+        // transport: none of those are spelling.
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com/A"),
+            URLUtils.normalizeOrNull("https://example.com/a")
+        )
+        assertNotEquals(
+            URLUtils.normalizeOrNull("https://example.com:444/a"),
+            URLUtils.normalizeOrNull("https://example.com/a")
+        )
+        assertNotEquals(
+            URLUtils.normalizeOrNull("http://example.com/a"),
+            URLUtils.normalizeOrNull("https://example.com/a")
         )
     }
 
