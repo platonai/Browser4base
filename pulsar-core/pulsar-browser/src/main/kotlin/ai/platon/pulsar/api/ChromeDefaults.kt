@@ -64,6 +64,16 @@ object ChromeDefaults {
     const val DISABLE_PROMPT_ON_REPOST = true
     const val DISABLE_SYNC = true
     const val DISABLE_TRANSLATE = true
+    /**
+     * `--disable-geolocation` is forced by default because an unattended browser must not
+     * block on a permission prompt. It has a cost the driver cannot undo at run time:
+     * geolocation emulation (`Emulation.setGeolocationOverride`, which the CLI exposes as
+     * `set geo`) supplies a position *through* the geolocation service, so a browser
+     * launched with the service disabled needs this turned off to make the emulated
+     * position observable — a grant of the geolocation permission alone is not enough.
+     * Set `browser.launch.disable.geolocation=false` (or drop the argument through
+     * `browser.launch.chrome.args`) in a session that must emulate a position.
+     */
     const val DISABLE_GEOLOCATION = true
     const val DISABLE_BLINK_FEATURES = "AutomationControlled"
     const val METRICS_RECORDING_ONLY = true

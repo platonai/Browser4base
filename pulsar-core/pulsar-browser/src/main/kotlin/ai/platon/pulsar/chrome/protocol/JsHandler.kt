@@ -8,6 +8,7 @@ import ai.platon.pulsar.chrome.util.ChromeDriverException
 import ai.platon.cdt.kt.protocol.types.runtime.CallFunctionOn
 import ai.platon.cdt.kt.protocol.types.runtime.Evaluate
 import ai.platon.pulsar.api.BrowserProtocol
+import ai.platon.pulsar.api.JsWorld
 import ai.platon.pulsar.api.scripting.ScriptConfuser
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.js.JsUtils
@@ -29,10 +30,33 @@ class JsHandler(
      * @throws ai.platon.pulsar.chrome.util.ChromeDriverException if the script fails to execute
      * */
     @Throws(ChromeDriverException::class)
-    suspend fun evaluateDetail(script: String): Evaluate? {
+    suspend fun evaluateDetail(script: String): Evaluate? = evaluateDetail(script, JsWorld.ISOLATED)
+
+    /**
+     * Evaluates expression on global object in [world] and returns detailed evaluation result.
+     *
+     * The world-less overload keeps the historical isolated-world preference, which the
+     * driver's own helpers rely on (they call into the injected runtime).  [JsWorld.MAIN]
+     * skips the isolated context entirely so the expression runs against the page's own
+     * globals — the difference between `window.myApp` reading a value and reading
+     * `undefined` on the same document.
+     *
+     * @param script JavaScript expression to evaluate
+     * @param world the JavaScript world to evaluate in; see [JsWorld]
+     * @return Detailed evaluation result including remote object and exception details, or null if evaluation fails
+     * @throws ai.platon.pulsar.chrome.util.ChromeDriverException if the script fails to execute
+     * */
+    @Throws(ChromeDriverException::class)
+    suspend fun evaluateDetail(script: String, world: JsWorld): Evaluate? {
         val expression: String = JsUtils.toCDPCompatibleExpression(script)
 
         val confusedExpr = confuser.confuse(expression)
+
+        if (world == JsWorld.MAIN) {
+            // The page's own world: no contextId, so CDP uses the document's default
+            // execution context and the page's globals are in scope.
+            return bp.evaluate(confusedExpr)
+        }
 
         val isolatedContextId = isolatedWorldManager
             .getContextId(runCatching { bp.mainFrame().id }.getOrNull())
@@ -196,10 +220,34 @@ class JsHandler(
     }
 
     @Throws(ChromeDriverException::class)
-    suspend fun evaluateValueDetail(script: String, awaitPromise: Boolean): Evaluate? {
+    suspend fun evaluateValueDetail(script: String, awaitPromise: Boolean): Evaluate? =
+        evaluateValueDetail(script, awaitPromise, JsWorld.ISOLATED)
+
+    /**
+     * Evaluates expression on global object in [world] with return by value.
+     *
+     * [JsWorld.MAIN] evaluates against the document's default execution context, so
+     * page-defined globals are visible; [JsWorld.ISOLATED] prefers the injected
+     * runtime's context and falls back to the default context when that world is
+     * gone (see the class KDoc for why both exist).
+     *
+     * @param script JavaScript expression to evaluate
+     * @param awaitPromise whether to wait for the expression's Promise to resolve
+     * @param world the JavaScript world to evaluate in; see [JsWorld]
+     * @return Detailed evaluation result with value returned, or null if evaluation fails
+     * @throws ChromeDriverException if the script fails to execute
+     * */
+    @Throws(ChromeDriverException::class)
+    suspend fun evaluateValueDetail(script: String, awaitPromise: Boolean, world: JsWorld): Evaluate? {
         val expression: String = JsUtils.toCDPCompatibleExpression(script)
 
         val confusedExpr = confuser.confuse(expression)
+
+        if (world == JsWorld.MAIN) {
+            // No contextId: the page's own world, the one a caller asking for "the
+            // page's JavaScript state" means.
+            return bp.evaluate(confusedExpr, returnByValue = true, awaitPromise = awaitPromise)
+        }
 
         val isolatedContextId = isolatedWorldManager
             .getContextId(runCatching { bp.mainFrame().id }.getOrNull())

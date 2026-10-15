@@ -27,6 +27,7 @@ import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourceOptions
 import ai.platon.cdt.kt.protocol.types.network.ResourceType
 import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.pulsar.api.AbstractWebDriver
+import ai.platon.pulsar.api.JsWorld
 import ai.platon.pulsar.api.WebDriver
 import ai.platon.pulsar.api.model.*
 import ai.platon.pulsar.api.scripting.DualWorldScriptLoader
@@ -129,6 +130,28 @@ open class PulsarWebDriver constructor(
      * whenever the main frame navigates (see [onFrameNavigated0]).
      */
     private val frameManager = FrameManager(browserProtocol)
+
+    /**
+     * The device-metrics override currently applied to this tab, or null when the
+     * tab runs at the browser's own viewport.
+     *
+     * CDP's `Emulation.setDeviceMetricsOverride` is *replace-only*: issuing it again
+     * overwrites every field, and there is no CDP call that reads the active override
+     * back.  Without this memo two ordinary commands silently destroyed a device
+     * emulation the caller had just configured:
+     *
+     * - `navigate` normalises the viewport to the configured size before injecting the
+     *   JS config, so a `goto` reset a 390x844@2 mobile emulation to the desktop
+     *   viewport (reload/goBack/goForward do not go through that path, which is why the
+     *   emulation survived them — an asymmetry the caller cannot explain);
+     * - `resize` re-issued the override with `deviceScaleFactor = 0.0, mobile = false`,
+     *   so the new size came back with dpr 1 and reported success.
+     *
+     * The memo is written by every path that applies an override (see [resize] and
+     * [executeCdpCommand]) and cleared by `Emulation.clearDeviceMetricsOverride`.
+     */
+    @Volatile
+    private var deviceMetricsOverride: Map<String, Any?>? = null
 
     val page = PageHandler(browserProtocol, settings, frameManager)
 
@@ -300,6 +323,15 @@ open class PulsarWebDriver constructor(
         // target instead of a stale value from tab creation.
         this.navigateUrl = entry.userTypedUrl
 
+        // Drop any frame scope BEFORE the navigation runs.  The frame tree is replaced
+        // by the navigation, and `onFrameNavigated0` clears the scope once the event
+        // arrives — but everything between this call and that event still resolves
+        // element operations against the previous document's frame ids, so the
+        // navigation's own post-navigation work could fail with a frame-scope error on
+        // a navigation that actually succeeded.  Resetting here makes the window
+        // non-existent instead of merely short.
+        frameManager.reset()
+
         browser.emit(BrowserEvents.willNavigate, entry)
 
         rpc.invokeOnPage("enableAPIAgents") {
@@ -312,6 +344,9 @@ open class PulsarWebDriver constructor(
     }
 
     override suspend fun reload() {
+        // Same reasoning as [navigate]: a reload replaces the document, so a scope
+        // selected for the previous one must not survive into it.
+        frameManager.reset()
         rpc.invokeOnPage("reload") {
             browserProtocol.reloadPage()
         }
@@ -446,6 +481,22 @@ open class PulsarWebDriver constructor(
         }
     }
 
+    /**
+     * Evaluates [expression] in [world] and returns detailed evaluation metadata.
+     *
+     * The world-less overload prefers the driver's isolated world, which is where the
+     * injected runtime lives.  [JsWorld.MAIN] evaluates against the document's default
+     * execution context instead, so page-defined globals are visible — see [JsWorld].
+     */
+    @Throws(WebDriverException::class)
+    override suspend fun evaluateDetail(expression: String, world: JsWorld): JsEvaluation? {
+        return rpc.invokeOnPage("evaluateDetail") {
+            driverHelper.createJsEvaluate(
+                js.evaluateDetail(expression, world)
+            )
+        }
+    }
+
     @Throws(WebDriverException::class)
     override suspend fun evaluateValue(expression: String): Any? {
         return rpc.invokeOnPage("evaluateValue") {
@@ -462,6 +513,23 @@ open class PulsarWebDriver constructor(
     override suspend fun evaluateValueDetail(expression: String, awaitPromise: Boolean): JsEvaluation? {
         return rpc.invokeOnPage("evaluateValueDetail") {
             val evaluate = js.evaluateValueDetail(expression, awaitPromise)
+            driverHelper.createJsEvaluate(evaluate)
+        }
+    }
+
+    /**
+     * Evaluates [expression] in [world] and returns detailed evaluation metadata.
+     *
+     * [JsWorld.MAIN] is the world a caller asking to read the page's own JavaScript
+     * state expects: `window.myApp` resolves instead of reading `undefined` from the
+     * isolated runtime world.  See [JsWorld].
+     */
+    @Throws(WebDriverException::class)
+    override suspend fun evaluateValueDetail(
+        expression: String, awaitPromise: Boolean, world: JsWorld
+    ): JsEvaluation? {
+        return rpc.invokeOnPage("evaluateValueDetail") {
+            val evaluate = js.evaluateValueDetail(expression, awaitPromise, world)
             driverHelper.createJsEvaluate(evaluate)
         }
     }
@@ -483,7 +551,33 @@ open class PulsarWebDriver constructor(
     @Throws(WebDriverException::class)
     override suspend fun executeCdpCommand(method: String, params: Map<String, Any?>?): Any? {
         return rpc.invokeOnPage("executeCdpCommand") {
-            browserProtocol.executeCdpCommand(method, params)
+            val result = browserProtocol.executeCdpCommand(method, params)
+            rememberDeviceMetricsOverride(method, params)
+            result
+        }
+    }
+
+    /**
+     * Track the tab's active device-metrics override.
+     *
+     * A caller that configures emulation through raw CDP (`Emulation.setDeviceMetricsOverride`)
+     * is invisible to [resize] and [navigate] otherwise, and both of those re-issue the
+     * same CDP method — which replaces the override wholesale.  Remembering it here is
+     * what lets them merge instead of destroy (see [deviceMetricsOverride]).
+     */
+    private fun rememberDeviceMetricsOverride(method: String, params: Map<String, Any?>?) {
+        when (method) {
+            "Emulation.setDeviceMetricsOverride" -> {
+                deviceMetricsOverride = params?.toMap()
+                logger.debug("Device metrics override recorded: {}", params)
+            }
+
+            "Emulation.clearDeviceMetricsOverride" -> {
+                if (deviceMetricsOverride != null) {
+                    logger.debug("Device metrics override cleared")
+                }
+                deviceMetricsOverride = null
+            }
         }
     }
 
@@ -1070,11 +1164,37 @@ open class PulsarWebDriver constructor(
         }
     }
 
+    /**
+     * Resize the tab's viewport.
+     *
+     * `Emulation.setDeviceMetricsOverride` replaces the whole override, so a plain
+     * `resize` used to reset an active device emulation's `deviceScaleFactor` to the
+     * browser default and `mobile` to false: the new size came back at dpr 1 while the
+     * command reported success, and nothing in the output said the emulation was gone.
+     * When an override is active (see [deviceMetricsOverride]) its scale factor and
+     * mobile flag are carried over, so a resize changes the size and nothing else; the
+     * log states what was preserved.
+     */
     @Throws(WebDriverException::class)
     override suspend fun resize(width: Int, height: Int) {
         rpc.invokeOnPage("resize") {
+            val active = deviceMetricsOverride
+            val deviceScaleFactor = (active?.get("deviceScaleFactor") as? Number)?.toDouble() ?: 0.0
+            val mobile = active?.get("mobile") as? Boolean ?: false
+            if (active != null) {
+                logger.info(
+                    "Resizing to {}x{} keeps the active device emulation (deviceScaleFactor={}, mobile={})",
+                    width, height, deviceScaleFactor, mobile
+                )
+            }
             browserProtocol.setDeviceMetricsOverride(
-                width = width, height = height, deviceScaleFactor = 0.0, mobile = false
+                width = width, height = height, deviceScaleFactor = deviceScaleFactor, mobile = mobile
+            )
+            deviceMetricsOverride = linkedMapOf(
+                "width" to width,
+                "height" to height,
+                "deviceScaleFactor" to deviceScaleFactor,
+                "mobile" to mobile,
             )
         }
     }
@@ -2026,6 +2146,31 @@ open class PulsarWebDriver constructor(
             screenWidth = screen.width,
             screenHeight = screen.height,
         )
+
+        // The normalisation above replaces the whole override, so a device emulation
+        // the caller configured would be gone after a `goto` while surviving a reload —
+        // an asymmetry with no explanation in the output.  Re-apply it: on a navigation
+        // the caller asked for, the emulation is the more specific instruction.
+        deviceMetricsOverride?.let { active ->
+            val mobile = active["mobile"] as? Boolean ?: false
+            val deviceScaleFactor = active["deviceScaleFactor"] as? Double
+                ?: (active["deviceScaleFactor"] as? Number)?.toDouble()
+                ?: 0.0
+            val emulatedWidth = (active["width"] as? Number)?.toInt() ?: viewport.width
+            val emulatedHeight = (active["height"] as? Number)?.toInt() ?: viewport.height
+            browserProtocol.setDeviceMetricsOverride(
+                mobile = mobile,
+                width = emulatedWidth,
+                height = emulatedHeight,
+                deviceScaleFactor = deviceScaleFactor,
+                screenWidth = (active["screenWidth"] as? Number)?.toInt() ?: screen.width,
+                screenHeight = (active["screenHeight"] as? Number)?.toInt() ?: screen.height,
+            )
+            logger.info(
+                "Re-applied the active device emulation after navigation: {}x{} @dpr {}, mobile={}",
+                emulatedWidth, emulatedHeight, deviceScaleFactor, mobile
+            )
+        }
 
         addScriptToEvaluateOnNewDocument()
 
