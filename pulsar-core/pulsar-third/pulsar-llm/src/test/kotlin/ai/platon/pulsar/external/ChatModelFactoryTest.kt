@@ -1723,6 +1723,86 @@ class ChatModelFactoryTest {
         assertTrue(selection.explicit)
     }
 
+    /**
+     * The built-in providers in their documented priority order, paired with the
+     * API key that selects each one.
+     *
+     * This list is a contract, not a convenience: `providers.json` defines the
+     * auto-detection order, so reordering that file without updating the docs
+     * (and this list) silently changes which provider a user's key selects.
+     */
+    private val builtInProvidersInPriorityOrder = listOf(
+        "openrouter" to "OPENROUTER_API_KEY",
+        "deepseek" to "DEEPSEEK_API_KEY",
+        "zhipu" to "ZHIPU_API_KEY",
+        "moonshot" to "MOONSHOT_API_KEY",
+        "minimax" to "MINIMAX_API_KEY",
+        "volcengine" to "VOLCENGINE_API_KEY",
+        "hunyuan" to "HUNYUAN_API_KEY",
+        "qianfan" to "QIANFAN_API_KEY",
+        // DASHSCOPE_API_KEY is declared under the canonical name `bailian`
+        "bailian" to "DASHSCOPE_API_KEY",
+        "openai" to "OPENAI_API_KEY",
+        "anthropic" to "ANTHROPIC_API_KEY",
+        "gemini" to "GOOGLE_GENERATIVE_AI_API_KEY",
+        "groq" to "GROQ_API_KEY",
+        "together" to "TOGETHER_API_KEY",
+        "mistral" to "MISTRAL_API_KEY",
+        "xai" to "XAI_API_KEY",
+        "perplexity" to "PERPLEXITY_API_KEY",
+        "fireworks" to "FIREWORKS_API_KEY",
+        "baichuan" to "BAICHUAN_API_KEY",
+        "yi" to "YI_API_KEY",
+        "stepfun" to "STEPFUN_API_KEY",
+    )
+
+    /**
+     * A configuration in which only [allowedProviders] can win provider detection:
+     * every other provider is denied by its canonical name, and no properties file
+     * is loaded.
+     *
+     * Denying *canonical names* (not API key names) is deliberate — it also blocks
+     * the alias keys (`KIMI_API_KEY`, `GEMINI_API_KEY`, ...), which a key-name
+     * based deny list leaves usable when the provider under test owns an alias.
+     */
+    private fun isolatedProviderConfig(vararg allowedProviders: String): MutableConfig =
+        MutableConfig(false).apply {
+            val allowed = allowedProviders.toSet()
+            set(
+                "llm.provider.deny.list",
+                builtInProvidersInPriorityOrder
+                    .map { it.first }
+                    .filterNot { it in allowed }
+                    .joinToString(",")
+            )
+        }
+
+    @Test
+    @DisplayName("Auto-detection should follow the documented provider priority order")
+    fun autoDetectionShouldFollowProviderPriorityOrder() {
+        // Every adjacent pair: the earlier provider must win even though the later
+        // provider's key is configured as well.  This is what "priority order"
+        // promises, and what a reordered providers.json would break.
+        builtInProvidersInPriorityOrder.zipWithNext().forEach { (winner, loser) ->
+            val conf = isolatedProviderConfig(winner.first, loser.first).apply {
+                set(winner.second, "test-key-for-${winner.first}-12345")
+                set(loser.second, "test-key-for-${loser.first}-12345")
+            }
+
+            val selection = ChatModelFactory.describeActiveProvider(conf)
+
+            assertNotNull(
+                selection,
+                "No provider was selected with ${winner.first} and ${loser.first} configured"
+            )
+            assertEquals(
+                winner.first, selection!!.provider,
+                "${winner.first} must win over ${loser.first} in the built-in priority order"
+            )
+            assertEquals(winner.second, selection.apiKeyName)
+        }
+    }
+
     // ---------------------------------------------------------------------------
     // Cache key isolation, cache bounds, and base URL resolution
     // ---------------------------------------------------------------------------

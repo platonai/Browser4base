@@ -11,6 +11,116 @@
       "apiProtocol": "OPENAI"
     },
     {
+      "apiKeyName": "DEEPSEEK_API_KEY",
+      "modelNameKey": "DEEPSEEK_MODEL_NAME",
+      "baseUrlKey": "DEEPSEEK_BASE_URL",
+      "defaultModel": "deepseek-v4-flash",
+      "defaultBaseUrl": "https://api.deepseek.com/v1",
+      "providerName": "deepseek",
+      "supportVision": false,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "ZHIPU_API_KEY",
+      "modelNameKey": "ZHIPU_MODEL_NAME",
+      "baseUrlKey": "ZHIPU_BASE_URL",
+      "defaultModel": "glm-5.1",
+      "defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4/",
+      "providerName": "zhipu",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "MOONSHOT_API_KEY",
+      "modelNameKey": "MOONSHOT_MODEL_NAME",
+      "baseUrlKey": "MOONSHOT_BASE_URL",
+      "defaultModel": "kimi-k2.6",
+      "defaultBaseUrl": "https://api.moonshot.cn/v1",
+      "providerName": "moonshot",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "MINIMAX_API_KEY",
+      "modelNameKey": "MINIMAX_MODEL_NAME",
+      "baseUrlKey": "MINIMAX_BASE_URL",
+      "defaultModel": "MiniMax-M3",
+      "defaultBaseUrl": "https://api.minimaxi.com/anthropic",
+      "providerName": "minimax",
+      "supportVision": true,
+      "apiProtocol": "ANTHROPIC"
+    },
+    {
+      "apiKeyName": "VOLCENGINE_API_KEY",
+      "modelNameKey": "VOLCENGINE_MODEL_NAME",
+      "baseUrlKey": "VOLCENGINE_BASE_URL",
+      "defaultModel": "doubao-seed-2-0-pro-260215",
+      "defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "providerName": "volcengine",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "HUNYUAN_API_KEY",
+      "modelNameKey": "HUNYUAN_MODEL_NAME",
+      "baseUrlKey": "HUNYUAN_BASE_URL",
+      "defaultModel": "hunyuan-pro",
+      "defaultBaseUrl": "https://api.lkeap.cloud.tencent.com/v1",
+      "providerName": "hunyuan",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "QIANFAN_API_KEY",
+      "modelNameKey": "QIANFAN_MODEL_NAME",
+      "baseUrlKey": "QIANFAN_BASE_URL",
+      "defaultModel": "ernie-4.0-8k",
+      "defaultBaseUrl": "https://qianfan.baidubce.com/v2",
+      "providerName": "qianfan",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "DASHSCOPE_API_KEY",
+      "modelNameKey": "DASHSCOPE_MODEL_NAME",
+      "baseUrlKey": "DASHSCOPE_BASE_URL",
+      "defaultModel": "qwen3.6-plus",
+      "defaultBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "providerName": "bailian",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "OPENAI_API_KEY",
+      "modelNameKey": "OPENAI_MODEL_NAME",
+      "baseUrlKey": "OPENAI_BASE_URL",
+      "defaultModel": "gpt-5.6-sol",
+      "defaultBaseUrl": "https://api.openai.com/v1",
+      "providerName": "openai",
+      "supportVision": true,
+      "apiProtocol": "OPENAI"
+    },
+    {
+      "apiKeyName": "ANTHROPIC_API_KEY",
+      "modelNameKey": "ANTHROPIC_MODEL_NAME",
+      "baseUrlKey": "ANTHROPIC_BASE_URL",
+      "defaultModel": "claude-sonnet-4-6",
+      "defaultBaseUrl": "https://api.anthropic.com",
+      "providerName": "anthropic",
+      "supportVision": true,
+      "apiProtocol": "ANTHROPIC"
+    },
+    {
+      "apiKeyName": "GOOGLE_GENERATIVE_AI_API_KEY",
+      "modelNameKey": "GEMINI_MODEL_NAME",
+      "baseUrlKey": "GEMINI_BASE_URL",
+      "defaultModel": "gemini-3.1-flash-lite",
+      "defaultBaseUrl": "https://generativelanguage.googleapis.com",
+      "providerName": "gemini",
+      "supportVision": true,
+      "apiProtocol": "GEMINI"
+    },
+    {
       "apiKeyName": "GROQ_API_KEY",
       "modelNameKey": "GROQ_MODEL_NAME",
       "baseUrlKey": "GROQ_BASE_URL",
@@ -71,56 +181,6 @@
       "apiProtocol": "OPENAI"
     },
     {
-      "apiKeyName": "DEEPSEEK_API_KEY",
-      "modelNameKey": "DEEPSEEK_MODEL_NAME",
-      "baseUrlKey": "DEEPSEEK_BASE_URL",
-      "defaultModel": "deepseek-v4-flash",
-      "defaultBaseUrl": "https://api.deepseek.com/v1",
-      "providerName": "deepseek",
-      "supportVision": false,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "DASHSCOPE_API_KEY",
-      "modelNameKey": "DASHSCOPE_MODEL_NAME",
-      "baseUrlKey": "DASHSCOPE_BASE_URL",
-      "defaultModel": "qwen3.6-plus",
-      "defaultBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      "providerName": "bailian",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "VOLCENGINE_API_KEY",
-      "modelNameKey": "VOLCENGINE_MODEL_NAME",
-      "baseUrlKey": "VOLCENGINE_BASE_URL",
-      "defaultModel": "doubao-seed-2-0-pro-260215",
-      "defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-      "providerName": "volcengine",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "ZHIPU_API_KEY",
-      "modelNameKey": "ZHIPU_MODEL_NAME",
-      "baseUrlKey": "ZHIPU_BASE_URL",
-      "defaultModel": "glm-5.1",
-      "defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4/",
-      "providerName": "zhipu",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "MOONSHOT_API_KEY",
-      "modelNameKey": "MOONSHOT_MODEL_NAME",
-      "baseUrlKey": "MOONSHOT_BASE_URL",
-      "defaultModel": "kimi-k2.6",
-      "defaultBaseUrl": "https://api.moonshot.cn/v1",
-      "providerName": "moonshot",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
       "apiKeyName": "BAICHUAN_API_KEY",
       "modelNameKey": "BAICHUAN_MODEL_NAME",
       "baseUrlKey": "BAICHUAN_BASE_URL",
@@ -149,66 +209,6 @@
       "providerName": "stepfun",
       "supportVision": true,
       "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "HUNYUAN_API_KEY",
-      "modelNameKey": "HUNYUAN_MODEL_NAME",
-      "baseUrlKey": "HUNYUAN_BASE_URL",
-      "defaultModel": "hunyuan-pro",
-      "defaultBaseUrl": "https://api.lkeap.cloud.tencent.com/v1",
-      "providerName": "hunyuan",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "QIANFAN_API_KEY",
-      "modelNameKey": "QIANFAN_MODEL_NAME",
-      "baseUrlKey": "QIANFAN_BASE_URL",
-      "defaultModel": "ernie-4.0-8k",
-      "defaultBaseUrl": "https://qianfan.baidubce.com/v2",
-      "providerName": "qianfan",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "OPENAI_API_KEY",
-      "modelNameKey": "OPENAI_MODEL_NAME",
-      "baseUrlKey": "OPENAI_BASE_URL",
-      "defaultModel": "gpt-5.6-sol",
-      "defaultBaseUrl": "https://api.openai.com/v1",
-      "providerName": "openai",
-      "supportVision": true,
-      "apiProtocol": "OPENAI"
-    },
-    {
-      "apiKeyName": "ANTHROPIC_API_KEY",
-      "modelNameKey": "ANTHROPIC_MODEL_NAME",
-      "baseUrlKey": "ANTHROPIC_BASE_URL",
-      "defaultModel": "claude-sonnet-4-6",
-      "defaultBaseUrl": "https://api.anthropic.com",
-      "providerName": "anthropic",
-      "supportVision": true,
-      "apiProtocol": "ANTHROPIC"
-    },
-    {
-      "apiKeyName": "GOOGLE_GENERATIVE_AI_API_KEY",
-      "modelNameKey": "GEMINI_MODEL_NAME",
-      "baseUrlKey": "GEMINI_BASE_URL",
-      "defaultModel": "gemini-3.1-flash-lite",
-      "defaultBaseUrl": "https://generativelanguage.googleapis.com",
-      "providerName": "gemini",
-      "supportVision": true,
-      "apiProtocol": "GEMINI"
-    },
-    {
-      "apiKeyName": "MINIMAX_API_KEY",
-      "modelNameKey": "MINIMAX_MODEL_NAME",
-      "baseUrlKey": "MINIMAX_BASE_URL",
-      "defaultModel": "MiniMax-M3",
-      "defaultBaseUrl": "https://api.minimaxi.com/anthropic",
-      "providerName": "minimax",
-      "supportVision": true,
-      "apiProtocol": "ANTHROPIC"
     }
   ],
   "aliases": {

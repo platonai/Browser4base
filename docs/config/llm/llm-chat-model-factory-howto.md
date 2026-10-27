@@ -61,26 +61,26 @@ The **first provider with a matching API key wins**:
 | Priority | Provider    | API Key Env Var              | Protocol   |
 |----------|-------------|------------------------------|------------|
 | 1        | OpenRouter  | `OPENROUTER_API_KEY`         | OpenAI     |
-| 2        | Groq        | `GROQ_API_KEY`               | OpenAI     |
-| 3        | Together AI | `TOGETHER_API_KEY`           | OpenAI     |
-| 4        | Mistral     | `MISTRAL_API_KEY`            | OpenAI     |
-| 5        | xAI / Grok  | `XAI_API_KEY`                | OpenAI     |
-| 6        | Perplexity  | `PERPLEXITY_API_KEY`         | OpenAI     |
-| 7        | Fireworks   | `FIREWORKS_API_KEY`          | OpenAI     |
-| 8        | DeepSeek    | `DEEPSEEK_API_KEY`           | OpenAI     |
+| 2        | DeepSeek    | `DEEPSEEK_API_KEY`           | OpenAI     |
+| 3        | Zhipu AI    | `ZHIPU_API_KEY`              | OpenAI     |
+| 4        | Moonshot    | `MOONSHOT_API_KEY`           | OpenAI     |
+| 5        | MiniMax     | `MINIMAX_API_KEY`            | Anthropic  |
+| 6        | Volcengine  | `VOLCENGINE_API_KEY`         | OpenAI     |
+| 7        | Hunyuan     | `HUNYUAN_API_KEY`            | OpenAI     |
+| 8        | Qianfan     | `QIANFAN_API_KEY`            | OpenAI     |
 | 9        | DashScope   | `DASHSCOPE_API_KEY`          | OpenAI     |
-| 10       | Volcengine  | `VOLCENGINE_API_KEY`         | OpenAI     |
-| 11       | Zhipu AI    | `ZHIPU_API_KEY`              | OpenAI     |
-| 12       | Moonshot    | `MOONSHOT_API_KEY`           | OpenAI     |
-| 13       | Baichuan    | `BAICHUAN_API_KEY`           | OpenAI     |
-| 14       | 01.AI / Yi  | `YI_API_KEY`                 | OpenAI     |
-| 15       | StepFun     | `STEPFUN_API_KEY`            | OpenAI     |
-| 16       | Hunyuan     | `HUNYUAN_API_KEY`            | OpenAI     |
-| 17       | Qianfan     | `QIANFAN_API_KEY`            | OpenAI     |
-| 18       | OpenAI      | `OPENAI_API_KEY`             | OpenAI     |
-| 19       | Anthropic   | `ANTHROPIC_API_KEY`          | Anthropic  |
-| 20       | Gemini      | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini   |
-| 21       | MiniMax     | `MINIMAX_API_KEY`            | Anthropic  |
+| 10       | OpenAI      | `OPENAI_API_KEY`             | OpenAI     |
+| 11       | Anthropic   | `ANTHROPIC_API_KEY`          | Anthropic  |
+| 12       | Gemini      | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini   |
+| 13       | Groq        | `GROQ_API_KEY`               | OpenAI     |
+| 14       | Together AI | `TOGETHER_API_KEY`           | OpenAI     |
+| 15       | Mistral     | `MISTRAL_API_KEY`            | OpenAI     |
+| 16       | xAI / Grok  | `XAI_API_KEY`                | OpenAI     |
+| 17       | Perplexity  | `PERPLEXITY_API_KEY`         | OpenAI     |
+| 18       | Fireworks   | `FIREWORKS_API_KEY`          | OpenAI     |
+| 19       | Baichuan    | `BAICHUAN_API_KEY`           | OpenAI     |
+| 20       | 01.AI / Yi  | `YI_API_KEY`                 | OpenAI     |
+| 21       | StepFun     | `STEPFUN_API_KEY`            | OpenAI     |
 
 ### Aliases
 

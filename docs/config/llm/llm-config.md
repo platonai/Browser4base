@@ -30,26 +30,26 @@ The system scans for known API keys in this order — the first one found wins:
 | Priority | Provider | API Key(s) | Model Config | Base URL Config |
 |----------|----------|------------|--------------|-----------------|
 | 1 | **OpenRouter** | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL_NAME` | `OPENROUTER_BASE_URL` |
-| 2 | **Groq** | `GROQ_API_KEY` | `GROQ_MODEL_NAME` | `GROQ_BASE_URL` |
-| 3 | **Together AI** | `TOGETHER_API_KEY` | `TOGETHER_MODEL_NAME` | `TOGETHER_BASE_URL` |
-| 4 | **Mistral** | `MISTRAL_API_KEY` | `MISTRAL_MODEL_NAME` | `MISTRAL_BASE_URL` |
-| 5 | **xAI / Grok** | `XAI_API_KEY` | `XAI_MODEL_NAME` | `XAI_BASE_URL` |
-| 6 | **Perplexity** | `PERPLEXITY_API_KEY` | `PERPLEXITY_MODEL_NAME` | `PERPLEXITY_BASE_URL` |
-| 7 | **Fireworks AI** | `FIREWORKS_API_KEY` | `FIREWORKS_MODEL_NAME` | `FIREWORKS_BASE_URL` |
-| 8 | **DeepSeek** | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL_NAME` | `DEEPSEEK_BASE_URL` |
+| 2 | **DeepSeek** | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL_NAME` | `DEEPSEEK_BASE_URL` |
+| 3 | **Zhipu AI** (GLM) | `ZHIPU_API_KEY` | `ZHIPU_MODEL_NAME` | `ZHIPU_BASE_URL` |
+| 4 | **Moonshot / Kimi** | `MOONSHOT_API_KEY`, `KIMI_API_KEY` | `MOONSHOT_MODEL_NAME` | `MOONSHOT_BASE_URL` |
+| 5 | **MiniMax** | `MINIMAX_API_KEY` | `MINIMAX_MODEL_NAME` | `MINIMAX_BASE_URL` |
+| 6 | **ByteDance Volcengine** (Doubao) | `VOLCENGINE_API_KEY` | `VOLCENGINE_MODEL_NAME` | `VOLCENGINE_BASE_URL` |
+| 7 | **Tencent Hunyuan** | `HUNYUAN_API_KEY`, `TENCENT_API_KEY` | `HUNYUAN_MODEL_NAME` | `HUNYUAN_BASE_URL` |
+| 8 | **Baidu Qianfan** (Ernie) | `QIANFAN_API_KEY`, `BAIDU_API_KEY` | `QIANFAN_MODEL_NAME` | `QIANFAN_BASE_URL` |
 | 9 | **Alibaba DashScope** (Qwen) | `DASHSCOPE_API_KEY` | `DASHSCOPE_MODEL_NAME` | `DASHSCOPE_BASE_URL` |
-| 10 | **ByteDance Volcengine** (Doubao) | `VOLCENGINE_API_KEY` | `VOLCENGINE_MODEL_NAME` | `VOLCENGINE_BASE_URL` |
-| 11 | **Zhipu AI** (GLM) | `ZHIPU_API_KEY` | `ZHIPU_MODEL_NAME` | `ZHIPU_BASE_URL` |
-| 12 | **Moonshot / Kimi** | `MOONSHOT_API_KEY`, `KIMI_API_KEY` | `MOONSHOT_MODEL_NAME` | `MOONSHOT_BASE_URL` |
-| 13 | **Baichuan** | `BAICHUAN_API_KEY` | `BAICHUAN_MODEL_NAME` | `BAICHUAN_BASE_URL` |
-| 14 | **01.AI / Yi** | `YI_API_KEY`, `LINGYI_API_KEY` | `YI_MODEL_NAME` | `YI_BASE_URL` |
-| 15 | **StepFun** | `STEPFUN_API_KEY` | `STEPFUN_MODEL_NAME` | `STEPFUN_BASE_URL` |
-| 16 | **Tencent Hunyuan** | `HUNYUAN_API_KEY`, `TENCENT_API_KEY` | `HUNYUAN_MODEL_NAME` | `HUNYUAN_BASE_URL` |
-| 17 | **Baidu Qianfan** (Ernie) | `QIANFAN_API_KEY`, `BAIDU_API_KEY` | `QIANFAN_MODEL_NAME` | `QIANFAN_BASE_URL` |
-| 18 | **OpenAI** | `OPENAI_API_KEY` | `OPENAI_MODEL_NAME` | `OPENAI_BASE_URL` |
-| 19 | **Anthropic Claude** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL_NAME` | `ANTHROPIC_BASE_URL` |
-| 20 | **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` | `GEMINI_MODEL_NAME` | `GEMINI_BASE_URL` |
-| 21 | **MiniMax** | `MINIMAX_API_KEY` | `MINIMAX_MODEL_NAME` | `MINIMAX_BASE_URL` |
+| 10 | **OpenAI** | `OPENAI_API_KEY` | `OPENAI_MODEL_NAME` | `OPENAI_BASE_URL` |
+| 11 | **Anthropic Claude** | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL_NAME` | `ANTHROPIC_BASE_URL` |
+| 12 | **Google Gemini** | `GOOGLE_GENERATIVE_AI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` | `GEMINI_MODEL_NAME` | `GEMINI_BASE_URL` |
+| 13 | **Groq** | `GROQ_API_KEY` | `GROQ_MODEL_NAME` | `GROQ_BASE_URL` |
+| 14 | **Together AI** | `TOGETHER_API_KEY` | `TOGETHER_MODEL_NAME` | `TOGETHER_BASE_URL` |
+| 15 | **Mistral** | `MISTRAL_API_KEY` | `MISTRAL_MODEL_NAME` | `MISTRAL_BASE_URL` |
+| 16 | **xAI / Grok** | `XAI_API_KEY` | `XAI_MODEL_NAME` | `XAI_BASE_URL` |
+| 17 | **Perplexity** | `PERPLEXITY_API_KEY` | `PERPLEXITY_MODEL_NAME` | `PERPLEXITY_BASE_URL` |
+| 18 | **Fireworks AI** | `FIREWORKS_API_KEY` | `FIREWORKS_MODEL_NAME` | `FIREWORKS_BASE_URL` |
+| 19 | **Baichuan** | `BAICHUAN_API_KEY` | `BAICHUAN_MODEL_NAME` | `BAICHUAN_BASE_URL` |
+| 20 | **01.AI / Yi** | `YI_API_KEY`, `LINGYI_API_KEY` | `YI_MODEL_NAME` | `YI_BASE_URL` |
+| 21 | **StepFun** | `STEPFUN_API_KEY` | `STEPFUN_MODEL_NAME` | `STEPFUN_BASE_URL` |
 
 > **Notes:**
 > - **`llm.provider` is checked first.** When it names a provider (or an alias, or an API
@@ -62,15 +62,17 @@ The system scans for known API keys in this order — the first one found wins:
 > - When several providers are configured the winner is logged once
 >   (`Using LLM provider | provider=… model=… baseUrl=… apiKey=…`) and the ignored keys are
 >   reported in the same message, so the routing is never a silent surprise.
-> - OpenAI is checked after dedicated provider keys so that a generic `OPENAI_API_KEY`
->   doesn't shadow providers like Groq or Together — which also means a leftover dedicated
->   key (DeepSeek, for instance) wins over a freshly configured `OPENAI_API_KEY`.  Use
->   `llm.provider` to choose explicitly, or `llm.provider.deny.list` to skip a provider.
+> - OpenAI sits at position 10: a leftover `OPENAI_API_KEY` wins over the keys of Groq,
+>   Together, Mistral, xAI, Perplexity, Fireworks, Baichuan, Yi and StepFun (positions
+>   13–21), while OpenRouter, DeepSeek and the Chinese providers (positions 1–9) win over
+>   it.  Use `llm.provider` to choose explicitly, or `llm.provider.deny.list` to skip a
+>   provider.
 > - **Custom registered providers** (via `ChatModelFactory.registerProvider()`) are checked
 >   **before** all built-in providers and take priority.
 > - Providers on the `llm.provider.deny.list` are skipped during auto-detection.
-> - Anthropic, Gemini, and MiniMax are checked last — they use their own API protocols
->   (not OpenAI-compatible) and are dispatched accordingly via `ApiProtocol`.
+> - Anthropic, Gemini and MiniMax use their own API protocols (not OpenAI-compatible) and
+>   are dispatched accordingly via `ApiProtocol`.  Their list position (5, 11, 12) only
+>   decides which key wins when several keys are configured — not how they are called.
 > - **Diagnostics:** `ChatModelFactory.describeActiveProvider(conf)` returns the resolved
 >   selection (provider, model, base URL, the configuration key that supplied the API key,
 >   whether it was explicit, and the configured keys that were ignored) without creating a
