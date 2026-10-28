@@ -1,6 +1,7 @@
 package ai.platon.pulsar.api.model
 
 import ai.platon.cdt.kt.protocol.types.network.LoadNetworkResourcePageResult
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.Duration
 import java.time.Instant
@@ -45,6 +46,19 @@ data class NodeRef constructor(
     }
 }
 
+/**
+ * The `/json/version` payload of a Chromium-family browser.
+ *
+ * Unknown fields are tolerated on purpose. Chrome adds fields to this endpoint over
+ * time — Chrome 156 added `File-Path-Style` — and `ChromeImpl` deserializes the
+ * response with a plain `ObjectMapper` (default `FAIL_ON_UNKNOWN_PROPERTIES=true`),
+ * so one new field made every navigation fail with a bare `createDevTools` error:
+ * the browser launched, its CDP endpoint answered, and the driver still could not
+ * create a DevTools session (2026-10-28). The annotation belongs on the class
+ * because that mapper is private to the driver and cannot be configured from
+ * outside.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
 class ChromeVersion {
     @JsonProperty("Browser")
     val browser: String? = null
