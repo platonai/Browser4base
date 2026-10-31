@@ -76,11 +76,13 @@ class WebSocketChromeImplIntegrationTest {
                 assertTrue(runBlocking { browserProtocol.isV8Alive() }, "the page socket must execute JavaScript")
 
                 runBlocking { browserProtocol.navigate("https://example.com/") }
-                val title = runBlocking {
-                    browserProtocol.evaluate("document.title", returnByValue = true).result?.value
-                }
+                // `navigate` returns once the frame is committed, not once the
+                // document has loaded; the title can still be the old one (or
+                // empty) when the next evaluate lands. Poll instead of asserting
+                // immediately - a loaded CI runner loses that race.
+                val title = awaitTitle(browserProtocol, expected = "Example")
                 assertTrue(
-                    title?.toString()?.contains("Example", ignoreCase = true) == true,
+                    title?.contains("Example", ignoreCase = true) == true,
                     "navigation over the synthesized page socket did not take effect: $title"
                 )
 
@@ -101,6 +103,39 @@ class WebSocketChromeImplIntegrationTest {
                     "closeTab must remove target ${extra.id}"
                 )
             }
+        }
+    }
+
+    /**
+     * Waits until `document.title` contains [expected] (case-insensitively) and
+     * returns the last title it saw. Evaluation errors and an empty title are
+     * retried: during navigation the page socket may not answer yet.
+     *
+     * The previous version asserted on the title read immediately after
+     * `navigate` and failed on CI runners whenever example.com answered slower
+     * than the local loopback CDP round trip - a pure timing flake, not a
+     * regression in the socket implementation.
+     */
+    private fun awaitTitle(
+        browserProtocol: BrowserProtocol,
+        expected: String,
+        timeoutMillis: Long = 20_000,
+    ): String? {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        var lastTitle: String? = null
+        while (true) {
+            runCatching {
+                runBlocking {
+                    browserProtocol.evaluate("document.title", returnByValue = true).result?.value
+                }?.toString()
+            }.getOrNull()?.let { lastTitle = it }
+            if (lastTitle?.contains(expected, ignoreCase = true) == true) {
+                return lastTitle
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                return lastTitle
+            }
+            Thread.sleep(200)
         }
     }
 
