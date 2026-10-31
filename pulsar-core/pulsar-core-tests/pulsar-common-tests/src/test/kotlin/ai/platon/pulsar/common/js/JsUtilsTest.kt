@@ -143,6 +143,48 @@ class JsUtilsTest {
     }
 
     @Test
+    @DisplayName("toIIFEOrNull does not double-wrap an IIFE whose regex contains an escaped paren")
+    fun toIifeOrNullDoesNotDoubleWrapIifeWithRegexEscapedParen() {
+        // Regression: a single escaped `(` in a regex kept the paren scan above zero depth, so the
+        // IIFE was re-invoked as ((iife))(); the TypeError surfaced as a `null` eval result and a
+        // batch scrape that fetched nothing still looked successful.
+        val iife = """
+            (async () => {
+              const m = html.match(/#([\d,]+)\s+in\s+([A-Za-z &;,'\-]{3,60})\s*\(/);
+              return m ? m[1] : null;
+            })()
+        """.trimIndent()
+        val result = JsUtils.toIIFEOrNull(iife)
+        assertEquals(iife.trim() + ";", result)
+    }
+
+    @Test
+    @DisplayName("toIIFEOrNull does not double-wrap an IIFE whose string literal contains a paren")
+    fun toIifeOrNullDoesNotDoubleWrapIifeWithParenInString() {
+        val iife = "(async () => {\n  const s = 'unclosed (';\n  return s;\n})()"
+        val result = JsUtils.toIIFEOrNull(iife)
+        assertEquals("$iife;", result)
+    }
+
+    @Test
+    @DisplayName("toIIFEOrNull does not mistake a division for a regex literal")
+    fun toIifeOrNullDoesNotMistakeDivisionForRegex() {
+        // `/ (n)` follows an identifier, so it is division: the scan must stay inside the IIFE
+        // instead of treating the rest of the script as a regex body and never closing the group.
+        val iife = "(() => {\n  const r = total / (n);\n  return r;\n})()"
+        val result = JsUtils.toIIFEOrNull(iife)
+        assertEquals("$iife;", result)
+    }
+
+    @Test
+    @DisplayName("toIIFEOrNull does not double-wrap an IIFE whose comment contains a paren")
+    fun toIifeOrNullDoesNotDoubleWrapIifeWithParenInComment() {
+        val iife = "(async () => {\n  // note: the (\n  /* and here */\n  return 1;\n})()"
+        val result = JsUtils.toIIFEOrNull(iife)
+        assertEquals("$iife;", result)
+    }
+
+    @Test
     @DisplayName("toIIFEOrNull wraps bare single-param arrow function")
     fun toIifeOrNullWrapsBareArrowFunction() {
         assertEquals("(x => x * 2)(5);", JsUtils.toIIFEOrNull("x => x * 2", "5"))
