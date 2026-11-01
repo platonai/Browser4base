@@ -151,8 +151,8 @@ class EmulationHandlerTest {
         }
 
         @Test
-        @DisplayName("moveTo interpolates linearly from start to end")
-        fun moveToInterpolatesLinearly() = runBlocking {
+        @DisplayName("moveTo emits one event per step, always ending exactly at the target")
+        fun moveToEmitsStepsEventsEndingAtTarget() = runBlocking {
             // Use argument captor to verify interpolation math
             mouse.moveTo(0.0, 0.0, steps = 1) // ensure known start position
             reset(bp)
@@ -160,9 +160,8 @@ class EmulationHandlerTest {
             mouse.moveTo(100.0, 200.0, steps = 5, delayMillis = 0)
 
             val captor = argumentCaptor<Double>()
-            // 5 steps: t=0.2, 0.4, 0.6, 0.8, 1.0
-            // x at each step: 20, 40, 60, 80, 100
-            // We just verify we get 5 move events ending at the target
+            // The path is a random Bézier curve, so only the event count and
+            // the exact endpoint are deterministic.
             verify(bp, times(5)).dispatchMouseMoved(captor.capture(), captor.capture(), any(), eq(null))
 
             val allX = captor.allValues.filterIndexed { i, _ -> i % 2 == 0 }
@@ -172,6 +171,101 @@ class EmulationHandlerTest {
             assertEquals(5, allY.size)
             assertEquals(100.0, allX.last(), 0.01)
             assertEquals(200.0, allY.last(), 0.01)
+        }
+    }
+
+    // =========================================================================
+    // Mouse — human-like movement path (curve + pace + jitter)
+    // =========================================================================
+
+    @Nested
+    @DisplayName("Mouse movement path humanization")
+    inner class MouseMovementPath {
+
+        @Test
+        @DisplayName("easeInOut anchors 0, 0.5, 1 and is monotonic")
+        fun easeInOutAnchors() {
+            assertEquals(0.0, Mouse.easeInOut(0.0), 1e-9)
+            assertEquals(0.5, Mouse.easeInOut(0.5), 1e-9)
+            assertEquals(1.0, Mouse.easeInOut(1.0), 1e-9)
+
+            var previous = -1.0
+            for (i in 0..100) {
+                val t = Mouse.easeInOut(i / 100.0)
+                assertTrue(t >= previous, "easeInOut must be monotonic")
+                previous = t
+            }
+        }
+
+        @Test
+        @DisplayName("movementPath ends exactly at the target and emits steps points")
+        fun movementPathEndsAtTarget() {
+            val path = Mouse.movementPath(0.0, 0.0, 300.0, 150.0, steps = 10, perpendicularOffset = 20.0)
+
+            assertEquals(10, path.size)
+            assertEquals(300.0, path.last().first, 1e-9)
+            assertEquals(150.0, path.last().second, 1e-9)
+        }
+
+        @Test
+        @DisplayName("movementPath with a perpendicular offset leaves the straight line")
+        fun movementPathCurvesOffTheStraightLine() {
+            val fromX = 0.0; val fromY = 0.0; val toX = 300.0; val toY = 150.0
+            val path = Mouse.movementPath(fromX, fromY, toX, toY, steps = 10, perpendicularOffset = 30.0)
+
+            // Perpendicular distance of each intermediate point from the
+            // start→target line; a curved path must leave the line somewhere.
+            val dx = toX - fromX
+            val dy = toY - fromY
+            val len = Math.hypot(dx, dy)
+            val maxDeviation: Double = path.dropLast(1).maxOf { (px, py): Pair<Double, Double> ->
+                kotlin.math.abs((px - fromX) * dy - (py - fromY) * dx) / len
+            }
+            assertTrue(maxDeviation > 1.0, "Expected the path to deviate from the straight line, got $maxDeviation")
+        }
+
+        @Test
+        @DisplayName("movementPath with zero offset is straight but not constant-speed")
+        fun movementPathStraightButNotConstantSpeed() {
+            val path = Mouse.movementPath(0.0, 0.0, 300.0, 0.0, steps = 10, perpendicularOffset = 0.0)
+
+            // Collinear: all points on the x-axis.
+            path.forEach { (_, y) -> assertEquals(0.0, y, 1e-9) }
+
+            // Ease-in-out pace: the first gap and the last gap are smaller than
+            // the middle gap (slow start, fast middle, slow arrival).
+            val gaps = path.mapIndexed { index, (x, _) ->
+                x - (if (index == 0) 0.0 else path[index - 1].first)
+            }
+            val middleGap = gaps[5]
+            assertTrue(gaps.first() < middleGap, "First gap ${gaps.first()} should be < middle gap $middleGap")
+            assertTrue(gaps.last() < middleGap, "Last gap ${gaps.last()} should be < middle gap $middleGap")
+        }
+
+        @Test
+        @DisplayName("jitteredDelayMillis stays within ±35% and never below 1 ms")
+        fun jitteredDelayMillisBounds() {
+            repeat(200) {
+                val d = Mouse.jitteredDelayMillis(100)
+                assertTrue(d in 1..135, "jittered delay $d out of bounds")
+                assertTrue(d >= 65, "jittered delay $d below the 65% floor")
+            }
+        }
+
+        @Test
+        @DisplayName("multi-step moveTo dispatches the curved path via CDP and ends at target")
+        fun moveToMultiStepDispatchesCurvedPath() = runBlocking {
+            mouse.moveTo(0.0, 0.0, steps = 1)
+            reset(bp)
+
+            mouse.moveTo(300.0, 150.0, steps = 8, delayMillis = 0)
+
+            val captor = argumentCaptor<Double>()
+            verify(bp, times(8)).dispatchMouseMoved(captor.capture(), captor.capture(), any(), eq(null))
+            val allX = captor.allValues.filterIndexed { i, _ -> i % 2 == 0 }
+            val allY = captor.allValues.filterIndexed { i, _ -> i % 2 == 1 }
+            assertEquals(300.0, allX.last(), 0.01)
+            assertEquals(150.0, allY.last(), 0.01)
         }
     }
 

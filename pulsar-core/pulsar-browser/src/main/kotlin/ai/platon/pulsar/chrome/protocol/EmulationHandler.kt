@@ -20,8 +20,10 @@ import kotlinx.coroutines.delay
 import org.apache.commons.lang3.SystemUtils
 
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToLong
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -245,6 +247,25 @@ class Mouse(private val bp: BrowserProtocol) {
         moveTo(point.x, point.y, steps, delayMillis, modifiers)
     }
 
+    /**
+     * Move the pointer to ([x], [y]), emitting [steps] `mouseMoved` events.
+     *
+     * Multi-step moves follow a human-like trajectory instead of a constant-speed
+     * straight line — both a ruler-straight path and a metronomic pace are
+     * bot fingerprints a mouse-tracking page scores directly:
+     *
+     * - **Path:** a quadratic Bézier whose control point is offset perpendicular
+     *   to the straight line by a random amount (up to 15% of the distance,
+     *   capped at 60 px). Moves shorter than 40 px stay straight, like real
+     *   short corrections.
+     * - **Pace:** an ease-in-out (smoothstep) profile — slow at the start, fast
+     *   mid-move, slow into the target, approximating a Fitts's-law pointing
+     *   movement — and each inter-event delay is jittered ±35% around
+     *   [delayMillis].
+     *
+     * The final emitted point is always exactly ([x], [y]), regardless of the
+     * curve, so click/drag accuracy is unaffected.
+     */
     suspend fun moveTo(x: Double, y: Double, steps: Int = 1, delayMillis: Long = 50, modifiers: Int? = null) {
         val fromX = currentX
         val fromY = currentY
@@ -254,19 +275,30 @@ class Mouse(private val bp: BrowserProtocol) {
 
         // Ensure we always emit a final move to the target, even when steps == 1
         val s = if (steps < 1) 1 else steps
-        var i = 1
-        while (i <= s) {
-            val t = i.toDouble() / s
-            val x1 = fromX + (currentX - fromX) * t
-            val y1 = fromY + (currentY - fromY) * t
-
-            cdpMoveTo(x1, y1, modifiers)
-
+        if (s == 1) {
+            cdpMoveTo(x, y, modifiers)
             if (delayMillis > 0) {
                 delay(delayMillis.milliseconds)
             }
+            return
+        }
 
-            ++i
+        val distance = hypot(x - fromX, y - fromY)
+        // Short moves stay straight: a perpendicular swing on a few pixels is
+        // itself suspicious. Longer moves bend by a random perpendicular offset.
+        val perpendicularOffset = if (distance >= MIN_CURVE_DISTANCE) {
+            val maxOffset = min(distance * MAX_CURVE_OFFSET_RATIO, MAX_CURVE_OFFSET_PX)
+            Random.nextDouble(-maxOffset, maxOffset)
+        } else {
+            0.0
+        }
+
+        for ((x1, y1) in movementPath(fromX, fromY, x, y, s, perpendicularOffset)) {
+            cdpMoveTo(x1, y1, modifiers)
+
+            if (delayMillis > 0) {
+                delay(jitteredDelayMillis(delayMillis).milliseconds)
+            }
         }
     }
 
@@ -489,6 +521,64 @@ class Mouse(private val bp: BrowserProtocol) {
         } finally {
             // Always release mouse button to prevent stuck state
             runCatching { up() }
+        }
+    }
+
+    companion object {
+        /** Moves shorter than this stay straight: real short corrections are straight too. */
+        private const val MIN_CURVE_DISTANCE = 40.0
+
+        /** The perpendicular control-point offset never exceeds this fraction of the distance. */
+        private const val MAX_CURVE_OFFSET_RATIO = 0.15
+
+        /** ... and never exceeds this absolute cap, so long moves do not swing wildly. */
+        private const val MAX_CURVE_OFFSET_PX = 60.0
+
+        /**
+         * Ease-in-out (smoothstep) velocity profile: zero speed at both ends,
+         * peak speed mid-move, approximating a Fitts's-law pointing movement.
+         * `easeInOut(0) = 0`, `easeInOut(0.5) = 0.5`, `easeInOut(1) = 1`.
+         */
+        internal fun easeInOut(t: Double): Double = t * t * (3 - 2 * t)
+
+        /**
+         * Per-step delay jitter: ±35% around [delayMillis], so inter-event
+         * timestamps are not a metronome. Never below 1 ms to keep a positive
+         * gap between consecutive events.
+         */
+        internal fun jitteredDelayMillis(delayMillis: Long): Long =
+            (delayMillis * Random.nextDouble(0.65, 1.35)).roundToLong().coerceAtLeast(1L)
+
+        /**
+         * The points of a curved pointer move from ([fromX], [fromY]) to
+         * ([toX], [toY]) in [steps] emissions: a quadratic Bézier whose control
+         * point sits at the midpoint, offset perpendicular to the straight line
+         * by [perpendicularOffset], sampled at an ease-in-out pace. The last
+         * point is always exactly the target.
+         */
+        internal fun movementPath(
+            fromX: Double, fromY: Double,
+            toX: Double, toY: Double,
+            steps: Int,
+            perpendicularOffset: Double,
+        ): List<Pair<Double, Double>> {
+            val dx = toX - fromX
+            val dy = toY - fromY
+            val distance = hypot(dx, dy)
+            // Unit perpendicular to the direction of travel; degenerates to no
+            // offset for a zero-length move.
+            val nx = if (distance > 0) -dy / distance else 0.0
+            val ny = if (distance > 0) dx / distance else 0.0
+            val controlX = (fromX + toX) / 2 + nx * perpendicularOffset
+            val controlY = (fromY + toY) / 2 + ny * perpendicularOffset
+
+            return (1..steps).map { i ->
+                val t = easeInOut(i.toDouble() / steps)
+                val u = 1 - t
+                val x = u * u * fromX + 2 * u * t * controlX + t * t * toX
+                val y = u * u * fromY + 2 * u * t * controlY + t * t * toY
+                x to y
+            }
         }
     }
 }

@@ -274,6 +274,30 @@ class PulsarWebDriverMouseIT : WebDriverTestBase() {
             val result = driver.evaluate("document.getElementById('sumResult').textContent", "")
             assertTrue(result.toString().contains("8"), "Expected sum=8 after move+click, got: $result")
         }
+
+        @Test
+        @DisplayName("multi-step moveTo leaves a trusted mousemove trail in the page ending at the target")
+        fun multiStepMoveToLeavesTrustedTrail() = runWebDriverTestAndCompute(testPage, browser) { driver ->
+            driver.evaluate(
+                """window.__moveTrail = [];
+                    document.addEventListener('mousemove', e => {
+                        window.__moveTrail.push([e.clientX, e.clientY, e.isTrusted]);
+                    }, true);"""
+            )
+
+            // A multi-step move goes through the curved-path branch of Mouse.moveTo;
+            // 8 steps at 5 ms each stay well under a second even with the ±35% jitter.
+            val pulsarDriver = driver as PulsarWebDriver
+            pulsarDriver.page.mouse.moveTo(600.0, 400.0, steps = 8, delayMillis = 5)
+            driver.delay(200)
+
+            val trail = driver.evaluate("JSON.stringify(window.__moveTrail)", "[]").toString()
+            // [[x,y,true],...] — one entry per CDP-dispatched mouseMoved.
+            val eventCount = trail.split("],[").size
+            assertEquals(8, eventCount, "Expected 8 mousemove events in the page, trail: $trail")
+            assertTrue(trail.contains("600,400"), "Trail should end at the target (600,400), trail: $trail")
+            assertFalse(trail.contains("false"), "All mousemove events must be trusted, trail: $trail")
+        }
     }
 
     // =========================================================================
