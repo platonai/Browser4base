@@ -429,6 +429,49 @@ class EmulationHandlerTest {
         }
 
         @Test
+        @DisplayName("type wraps every character in keydown and keyup")
+        fun typeDispatchesKeyEventsPerCharacter() = runBlocking {
+            keyboard.type("ab", delayMillis = 0)
+
+            // A human keyboard emits keydown/keyup around every character; without
+            // them pages that throttle or validate on keydown never observe typing.
+            verify(bp, times(2)).dispatchKeyEvent(
+                eq(DispatchKeyEventType.RAW_KEY_DOWN),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
+                eq(""), eq(""), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+            verify(bp, times(2)).dispatchKeyEvent(
+                eq(DispatchKeyEventType.KEY_UP),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+
+        @Test
+        @DisplayName("type inserts each character exactly once")
+        fun typeInsertsEachCharacterOnce() = runBlocking {
+            keyboard.type("a", delayMillis = 0)
+
+            // Regression: keyDown used to carry text while insertText inserted the
+            // same character again, so a single keystroke produced "aa".
+            verify(bp, times(1)).insertText("a")
+        }
+
+        @Test
+        @DisplayName("type while Shift is held types the shifted character")
+        fun typeWithShiftHeldTypesShiftedCharacter() = runBlocking {
+            keyboard.down("Shift")
+            keyboard.type("a", delayMillis = 0)
+            keyboard.type("1", delayMillis = 0)
+            keyboard.up("Shift")
+
+            verify(bp, times(1)).insertText("A")
+            verify(bp, times(1)).insertText("!")
+            verify(bp, never()).insertText("a")
+            verify(bp, never()).insertText("1")
+        }
+
+        @Test
         @DisplayName("type dispatches insertText for each char in order")
         fun typeDispatchesInOrder() = runBlocking {
             val inOrder = inOrder(bp)
@@ -484,6 +527,26 @@ class EmulationHandlerTest {
         }
 
         @Test
+        @DisplayName("press single printable key inserts the character exactly once")
+        fun pressSinglePrintableKeyInsertsOnce() = runBlocking {
+            keyboard.press("a", delayMillis = 0)
+
+            // Regression: down("a") carried text = "a" and insertText inserted the
+            // same character again, so press("a") typed "aa" in Chrome 156.
+            verify(bp, times(1)).insertText("a")
+            verify(bp).dispatchKeyEvent(
+                eq(DispatchKeyEventType.RAW_KEY_DOWN),
+                anyOrNull(), anyOrNull(), eq("KeyA"), anyOrNull(), eq("a"),
+                eq(""), eq(""), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+            verify(bp).dispatchKeyEvent(
+                eq(DispatchKeyEventType.KEY_UP),
+                anyOrNull(), anyOrNull(), eq("KeyA"), anyOrNull(), eq("a"),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+            )
+        }
+
+        @Test
         @DisplayName("press uppercase letter expands to Shift+lower")
         fun pressUppercaseLetter() = runBlocking {
             // "A" should expand to "Shift+a" via normalizeKeyStringForPress
@@ -522,16 +585,16 @@ class EmulationHandlerTest {
             // The stateful path used by Browser4WebDriver.keyDown: holding a
             // modifier must populate Keyboard.pressedModifiers so that a
             // subsequent press() carries the modifier bitmask (Control=2).
-            // The Control keyDown itself is dispatched as RAW_KEY_DOWN; the
-            // "a" keyDown arrives as KEY_DOWN, which is what we pin here.
+            // Both keys are dispatched as RAW_KEY_DOWN: the character itself is
+            // inserted through Input.insertText, so the keyDown carries no text.
             keyboard.down("Control")
             keyboard.press("a", delayMillis = 0)
 
             verify(bp).dispatchKeyEvent(
-                eq(DispatchKeyEventType.KEY_DOWN),
+                eq(DispatchKeyEventType.RAW_KEY_DOWN),
                 eq(2),
-                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
-                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
+                eq(65), eq("KeyA"), anyOrNull(), eq("a"),
+                anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
             )
         }
 
@@ -544,7 +607,7 @@ class EmulationHandlerTest {
 
             // After Control is released, "a" must carry no modifiers.
             verify(bp).dispatchKeyEvent(
-                eq(DispatchKeyEventType.KEY_DOWN),
+                eq(DispatchKeyEventType.RAW_KEY_DOWN),
                 eq(0),
                 anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
                 anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()
@@ -557,7 +620,7 @@ class EmulationHandlerTest {
             keyboard.press("a", delayMillis = 0)
 
             verify(bp).dispatchKeyEvent(
-                eq(DispatchKeyEventType.KEY_DOWN),
+                eq(DispatchKeyEventType.RAW_KEY_DOWN),
                 eq(0),
                 anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(),
                 anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()

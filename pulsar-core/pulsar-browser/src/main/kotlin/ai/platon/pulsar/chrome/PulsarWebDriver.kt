@@ -55,7 +55,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.apache.commons.lang3.StringUtils
 import kotlin.math.abs
 import kotlin.math.max
@@ -93,6 +93,68 @@ open class PulsarWebDriver constructor(
 
         /** Used by [trySubmitFormOnEnter] as a safety net for CDP-dispatched Enter key. */
         val TRY_SUBMIT_FORM_ON_ENTER_JS = """(()=>{const el=document.activeElement;if(!el)return false;const tag=el.tagName;if(tag==='TEXTAREA')return false;if(tag!=='INPUT'&&tag!=='SELECT')return false;if(tag==='INPUT'){const t=(el.type||'text').toLowerCase();if(t==='radio'||t==='checkbox'||t==='file'||t==='button'||t==='reset'||t==='submit'||t==='image'||t==='hidden'){return false;}}const form=el.closest('form');if(!form)return false;if(typeof form.requestSubmit==='function'){try{form.requestSubmit();return true;}catch(e){}}form.submit();return true;})()"""
+
+        /**
+         * Shared body of the DOM wheel fallback used by [mouseWheel] when CDP fails.
+         *
+         * A real wheel tick hit-tests the element under the cursor, fires a cancelable
+         * `wheel` event on it and scrolls the nearest scrollable ancestor as the default
+         * action. The fallback keeps that contract: the event is dispatched first and the
+         * scroll lands only when no `{passive: false}` listener canceled it.
+         *
+         * The synthesized event reports `isTrusted === false`, so listeners that filter
+         * untrusted input do not observe it.
+         */
+        private val WHEEL_SCROLL_DEFAULT_ACTION_JS = """
+            const scrollableAncestor = (start) => {
+                for (let el = start; el && el.nodeType === 1; el = el.parentElement) {
+                    const style = getComputedStyle(el);
+                    const allowsScroll = /auto|scroll|overlay/.test(style.overflowX + ' ' + style.overflowY);
+                    if (allowsScroll && (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth)) {
+                        return el;
+                    }
+                }
+                return null;
+            };
+
+            const wheelFallback = (target, deltaX, deltaY, x, y) => {
+                const evt = new WheelEvent('wheel', {
+                    deltaX: deltaX, deltaY: deltaY, clientX: x, clientY: y,
+                    bubbles: true, cancelable: true, view: window
+                });
+                if (!target.dispatchEvent(evt)) {
+                    return false;
+                }
+                const scroller = scrollableAncestor(target) || document.scrollingElement || document.documentElement;
+                scroller.scrollBy(deltaX, deltaY);
+                return true;
+            };
+        """.trimIndent()
+
+        /**
+         * DOM replay of one wheel tick at viewport point ([x], [y]).
+         *
+         * The target is hit-tested like a real tick, so a listener on the scroll container
+         * under the cursor is the one that receives the event.
+         */
+        fun wheelFallbackPageJs(x: Double, y: Double, deltaX: Double, deltaY: Double): String =
+            "(() => {\n" +
+                WHEEL_SCROLL_DEFAULT_ACTION_JS.prependIndent("    ") + "\n" +
+                "    const target = document.elementFromPoint($x, $y) || document.documentElement;\n" +
+                "    return wheelFallback(target, $deltaX, $deltaY, $x, $y);\n" +
+                "})()"
+
+        /**
+         * DOM replay of one wheel tick on an already-resolved element.
+         *
+         * Pass the element as `Runtime.callFunctionOn`'s `objectId` so `this` is the
+         * element: the selector never enters the script and needs no escaping.
+         */
+        val WHEEL_FALLBACK_ELEMENT_JS =
+            "function(deltaX, deltaY, x, y) {\n" +
+                WHEEL_SCROLL_DEFAULT_ACTION_JS.prependIndent("    ") + "\n" +
+                "    return wheelFallback(this, deltaX, deltaY, x, y);\n" +
+                "}"
     }
 
     private data class StorageStatePayload(
@@ -779,20 +841,43 @@ open class PulsarWebDriver constructor(
         return maxOf(5_000L, minOf(30_000L, 5_000L + extra))
     }
 
+    /**
+     * Deliver one CDP wheel tick and report whether it actually went out.
+     *
+     * `false` covers both a CDP failure and a [timeoutMillis] timeout — the condition the
+     * DOM fallbacks in [mouseWheel] exist for. A caller cancellation (session closed,
+     * coroutine cancelled) is rethrown instead of answered with a fallback: replaying the
+     * tick against a page nobody is waiting for only delays the teardown.
+     */
+    private suspend fun deliverWheelTick(timeoutMillis: Long, tick: suspend () -> Unit): Boolean =
+        try {
+            withTimeoutOrNull(timeoutMillis) {
+                tick()
+                true
+            } ?: false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
+
     @Throws(WebDriverException::class)
     override suspend fun mouseWheel(deltaX: Double, deltaY: Double) {
         val m = mouse ?: throw IllegalWebDriverStateException("Mouse not available", driver = this)
         rpc.invokeOnPage("mouseWheel") {
             // Primary: CDP mouse wheel — dispatches trusted wheel DOM events that
             // page listeners can observe (required for interactive fixtures).
-            // Fallback: JS window.scrollBy() when CDP fails (bypasses the
-            // Input.dispatchMouseEvent wheel race condition crbug.com/444929150).
-            try {
-                withTimeout(wheelTimeout(deltaX, deltaY)) {
-                    m.wheel(deltaX, deltaY)
-                }
-            } catch (_: Exception) {
-                js.evaluate("window.scrollBy($deltaX, $deltaY)")
+            // Fallback: replay the tick through the DOM when CDP fails (bypasses the
+            // Input.dispatchMouseEvent wheel race condition crbug.com/444929150). The
+            // replay is one wheel tick at the current cursor position: listeners observe
+            // it and the scroll lands only when no {passive: false} listener canceled it.
+            // A tick CDP already delivered before timing out cannot be retracted, so the
+            // page may observe two ticks in that case.
+            val delivered = deliverWheelTick(wheelTimeout(deltaX, deltaY)) {
+                m.wheel(deltaX, deltaY)
+            }
+            if (!delivered) {
+                js.evaluate(wheelFallbackPageJs(m.currentX, m.currentY, deltaX, deltaY))
             }
         }
     }
@@ -804,17 +889,37 @@ open class PulsarWebDriver constructor(
                 gap("mouseWheel")
                 val point = emulator.getInteractPoint(node, "center", useRandomOffset = true)
                     ?: return@invokeOnElement
+                val m = mouse ?: return@invokeOnElement
                 // Primary: CDP mouse wheel — dispatches trusted wheel DOM events.
-                // Fallback: JS element.scrollBy() when CDP fails (bypasses the
-                // Input.dispatchMouseEvent wheel race condition crbug.com/444929150).
-                try {
-                    val m = mouse ?: return@invokeOnElement
-                    withTimeout(wheelTimeout(deltaX, deltaY)) {
-                        m.moveTo(point, steps = 1)
-                        m.wheel(deltaX, deltaY)
+                // Fallback: replay the tick on the element resolved above (no selector
+                // re-query, so quotes or backslashes in the selector cannot break the
+                // script); same contract as the page-level fallback: the event fires
+                // first and the scroll lands only when no {passive: false} listener
+                // canceled it.
+                val delivered = deliverWheelTick(wheelTimeout(deltaX, deltaY)) {
+                    m.moveTo(point, steps = 1)
+                    m.wheel(deltaX, deltaY)
+                }
+                if (!delivered) {
+                    val dispatched = withNodeObjectId(browserProtocol, node) { objectId ->
+                        browserProtocol.callFunctionOn(
+                            WHEEL_FALLBACK_ELEMENT_JS,
+                            objectId = objectId,
+                            arguments = listOf(
+                                CallArgument(value = deltaX),
+                                CallArgument(value = deltaY),
+                                CallArgument(value = point.x),
+                                CallArgument(value = point.y),
+                            ),
+                            returnByValue = true
+                        ).result.value
                     }
-                } catch (_: Exception) {
-                    js.evaluate("document.querySelector('${selector.replace("'", "\\'")}').scrollBy($deltaX, $deltaY)")
+                    // null means the replay never ran (stale node, JS error), so the page
+                    // was not scrolled; a cancelled event reports false and is a
+                    // legitimate outcome, not a failure.
+                    if (dispatched == null) {
+                        logger.warn("Wheel fallback did not run, the page was not scrolled | selector: {}", selector)
+                    }
                 }
             }
         } catch (e: ChromeDriverException) {
@@ -830,14 +935,28 @@ open class PulsarWebDriver constructor(
     }
 
     /**
+     * Presses a mouse button at the current cursor position.
+     *
+     * The event is synthesized in the page, so it reaches listeners but performs no
+     * default action: it does not focus the target, start a text selection/drag or
+     * set the CSS `:active` state, and `isTrusted` is false. Use [click] when the
+     * browser default actions matter.
+     *
      * TODO: use BrowserProtocol to implement mouseDown: BrowserProtocol → Browser Input System → Hit Testing → DOM → JS Event
      * */
     @Throws(WebDriverException::class)
     override suspend fun mouseDown(button: String, clickCount: Int) {
+        // DOM button index (PointerEvent.button) and bitmask (event.buttons) differ:
+        // left = 0/1, middle = 1/4, right = 2/2.
         val btnIndex = when (button) {
             "right" -> 2
             "middle" -> 1
             else -> 0
+        }
+        val btnMask = when (button) {
+            "right" -> 2
+            "middle" -> 4
+            else -> 1
         }
         val currentX = mouse?.currentX ?: 0.0
         val currentY = mouse?.currentY ?: 0.0
@@ -847,13 +966,18 @@ open class PulsarWebDriver constructor(
                 const y = $currentY;
                 const target = document.elementFromPoint(x, y);
                 if (!target) return;
-                target.dispatchEvent(new MouseEvent('mousedown', { button: $btnIndex, buttons: 1, bubbles: true, clientX: x, clientY: y, detail: $clickCount }));
+                target.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, pointerType: 'mouse', isPrimary: true, button: $btnIndex, buttons: $btnMask, bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, detail: $clickCount }));
+                target.dispatchEvent(new MouseEvent('mousedown', { button: $btnIndex, buttons: $btnMask, bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, detail: $clickCount }));
             })()
         """.trimIndent()
         rpc.invokeOnPage("mouseDown") { evaluate(script) }
     }
 
     /**
+     * Releases a mouse button at the current cursor position.
+     *
+     * Like [mouseDown], the synthesized event has no default action and is untrusted.
+     *
      * TODO: use BrowserProtocol to implement mouseUp: BrowserProtocol → Browser Input System → Hit Testing → DOM → JS Event
      * */
     @Throws(WebDriverException::class)
@@ -871,7 +995,8 @@ open class PulsarWebDriver constructor(
                 const y = $currentY;
                 const target = document.elementFromPoint(x, y);
                 if (!target) return;
-                target.dispatchEvent(new MouseEvent('mouseup', { button: $btnIndex, bubbles: true, clientX: x, clientY: y, detail: $clickCount }));
+                target.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, pointerType: 'mouse', isPrimary: true, button: $btnIndex, buttons: 0, bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, detail: $clickCount }));
+                target.dispatchEvent(new MouseEvent('mouseup', { button: $btnIndex, buttons: 0, bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, detail: $clickCount }));
             })()
         """.trimIndent()
         rpc.invokeOnPage("mouseUp") { evaluate(script) }
@@ -1532,29 +1657,49 @@ open class PulsarWebDriver constructor(
     }
 
     /**
-     * Dispatches a `keydown` event via DOM API (JavaScript dispatchEvent).
+     * Presses and holds a key, like a human keeping it down.
      *
-     * NOTE: CDP `Input.dispatchKeyEvent` (used by [keyboard?.down]) is unreliable for
-     * keydown/keyup on some platforms — the events may not reach page listeners.
-     * We use DOM event dispatch instead, which produces `isTrusted: false` events but
-     * reliably triggers page-side handlers. Tracked as TODO: revisit once CDP key event
-     * reliability is addressed upstream.
+     * The event goes through CDP `Input.dispatchKeyEvent`, so it is trusted and the
+     * browser's default actions apply: Tab moves focus, arrow keys scroll, and a held
+     * Shift is reflected in the characters typed afterwards. The previous
+     * implementation dispatched an untrusted DOM `KeyboardEvent` instead, which
+     * notified page listeners but performed none of those actions — `keyDown("Tab")`
+     * did not move focus and `keyDown("a")` typed nothing.
+     *
+     * Release with [keyUp]. The held modifier is tracked by the shared keyboard
+     * emulator, so [type]/[fill]/[press] carry it while it is down; mouse actions take
+     * their modifier explicitly through [click]'s `modifier` argument.
+     *
+     * [key] must name a single key (`a`, `Enter`, `Shift`, ...). Combinations such as
+     * `Shift+A` are not accepted — use [press] for those.
      */
     @Throws(WebDriverException::class)
     override suspend fun keyDown(key: String) {
         rpc.invokeOnPage("keyDown") {
-            dispatchDomKeyboardEvent("keydown", key)
+            val kb = keyboard
+                ?: throw IllegalWebDriverStateException("Keyboard not available", driver = this)
+            try {
+                kb.down(key)
+            } catch (e: IllegalArgumentException) {
+                throw WebDriverException("Unknown key: >$key<", e, this)
+            }
         }
     }
 
     /**
-     * Dispatches a `keyup` event via DOM API (JavaScript dispatchEvent).
-     * See [keyDown] for rationale on using DOM events instead of CDP.
+     * Releases a key previously pressed with [keyDown].
+     * See [keyDown] for why the event is dispatched through CDP.
      */
     @Throws(WebDriverException::class)
     override suspend fun keyUp(key: String) {
         rpc.invokeOnPage("keyUp") {
-            dispatchDomKeyboardEvent("keyup", key)
+            val kb = keyboard
+                ?: throw IllegalWebDriverStateException("Keyboard not available", driver = this)
+            try {
+                kb.up(key)
+            } catch (e: IllegalArgumentException) {
+                throw WebDriverException("Unknown key: >$key<", e, this)
+            }
         }
     }
 
@@ -2741,25 +2886,5 @@ open class PulsarWebDriver constructor(
                 )
             }
         }
-    }
-
-    private suspend fun dispatchDomKeyboardEvent(type: String, key: String) {
-        val safeKey = jsonMapper.writeValueAsString(key)
-        evaluate(
-            """
-                (() => {
-                  const target = document.activeElement || document.body || document.documentElement;
-                  if (!target) return false;
-                  const event = new KeyboardEvent('$type', {
-                    key: $safeKey,
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true
-                  });
-                  target.dispatchEvent(event);
-                  return true;
-                })()
-            """.trimIndent()
-        )
     }
 }

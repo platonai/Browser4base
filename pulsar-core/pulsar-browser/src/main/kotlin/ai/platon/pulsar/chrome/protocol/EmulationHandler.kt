@@ -505,12 +505,57 @@ class Keyboard(private val bp: BrowserProtocol) {
             if (Character.isISOControl(char)) {
                 press("$char", delayMillis)
             } else {
-                bp.insertText("$char")
+                typePrintableChar(char)
             }
 
             if (delayMillis > 0) {
                 delay(delayMillis.milliseconds)
             }
+        }
+    }
+
+    /**
+     * Types one printable character the way a human keyboard does: `keydown` for the
+     * physical key, the character inserted exactly once, then `keyup`.
+     *
+     * `Input.dispatchKeyEvent(type = KEY_DOWN)` with a non-empty `text` inserts the
+     * character by itself, so pairing it with `Input.insertText` inserts it twice —
+     * `press("a")` produced "aa" (keydown, keypress, input, input, keyup) in Chrome 156.
+     * The keyDown is therefore sent with empty text fields, which Chromium delivers as
+     * `rawKeyDown`, and `Input.insertText` stays the only insertion mechanism.
+     *
+     * Insertion deliberately stays on `Input.insertText`: `DispatchKeyEventType.CHAR`
+     * was verified to yield the fuller `keydown → keypress → beforeinput → input →
+     * keyup` sequence, but key-event-based insertion is the path that proved unreliable
+     * in headless CI, and a missing character is worse than a missing legacy `keypress`.
+     *
+     * Characters outside the US layout (CJK, accented letters) have no physical key
+     * identity; they are still inserted so that [type] keeps working for them.
+     */
+    private suspend fun typePrintableChar(char: Char, holdMillis: Long = 0) {
+        val baseKey = runCatching { createVirtualKeyForSingleKeyString(char.toString()) }.getOrNull()
+        if (baseKey == null) {
+            bp.insertText(char.toString())
+            return
+        }
+
+        // The single-character layout entries ("a", "1", ...) do not carry `shifted`,
+        // so a held Shift must be resolved through the code-keyed entry. Without this,
+        // keyDown("Shift") + type("a") would insert "a" and report key = "a".
+        val key = if (pressedModifiers.contains("Shift")) {
+            VirtualKeyboard.KEYBOARD_LAYOUT[baseKey.code]?.shifted ?: baseKey
+        } else {
+            baseKey
+        }
+
+        down(key.copy(text = ""))
+        try {
+            bp.insertText(key.key)
+            if (holdMillis > 0) {
+                delay(holdMillis.milliseconds)
+            }
+        } finally {
+            up(key)
         }
     }
 
@@ -536,17 +581,10 @@ class Keyboard(private val bp: BrowserProtocol) {
                 pressShiftedPrintableChar(char, delayMillis)
                 return
             }
-            // CDP Input.dispatchKeyEvent does not reliably insert text into
-            // editable elements in headless Chrome (see commit 6a5ba71d7).
-            // Use insertText — the same mechanism Keyboard.type() relies on —
-            // for all single printable characters to guarantee the character
-            // appears.  The surrounding keyDown/keyUp still fire so that JS
-            // keyboard listeners observe the key press.
+            // The character is inserted through Input.insertText; see typePrintableChar
+            // for why the keyDown must not carry the text itself.
             if (!Character.isISOControl(char)) {
-                down(keyString)
-                bp.insertText("$char")
-                delay(delayMillis.coerceAtLeast(60).milliseconds)
-                up(keyString)
+                typePrintableChar(char, delayMillis.coerceAtLeast(60))
                 return
             }
         }
