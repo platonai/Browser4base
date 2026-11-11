@@ -45,6 +45,11 @@ class PulsarWebDriverTests : WebDriverTestBase() {
     @Test
     @DisplayName("test scrollBy")
     fun testScrollBy() = runWebDriverTestAndCompute(multiScreensInteractiveUrl, browser) { driver ->
+        // Opening a page may leave it scrolled: waitForReady() scrolls to trigger lazy
+        // loading, and a capture no longer resets the scroll position. scrollBy is
+        // relative, so pin the baseline before asserting the absolute result.
+        driver.scrollToTop()
+
         val scrollY = driver.scrollBy(200.0, smooth = true)
 
         assertEquals(200.0, scrollY, 1.0)

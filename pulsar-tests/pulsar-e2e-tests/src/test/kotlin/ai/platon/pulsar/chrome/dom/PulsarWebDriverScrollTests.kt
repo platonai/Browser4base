@@ -21,6 +21,10 @@ class PulsarWebDriverScrollTests : WebDriverTestBase() {
     @Test
     @DisplayName("test scrollBy")
     fun testScrollBy() = runWebDriverTestAndCompute(multiScreensInteractiveUrl, browser) { driver ->
+        // scrollBy is relative: pin the baseline instead of relying on the page
+        // happening to be at the top after openAndCompute().
+        driver.scrollToTop()
+
         val scrollY = driver.scrollBy(200.0, smooth = true)
 
         assertEquals(200.0, scrollY, 1.0)
