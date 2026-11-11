@@ -58,7 +58,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.apache.commons.lang3.StringUtils
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToLong
 import java.nio.file.Files
 import java.time.Duration
@@ -90,6 +92,17 @@ open class PulsarWebDriver constructor(
 
         /** Used by [selectFirstTextOrNull] to walk a DOM subtree collecting text. */
         val SELECT_FIRST_TEXT_JS = """function(){try{const el=this;const excluded=new Set(['SCRIPT','STYLE','NOSCRIPT','TEMPLATE']);let text='';const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode(node){const p=node.parentNode;return p&&!excluded.has(p.nodeName)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}});let n;while((n=walker.nextNode())){text+=n.nodeValue;}return text;}catch(e){return null;}}"""
+
+        /**
+         * Used by [mouseMoveAt] to translate document coordinates into viewport
+         * coordinates: returns the page's current scroll offset as `"scrollX,scrollY"`.
+         *
+         * The scroll container is resolved through `scrollingElement` first so a
+         * quirks-mode document (where `document.body` scrolls) reports the same
+         * offset the browser uses for `client`/`page` coordinates.
+         */
+        val SCROLL_POSITION_JS =
+            """(()=>{const s=document.scrollingElement||document.documentElement;const x=window.scrollX||(s&&s.scrollLeft)||0;const y=window.scrollY||(s&&s.scrollTop)||0;return x+','+y;})()"""
 
         /** Used by [trySubmitFormOnEnter] as a safety net for CDP-dispatched Enter key. */
         val TRY_SUBMIT_FORM_ON_ENTER_JS = """(()=>{const el=document.activeElement;if(!el)return false;const tag=el.tagName;if(tag==='TEXTAREA')return false;if(tag!=='INPUT'&&tag!=='SELECT')return false;if(tag==='INPUT'){const t=(el.type||'text').toLowerCase();if(t==='radio'||t==='checkbox'||t==='file'||t==='button'||t==='reset'||t==='submit'||t==='image'||t==='hidden'){return false;}}const form=el.closest('form');if(!form)return false;if(typeof form.requestSubmit==='function'){try{form.requestSubmit();return true;}catch(e){}}form.submit();return true;})()"""
@@ -932,6 +945,71 @@ open class PulsarWebDriver constructor(
     @Throws(WebDriverException::class)
     override suspend fun mouseMove(x: Double, y: Double) {
         rpc.invokeOnPage("mouseMove") { mouse?.moveTo(x, y) }
+    }
+
+    /**
+     * [mouseMove] with an explicit coordinate space.
+     *
+     * `viewport` (the default) is the native CDP space and is passed through
+     * unchanged. `document` coordinates — the space of `snapshot --boxes` /
+     * `htmlsnapshot` boxes — are converted by the engine immediately before the
+     * move, because only the engine can read the scroll position the conversion
+     * needs. Doing the subtraction in the caller is what produced silently wrong
+     * clicks: the caller's `scrollY` was measured at snapshot time while the
+     * action ran after an `scrollIntoView` it never saw.
+     *
+     * The residual race is inherent to CDP: the measurement and the dispatch are
+     * two messages, so a page that scrolls exactly between them can still shift
+     * the target. Prefer a selector/ref-based action when one exists.
+     *
+     * @throws WebDriverException on an unknown space or an unreadable scroll offset
+     */
+    @Throws(WebDriverException::class)
+    override suspend fun mouseMoveAt(
+        x: Double,
+        y: Double,
+        space: String,
+        steps: Int,
+        durationMillis: Long,
+    ) {
+        val viewportPoint = when (space.trim().lowercase()) {
+            "", "viewport", "client" -> PointD(x, y)
+            "document", "page", "absolute" -> {
+                val raw = rpc.invokeOnPage("mouseMoveAt") {
+                    evaluateDetail(SCROLL_POSITION_JS)?.value
+                }
+                val parts = raw?.toString()?.split(',')
+                val scrollX = parts?.getOrNull(0)?.trim()?.toDoubleOrNull()
+                    ?: throw WebDriverException("Cannot read the page scroll position for document-space mouseMoveAt")
+                val scrollY = parts.getOrNull(1)?.trim()?.toDoubleOrNull()
+                    ?: throw WebDriverException("Cannot read the page scroll position for document-space mouseMoveAt")
+                PointD(x - scrollX, y - scrollY)
+            }
+            else -> throw WebDriverException(
+                "Unsupported mouseMoveAt space '$space' (expected 'document' or 'viewport')"
+            )
+        }
+
+        if (steps <= 0 && durationMillis <= 0) {
+            mouseMove(viewportPoint.x, viewportPoint.y)
+            return
+        }
+
+        // Explicit pacing: bypass the human-like defaults so a caller asking for
+        // three 20 ms steps gets exactly that. The distance-derived step count
+        // only fills in for a duration-only request.
+        val m = mouse ?: throw IllegalWebDriverStateException(
+            "Mouse not available: the driver is not active (session closed or page detached)",
+            driver = this
+        )
+        val distance = hypot(viewportPoint.x - m.currentX, viewportPoint.y - m.currentY)
+        val stepCount = if (steps > 0) steps else max(1, min(30, (distance / 20.0).toInt()))
+        val perStepDelay = if (durationMillis > 0) {
+            (durationMillis / stepCount).coerceAtLeast(1)
+        } else {
+            50L
+        }
+        m.moveTo(viewportPoint.x, viewportPoint.y, steps = stepCount, delayMillis = perStepDelay)
     }
 
     /**
@@ -2030,12 +2108,35 @@ open class PulsarWebDriver constructor(
         return null
     }
 
+    /**
+     * Returns the element's border box in **viewport** CSS pixels.
+     *
+     * Measuring must not change what is being measured (M3/I4): the previous
+     * implementation always scrolled the element into view first, so the number
+     * returned was the pre-scroll position while the page ended up somewhere
+     * else — a single read could not be trusted, and two reads of the same
+     * element disagreed. Now:
+     *
+     * 1. the element is located **without scrolling**;
+     * 2. if the box already intersects the viewport, it is returned as is, so a
+     *    visible element costs no scroll and the page stays put;
+     * 3. only an off-screen box is scrolled into view, and the measurement then
+     *    waits for the scroll to settle (smooth scrolling commits
+     *    asynchronously) before reading the box again.
+     */
     @Throws(WebDriverException::class)
     override suspend fun boundingBox(selector: String): RectD? {
         try {
             return rpc.invokeOnPage("boundingBox") {
-                val node = page.scrollIntoViewIfNeeded(selector)
-                ClickableDOM.create(browserProtocol, node)?.boundingBox()
+                val node = page.dom.queryLocator(selector) ?: return@invokeOnPage null
+                val clickableDOM = ClickableDOM.create(browserProtocol, node) ?: return@invokeOnPage null
+                val initialBox = clickableDOM.boundingBox() ?: return@invokeOnPage null
+                if (isBoxInViewport(initialBox)) {
+                    return@invokeOnPage initialBox
+                }
+                page.scrollIntoViewIfNeeded(selector)
+                waitForScrollSettled(selector)
+                clickableDOM.boundingBox() ?: initialBox
             }
         } catch (e: ChromeDriverException) {
             lastError = e
@@ -2044,6 +2145,24 @@ open class PulsarWebDriver constructor(
         }
 
         return null
+    }
+
+    /**
+     * Whether [box] (viewport CSS pixels) overlaps the current layout viewport.
+     *
+     * A zero-sized box counts as invisible: a zero-width element still has a
+     * measurable border box, but scrolling it into view would not make it
+     * observable, and treating it as visible keeps `get box` from moving the
+     * page on its behalf.
+     */
+    private suspend fun isBoxInViewport(box: RectD): Boolean {
+        if (!(box.width > 0.0) || !(box.height > 0.0)) {
+            return false
+        }
+        val viewport = browserProtocol.getLayoutMetrics().cssLayoutViewport
+        val width = viewport.clientWidth.toDouble()
+        val height = viewport.clientHeight.toDouble()
+        return box.x < width && box.y < height && box.x + box.width > 0.0 && box.y + box.height > 0.0
     }
 
     /**

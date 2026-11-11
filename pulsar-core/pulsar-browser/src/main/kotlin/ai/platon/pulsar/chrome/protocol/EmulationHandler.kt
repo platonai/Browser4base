@@ -3,6 +3,7 @@ package ai.platon.pulsar.chrome.protocol
 import ai.platon.cdt.kt.protocol.types.input.DispatchDragEventType
 import ai.platon.cdt.kt.protocol.types.input.DispatchKeyEventType
 import ai.platon.cdt.kt.protocol.types.input.DragData
+import ai.platon.cdt.kt.protocol.types.runtime.CallArgument
 import ai.platon.pulsar.api.BrowserProtocol
 import ai.platon.pulsar.api.model.NodeRef
 import ai.platon.pulsar.chrome.protocol.util.withNodeObjectId
@@ -961,6 +962,19 @@ class EmulationHandler(
         // Use fixed offset for hover to ensure consistent behavior
         val point = getInteractPoint(node, position, useRandomOffset = false) ?: return
 
+        // A hover over coordinates does not fail when something else covers the
+        // target: the browser delivers the hover to the topmost element, so the
+        // command would report success for an element the page never hovered.
+        // There is no trusted way to hover "through" an overlay — report the
+        // element that actually receives the hover instead of staying silent.
+        val onTop = occlusionAt(node, point.x, point.y)
+        if (onTop != null) {
+            logger.warn(
+                "hover target is covered at ({}, {}); the hover goes to {} instead (the page sees that element, not the requested one)",
+                point.x, point.y, onTop
+            )
+        }
+
         // Get bounding box to calculate a point outside the element
         val clickableDOM = ClickableDOM.create(bp, node, null) ?: return
         val box = runCatching { clickableDOM.boundingBox() }
@@ -991,6 +1005,44 @@ class EmulationHandler(
         // Move to outside point, then move into the element to trigger hover
         m.moveTo(outsidePoint, steps = steps, delayMillis = 40)
         m.moveTo(point, steps = 1, delayMillis = 40)
+    }
+
+    /**
+     * The element that would receive a hover at ([x], [y]) instead of [node], or
+     * `null` when [node] is on top (itself, a child, or an ancestor).
+     *
+     * Deliberately read-only: this is a hit test (`document.elementFromPoint`),
+     * not a probe that changes the page. Failure to answer (no protocol, a stale
+     * node, a JS error) returns `null` — an unable-to-verify hover must not fail
+     * the caller, but a verified cover is reported so the "hover succeeded"
+     * message cannot lie.
+     *
+     * @return a short description of the covering element (`div#overlay.mask`), or `null`
+     */
+    private suspend fun occlusionAt(node: NodeRef, x: Double, y: Double): String? {
+        val localBp = bp ?: return null
+        return try {
+            withNodeObjectId(localBp, node) { objectId ->
+                localBp.callFunctionOn(
+                    """function(x, y) {
+                        const hit = document.elementFromPoint(x, y);
+                        if (!hit) return null;
+                        if (hit === this || this.contains(hit) || hit.contains(this)) return null;
+                        const tag = (hit.tagName || 'node').toLowerCase();
+                        const id = hit.id ? '#' + hit.id : '';
+                        const cls = (typeof hit.className === 'string' && hit.className.trim())
+                            ? '.' + hit.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
+                        return tag + id + cls;
+                    }""",
+                    objectId = objectId,
+                    arguments = listOf(CallArgument(value = x), CallArgument(value = y)),
+                    returnByValue = true,
+                ).result.value as? String
+            }
+        } catch (e: Exception) {
+            logger.debug("Hover hit test failed at ({}, {})", x, y, e)
+            null
+        }
     }
 
     suspend fun getInteractPoint(node: NodeRef, position: String = "center", useRandomOffset: Boolean = true): PointD? {

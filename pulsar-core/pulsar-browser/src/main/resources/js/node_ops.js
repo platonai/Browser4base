@@ -203,7 +203,13 @@ NodeOps.isTile = function(node) {
 };
 
 /**
- * Get the estimated rect of this node; if the node is not an element, return its parent element's rect.
+ * Get the estimated document (absolute page) rect of this node; if the node is
+ * not an element, return its parent element's rect.
+ *
+ * The rect is scroll-independent: it is the client rect plus the current scroll
+ * offsets.  `vi`, `nScreen` and the visibility checks all rely on this space, so
+ * the feature data can be computed at any scroll position.
+ *
  * @param node {Node}
  * @return {DOMRect|null}
  */
@@ -213,7 +219,7 @@ NodeOps.getRect = function(node) {
         return null
     }
 
-    let rect = __pulsar_utils__.getClientRect(element);
+    let rect = __pulsar_utils__.getDocumentRect(element);
 
     if (NodeOps.isImage(element)) {
         if (!rect) {

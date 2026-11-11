@@ -141,48 +141,46 @@ describe('__pulsar_utils__.computeMetadata', () => {
 });
 
 // ---------------------------------------------------------------------------
-// __pulsar_utils__.generateMetadata — view-port attribute
+// __pulsar_utils__.generateMetadata — captured view-port (serialization-only)
 // ---------------------------------------------------------------------------
 
 describe('__pulsar_utils__.generateMetadata', () => {
-    test('view-port attribute uses actual window.innerWidth x innerHeight', () => {
+    beforeEach(() => {
+        // generateMetadata() captures once per compute(); reset it per test.
+        delete __pulsar_utils__._captureMeta;
+    });
+
+    test('view-port uses actual window.innerWidth x innerHeight', () => {
         setViewport(1024, 768);
 
         __pulsar_utils__.generateMetadata();
 
-        const meta = document.getElementById('PulsarMetaInformation');
-        expect(meta).not.toBeNull();
-        expect(meta.getAttribute('view-port')).toBe('1024x768');
+        expect(__pulsar_utils__._captureMeta['view-port']).toBe('1024x768');
+        // The live DOM stays clean: the meta input exists only in serialized HTML.
+        expect(document.getElementById('PulsarMetaInformation')).toBeNull();
     });
 
-    test('view-port attribute changes after resize', () => {
-        // First call at default viewport
+    test('does not overwrite the captured view-port on a second call', () => {
         setViewport(1920, 1080);
         __pulsar_utils__.generateMetadata();
-        // Remove the element so generateMetadata creates a new one
-        const firstMeta = document.getElementById('PulsarMetaInformation');
-        firstMeta.remove();
 
-        // Simulate resize and call again
         setViewport(800, 600);
         __pulsar_utils__.generateMetadata();
 
-        const meta = document.getElementById('PulsarMetaInformation');
-        expect(meta).not.toBeNull();
-        expect(meta.getAttribute('view-port')).toBe('800x600');
+        expect(__pulsar_utils__._captureMeta['view-port']).toBe('1920x1080');
+        expect(document.getElementById('PulsarMetaInformation')).toBeNull();
     });
 
-    test('view-port attribute differs from config after resize', () => {
+    test('view-port differs from config after resize', () => {
         setViewport(480, 320);
         __pulsar_utils__.generateMetadata();
 
         const config = ensureConfig();
-        const meta = document.getElementById('PulsarMetaInformation');
 
-        // Config is still 1920x1080, attribute should be 480x320
+        // Config is still 1920x1080, the captured view-port is 480x320
         expect(config.viewPortWidth).toBe(1920);
         expect(config.viewPortHeight).toBe(1080);
-        expect(meta.getAttribute('view-port')).toBe('480x320');
+        expect(__pulsar_utils__._captureMeta['view-port']).toBe('480x320');
     });
 });
 
@@ -394,10 +392,11 @@ describe('Integration: full viewport resize lifecycle', () => {
         expect(metadata.viewPortWidth).toBe(1280);
         expect(metadata.viewPortHeight).toBe(720);
 
-        // 3. generateMetadata should write 1280x720
+        // 3. generateMetadata captures 1280x720 for the serializer, not the DOM
+        delete __pulsar_utils__._captureMeta;
         __pulsar_utils__.generateMetadata();
-        const meta = document.getElementById('PulsarMetaInformation');
-        expect(meta.getAttribute('view-port')).toBe('1280x720');
+        expect(__pulsar_utils__._captureMeta['view-port']).toBe('1280x720');
+        expect(document.getElementById('PulsarMetaInformation')).toBeNull();
 
         // 4. Config values are still the original injected values
         const config = ensureConfig();

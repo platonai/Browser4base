@@ -15,6 +15,16 @@ let __pulsar_utils__ = function () {
     // Map of rel -> href for <link> elements to inject during HTML serialization.
     // Populated by setCaptureMetaInfo() from Kotlin; consumed by serializeAnnotatedHTML().
     this._captureMetaLinks = {};
+
+    // Layout freshness tracking (M14): the vi data used to be computed once per
+    // document, so an SPA/lazy-loaded/re-laid-out page kept reporting the first
+    // layout's boxes forever. The fingerprint below pairs a DOM mutation counter
+    // (kept by a MutationObserver, invisible to the page) with the scroll size
+    // and viewport, and compute() re-traverses only when it changed.
+    this._layoutMutationCount = 0;
+    this._layoutObserver = null;
+    this._computedLayoutVersion = null;
+    this._computeDone = false;
 };
 
 __pulsar_utils__.getConfig = function() {
@@ -137,21 +147,46 @@ __pulsar_utils__.writeData = function() {
         return false
     }
 
-    let config = this.getConfig();
-    let script = document.getElementById(config.SCRIPT_SECTION_ID);
-    if (script != null) {
+    // The payload is captured in memory and injected by serializeAnnotatedHTML();
+    // the live DOM is never touched, so a page script cannot find it.
+    if (this._captureDataJson) {
         return
     }
 
-    script = document.createElement('script');
-    script.id = config.SCRIPT_SECTION_ID;
-    // JavaScript only (leave default type, or set a valid one for compatibility)
-    script.type = 'text/javascript';
+    this._captureDataJson = JSON.stringify(__pulsar_utils__.data, null, 3);
+};
 
-    let pulsarData = JSON.stringify(__pulsar_utils__.data, null, 3);
-    script.textContent = "\n" + `;let __pulsar__Data = ${pulsarData};\n`;
+/**
+ * Set a serialization-only flag for [node] in the vi WeakMap.
+ *
+ * The flag is emitted by serializeAnnotatedHTML() and never written to the DOM,
+ * so a page script or a MutationObserver of the live document cannot see it.
+ *
+ * @param node {Node}
+ * @param key {String}
+ * @param value {String}
+ * */
+__pulsar_utils__._setNodeFlag = function(node, key, value) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+        return
+    }
+    let map = this._viDataMap || (this._viDataMap = new WeakMap());
+    let data = map.get(node) || {};
+    data[key] = value;
+    map.set(node, data);
+};
 
-    document.body.appendChild(script);
+/**
+ * Read a serialization-only flag for [node].
+ *
+ * @param node {Node}
+ * @param key {String}
+ * @return {String|undefined}
+ * */
+__pulsar_utils__._getNodeFlag = function(node, key) {
+    let map = this._viDataMap;
+    let data = map ? map.get(node) : null;
+    return data ? data[key] : undefined
 };
 
 /**
@@ -275,17 +310,19 @@ __pulsar_utils__.__updateStat = function(init = false) {
                     }
 
                     let ele = NodeOps.bestElement(node);
-                    if (ele != null && !init && !ele.hasAttribute("tp")) {
+                    if (ele != null && !init && !this._getNodeFlag(ele, "tp")) {
                         // not set at initialization, it's lazy loaded.
                         // "lz" is short for lazy.
-                        // TODO: embed all pulsar generated data into a single attribute to reduce the page size
-                        ele.setAttribute("lz", "1")
+                        // The marker is serialization-only: it lives in the vi
+                        // WeakMap and is emitted by serializeAnnotatedHTML(),
+                        // never written to the live DOM.
+                        this._setNodeFlag(ele, "lz", "1")
                     }
 
                     if (ele != null) {
                         let type = isNumberLike ? "nm" : "st";
                         // "tp" is short for type.
-                        ele.setAttribute("tp", type);
+                        this._setNodeFlag(ele, "tp", type);
                     }
                 }
             }
@@ -1229,6 +1266,7 @@ __pulsar_utils__.getReadableNodeName = function(node) {
  * @return {string} The annotated HTML string
  */
 __pulsar_utils__.serializeAnnotatedHTML = function(root, metaLinks) {
+    const utils = this;
     const viMap = this._viDataMap;
     const config = this.getConfig();
     const VOID = new Set([
@@ -1273,14 +1311,31 @@ __pulsar_utils__.serializeAnnotatedHTML = function(root, metaLinks) {
 
         // Emit existing attributes
         var attrs = node.attributes;
+        var hasDataError = false;
         for (var i = 0; i < attrs.length; i++) {
             var attr = attrs[i];
+            if (attr.name === 'data-error') {
+                hasDataError = true;
+            }
             html += ' ' + attr.name + '="' + escAttr(attr.value) + '"';
         }
 
-        // Inject vi attributes from WeakMap (no DOM mutation)
+        // The annotation flag is serialization-only: compute() keeps it in memory,
+        // so the live body never carries it.
+        if (tag === 'body' && utils._computeDone && !hasDataError) {
+            html += ' data-error="0"';
+        }
+
+        // Inject the vi/lz data from the WeakMap (no DOM mutation).  `lz` used
+        // to be a real attribute on live elements and is still serialized for
+        // backward compatibility (the html snapshot family strips it at parse
+        // time).  `tp` was transient even before (removed from the DOM before
+        // serialization), so it stays runtime-internal and is never emitted.
         var data = viMap ? viMap.get(node) : null;
         if (data) {
+            if (data.lz) {
+                html += ' lz="' + escAttr(data.lz) + '"';
+            }
             if (data.vi) {
                 html += ' ' + config.ATTR_ELEMENT_NODE_VI + '="' + data.vi + '"';
             }
@@ -1312,6 +1367,34 @@ __pulsar_utils__.serializeAnnotatedHTML = function(root, metaLinks) {
         html += '>';
         for (var child = node.firstChild; child; child = child.nextSibling) {
             serializeNode(child);
+        }
+
+        // Inject the annotation payload as serialization-only nodes.  They never
+        // exist in the live DOM, but consumers of the captured HTML still find
+        // the script/input they always did.  A legacy document that already has
+        // them (written by an older runtime) serialized them above — do not
+        // duplicate.
+        if (tag === 'body' && utils._computeDone) {
+            if (utils._captureDataJson && !document.getElementById(config.SCRIPT_SECTION_ID)) {
+                html += '<script id="' + escAttr(config.SCRIPT_SECTION_ID) + '" type="text/javascript">'
+                    + escText("\n;let __pulsar__Data = " + utils._captureDataJson + ";\n")
+                    + '</script>';
+            }
+            var meta = utils._captureMeta;
+            if (meta && !document.getElementById(config.META_INFORMATION_ID)) {
+                // `box-space` labels the space of every `vi` box serialized
+                // below: document-absolute CSS pixels (origin = the document's
+                // top-left corner).  Offline consumers of `box=` therefore do
+                // not have to guess, and a capture without this attribute is a
+                // legacy (body-relative) document rather than a current one.
+                html += '<input type="hidden" id="' + escAttr(config.META_INFORMATION_ID) + '"'
+                    + ' domain="' + escAttr(meta.domain) + '"'
+                    + ' view-port="' + escAttr(meta['view-port']) + '"'
+                    + ' date-time="' + escAttr(meta['date-time']) + '"'
+                    + ' timestamp="' + escAttr(meta.timestamp) + '"'
+                    + ' box-space="document"'
+                    + '>';
+            }
         }
 
         // Inject capture meta links into <head> during serialization.
@@ -1477,35 +1560,102 @@ __pulsar_utils__.computeMetadata = function() {
 }
 
 /**
- * Generate meta data
- * TODO: do not modify the DOM
+ * Capture the meta information that serializeAnnotatedHTML() injects into the
+ * captured HTML as the hidden `<input id="PulsarMetaInformation">`.
+ *
+ * Nothing is appended to the live DOM: the attributes are kept in memory and
+ * only exist in the serialized output, where offline consumers (the parser and
+ * PageSummaryIndexService) expect them.
  * */
 __pulsar_utils__.generateMetadata = function() {
-    const config = this.getConfig();
-    let meta = document.getElementById(config.META_INFORMATION_ID);
-    if (meta != null) {
-        // already generated
+    if (this._captureMeta) {
         return
     }
 
-    let domain = document.domain
-    let viewPort = window.innerWidth + "x" + window.innerHeight
-    let dateTime = new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString()
-    let timestamp = new Date().getTime().toString()
-
-    let ele = document.createElement("input");
-    ele.setAttribute("type", "hidden");
-    ele.setAttribute("id", config.META_INFORMATION_ID);
-    ele.setAttribute("domain", domain);
-    ele.setAttribute("view-port", viewPort);
-    ele.setAttribute("date-time", dateTime);
-    ele.setAttribute("timestamp", timestamp);
-
-    document.body.appendChild(ele);
+    this._captureMeta = {
+        domain: document.domain,
+        "view-port": window.innerWidth + "x" + window.innerHeight,
+        "date-time": new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(),
+        timestamp: new Date().getTime().toString()
+    };
 };
 
 /**
- * Calculate visualization info and do human actions
+ * Start counting DOM mutations that can change layout, once per document.
+ *
+ * A MutationObserver is a pure read-side subscription: it adds no node, no
+ * attribute and no global the page can observe, so it does not re-introduce the
+ * DOM pollution this runtime avoids. Isolated-world observers receive mutations
+ * of the shared DOM, which is exactly what is needed: the page's own changes
+ * (SPA re-render, lazy load, expand/collapse) bump the counter.
+ *
+ * Environments without MutationObserver degrade to size-only freshness
+ * detection (see layoutVersion()).
+ * */
+__pulsar_utils__.ensureLayoutObserver = function() {
+    if (this._layoutObserver || typeof MutationObserver === 'undefined' || !document.documentElement) {
+        return;
+    }
+    try {
+        const self = this;
+        this._layoutObserver = new MutationObserver(function(records) {
+            self._layoutMutationCount += records.length;
+        });
+        this._layoutObserver.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            characterData: true
+        });
+    } catch (e) {
+        this._layoutObserver = null;
+    }
+};
+
+/**
+ * A cheap fingerprint of everything that can make a previously computed `vi`
+ * stale: DOM mutations since the last compute, the scroll size, the viewport
+ * size and the document URL.
+ *
+ * The mutation counter catches changes that do not alter scroll size (a row
+ * expanding inside a fixed-height list); the sizes catch layout changes that
+ * happen without a mutation record on the observed subtree (zoom/resize) and
+ * make the value independent of observer support.
+ * */
+__pulsar_utils__.layoutVersion = function() {
+    const s = document.scrollingElement || document.documentElement;
+    const size = function(v) { return v == null ? 0 : (v | 0); };
+    return [
+        this._layoutMutationCount,
+        document.URL || '',
+        size(s && s.scrollWidth),
+        size(s && s.scrollHeight),
+        size(window.innerWidth),
+        size(window.innerHeight)
+    ].join(':');
+};
+
+/**
+ * Whether the stored `vi` data no longer describes the current layout.
+ *
+ * `true` before the first successful compute() and after any layout change; a
+ * no-op when nothing changed, which is the common case for a second capture of
+ * a settled page.
+ * */
+__pulsar_utils__.isLayoutStale = function() {
+    if (!this._viDataComputed || !this._computeDone) {
+        return true;
+    }
+    this.ensureLayoutObserver();
+    return this._computedLayoutVersion !== this.layoutVersion();
+};
+
+/**
+ * Calculate visualization info and do human actions.
+ *
+ * This never changes the page state on its own: `vi` is measured in document
+ * (absolute page) coordinates, so the data is valid at any scroll position and
+ * neither `window.scrollTo()` nor `window.stop()` is needed.
  * */
 __pulsar_utils__.compute = function() {
     if (!document.body || !document.body.firstChild) {
@@ -1515,36 +1665,31 @@ __pulsar_utils__.compute = function() {
     // Ensure data exists even if compute() is called without a prior checkStatus() call.
     this.createDataIfAbsent();
 
-    const DATA_ERROR = "data-error";
-
-    let done = document.body.hasAttribute(DATA_ERROR);
-    if (done) {
+    // The "already annotated" flag lives in the runtime, not in the document:
+    // the live DOM must stay indistinguishable from the page's own markup.
+    // The flag alone is not enough (M14): a page whose layout changed after the
+    // first compute() would keep reporting the old boxes, and the stale numbers
+    // look perfectly valid. Recompute when the layout fingerprint moved.
+    this.ensureLayoutObserver();
+    if (this._computeDone && this._computedLayoutVersion === this.layoutVersion()) {
         return
     }
 
+    // A previous, failed compute() must not leak a stale payload into the retry.
+    this._captureDataJson = null;
+    this._captureMeta = null;
+
+    // One WeakMap holds everything the serializer injects: the vi boxes and the
+    // lz/tp text markers.  It is initialized before __updateStat() so the markers
+    // land in the map instead of on the DOM.
+    this._viDataMap = new WeakMap();
+    this._viDataComputed = false;
+
     __pulsar_utils__.data.metadata = this.computeMetadata();
-
-    window.scrollTo(0, 0);
-
-    // calling window.stop will pause all resource loading
-    window.stop();
 
     this.__updateStat();
 
-    // TODO: do not inject any data into the DOM
     this.writeData();
-
-    // remove temporary flags
-    NodeOps.forEachElement(document.body, ele => {
-        ele.removeAttribute("tp")
-    });
-
-    // Initialize the WeakMap that stores computed visual information (vi, _h, _oh, tvN)
-    // without polluting the live DOM.  NodeFeatureCalculator writes to this map instead
-    // of calling setAttribute.  The data is later injected into the captured HTML by
-    // serializeAnnotatedHTML().
-    this._viDataMap = new WeakMap();
-    this._viDataComputed = false;
 
     // traverse the DOM and compute necessary data, we must compute data before we perform humanization
     let calculator = new __pulsar_NodeFeatureCalculator();
@@ -1562,9 +1707,14 @@ __pulsar_utils__.compute = function() {
 
     this.addProjectSpecifiedData();
 
-    // if any script error occurs, the flag can NOT be seen
-    // TODO: do not inject any data into the DOM
-    document.body.setAttribute(DATA_ERROR, '0');
+    // The annotation is complete. serializeAnnotatedHTML() now emits the
+    // data-error flag, the script/input metadata and the lz/tp markers into the
+    // captured HTML only; none of them exists in the live DOM.
+    this._computeDone = true;
+
+    // Record the layout this traversal measured, so a later capture can tell a
+    // settled page (nothing to do) from one that has changed since (recompute).
+    this._computedLayoutVersion = this.layoutVersion();
 
     return this.getActiveDomMessage()
 };

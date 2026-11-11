@@ -430,5 +430,97 @@ class PulsarWebDriverInjectedJSTests : WebDriverTestBase() {
         // The existing DOM may have its own links, but check that the HTML is valid
         assertTrue(html.isNotEmpty(), "HTML should not be empty")
     }
+
+    /**
+     * The four space-consistency properties from the mouse/coordinate issue list (T3):
+     *
+     * 1. `vi` is document-absolute and does not follow scrolling;
+     * 2. capturing does not move the page (M15);
+     * 3. `boundingBox` (viewport space) plus the current scroll equals `vi`;
+     * 4. a layout change refreshes `vi` on the next compute (M14).
+     *
+     * Built at runtime so the test controls the layout (a 1200 px spacer guarantees
+     * that document and viewport coordinates differ) instead of depending on the
+     * content of a checked-in fixture.
+     */
+    @Test
+    @DisplayName("vi is document-absolute and refreshes when the layout changes")
+    fun testViBoxesAreDocumentAbsoluteAndRefreshOnLayoutChange() =
+        runWebDriverTestAndCompute(testURL, browser) { driver ->
+            driver.evaluate(
+                """
+                (() => {
+                    document.body.innerHTML =
+                        '<div style="height:1200px"></div>' +
+                        '<a id="space-target" href="#space" style="display:block;width:100px;height:40px">space</a>' +
+                        '<div style="height:1500px"></div>';
+                    return true;
+                })()
+                """.trimIndent()
+            )
+
+            // The page is a new DOM: compute before reading anything from it.
+            driver.evaluateValue("__pulsar_utils__.compute()")
+
+            val documentY = (driver.evaluate(
+                "(function(){var r=document.getElementById('space-target').getBoundingClientRect(); " +
+                    "return r.top + (window.scrollY || 0);})()"
+            ) as? Number)?.toDouble()
+            assertNotNull(documentY, "the target must exist")
+
+            val viY = viBoxYOf(driver.pageSource() ?: "", "space-target")
+            assertNotNull(viY, "the annotated HTML should carry a vi box for the target")
+            assertEquals(
+                documentY!!, viY!!, 1.5,
+                "vi must be the document-absolute y (not the body-relative or viewport y)"
+            )
+
+            // Scroll away: vi must not change, and the capture itself must not scroll.
+            val scrolledTo = (driver.evaluate(
+                "(() => { window.scrollTo(0, 800); return window.scrollY; })()"
+            ) as? Number)?.toDouble() ?: 0.0
+            assertEquals(800.0, scrolledTo, 1.0, "the page should have scrolled")
+
+            val viAfterScroll = viBoxYOf(driver.pageSource() ?: "", "space-target")
+            assertEquals(viY, viAfterScroll ?: Double.NaN, 1.5, "vi must be scroll-independent")
+            assertEquals(
+                800.0, (driver.evaluate("window.scrollY") as? Number)?.toDouble() ?: 0.0, 1.0,
+                "a capture must not change the scroll position"
+            )
+
+            // get box is viewport space: it plus the same scroll offset is the document y.
+            val box = driver.boundingBox("#space-target")
+            assertNotNull(box, "boundingBox should resolve the target")
+            assertEquals(
+                800.0, (driver.evaluate("window.scrollY") as? Number)?.toDouble() ?: 0.0, 1.0,
+                "measuring an already visible element must not scroll the page"
+            )
+            assertEquals(
+                viY, box!!.y + 800.0, 2.0,
+                "boundingBox must be the viewport y of the same element"
+            )
+
+            // A layout change above the target must be reflected by the next compute.
+            driver.evaluate(
+                "document.body.insertAdjacentHTML('afterbegin', '<div style=\"height:400px\"></div>'); true"
+            )
+            driver.evaluateValue("__pulsar_utils__.compute()")
+            val viAfterLayoutChange = viBoxYOf(driver.pageSource() ?: "", "space-target")
+            assertNotNull(viAfterLayoutChange, "the second capture should still carry a vi box")
+            assertTrue(
+                viAfterLayoutChange!! - viY >= 300.0,
+                "a 400 px insert above the element must refresh vi (before $viY, after $viAfterLayoutChange)"
+            )
+        }
+
+    /**
+     * The y coordinate of the `vi` box serialized on the element with [id], or
+     * null when the annotated HTML carries no such element/box.
+     */
+    private fun viBoxYOf(html: String, id: String): Double? {
+        val tag = Regex("""<[^>]*\bid="$id"[^>]*>""").find(html)?.value ?: return null
+        val vi = Regex("""\bvi="([^"]+)"""").find(tag)?.groupValues?.get(1) ?: return null
+        return vi.trim().split(Regex("""\s+""")).mapNotNull { it.toDoubleOrNull() }.getOrNull(1)
+    }
 }
 
