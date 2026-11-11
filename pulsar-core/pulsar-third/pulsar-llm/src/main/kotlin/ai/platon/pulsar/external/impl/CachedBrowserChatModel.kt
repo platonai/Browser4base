@@ -384,10 +384,12 @@ open class CachedBrowserChatModel(
         return Pair(userText, systemText)
     }
 
-    private fun toTokenUsage(response: ChatResponse): TokenUsage {
-        val u = response.tokenUsage()
-        return if (u != null) TokenUsage(u.inputTokenCount(), u.outputTokenCount(), u.totalTokenCount()) else TokenUsage(0, 0, 0)
-    }
+    /**
+     * Map the LangChain4j usage to our [TokenUsage], keeping the provider's
+     * prompt-cache breakdown (cache reads and, for Anthropic-style APIs, cache
+     * writes) instead of reducing it to the three headline counts.
+     */
+    private fun toTokenUsage(response: ChatResponse): TokenUsage = TokenUsage.from(response.tokenUsage())
 
     private fun toModelResponse(response: ChatResponse): ModelResponse {
         val tokenUsage = toTokenUsage(response)
