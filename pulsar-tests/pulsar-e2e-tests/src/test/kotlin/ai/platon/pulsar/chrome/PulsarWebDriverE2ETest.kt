@@ -376,7 +376,13 @@ open class PulsarWebDriverE2ETest : WebDriverTestBase() {
         assertTrue { driver.exists("body") }
         val pageSource = driver.pageSource()
         assertNotNull(pageSource)
-        assertTrue { pageSource.contains(asin) }
+        // The live storefront can redirect to a different product, an availability page
+        // or a regional interstitial; screenshotting the expected fields is meaningless
+        // there, so skip instead of failing the build on an external page change.
+        Assumptions.assumeTrue(
+            pageSource.contains(asin),
+            "The page is not the expected product page | asin=$asin | url=${driver.currentUrl()}"
+        )
 
         val paths = mutableListOf<Path>()
         fieldSelectors.entries.take(3).forEach { (name, selector) ->
