@@ -1,6 +1,8 @@
 package ai.platon.pulsar.ql
 
 import ai.platon.pulsar.common.browser.BrowserType
+import ai.platon.pulsar.common.config.AppConstants
+import ai.platon.pulsar.common.config.CapabilityTypes
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.printlnPro
@@ -8,8 +10,10 @@ import ai.platon.pulsar.common.sql.ResultSetFormatter
 import ai.platon.pulsar.core.api.PulsarSession
 import ai.platon.pulsar.ql.context.SQLContext
 import ai.platon.pulsar.ql.context.SQLContexts
+import ai.platon.pulsar.ql.h2.H2SessionFactory
 import ai.platon.pulsar.skeleton.common.options.LoadOptionDefaults
 import ai.platon.pulsar.test.TestUrls
+import org.h2.ext.pulsar.PulsarExtension
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.slf4j.LoggerFactory
@@ -52,6 +56,7 @@ abstract class TestBase {
         @JvmStatic
         @BeforeAll
         fun setUp(): Unit {
+            resetStaleH2Engine()
             context = SQLContexts.getOrCreate(
                 GenericApplicationContext().apply {
                     beanFactory.registerSingleton("conf", MutableConfig(loadDefaults = true))
@@ -59,6 +64,28 @@ abstract class TestBase {
                 }
             )
             session = context.createSession()
+        }
+
+        /**
+         * Raw H2 connections opened before any SQL context exists (for example by
+         * [ai.platon.pulsar.ql.h2.NobufferAliasTest] and
+         * [ai.platon.pulsar.ql.h2.utils.H2StreamingRowSourceTest]) make [PulsarExtension] cache
+         * the plain `org.h2.engine.Engine` in a static field for the whole JVM. Every later
+         * session is then a bare H2 session: no UDF aliases (`MAP`, `EXPLODE`, ...) and no
+         * `PulsarObjectSerializer`, which breaks this and other SQL test classes.
+         *
+         * Surefire's test class order is not guaranteed, so drop a stale non-Pulsar cache here,
+         * before the SQL context opens its first connection. The session factory is then resolved
+         * again from `h2.sessionFactory`, which [ai.platon.pulsar.ql.context.AbstractSQLContext]
+         * sets.
+         */
+        private fun resetStaleH2Engine() {
+            System.setProperty(CapabilityTypes.H2_SESSION_FACTORY_CLASS, AppConstants.H2_SESSION_FACTORY)
+
+            val cachedSessionFactory = PulsarExtension.sessionFactory
+            if (cachedSessionFactory != null && cachedSessionFactory !is H2SessionFactory) {
+                PulsarExtension.sessionFactory = null
+            }
         }
 
         @JvmStatic
