@@ -58,7 +58,7 @@ browser.launch.chrome.args=--disable-features=Translate --proxy-server="http=foo
 | `browser.launch.runtime.enable` | *(CDP `Runtime.enable`, a bot-detection tell)* | `false` |
 | `browser.launch.register.script.once` | *(script injection strategy)* | `true` |
 | `browser.profile.mode` | which profile a session's browser uses | `DEFAULT` |
-| `browser.max.active.tabs` | tabs per browser context | `8` |
+| `browser.max.open.tabs` | tabs per browser context | `8` |
 
 The browser **binary** is chosen by the `chrome.path` system property (`-Dchrome.path=/opt/chrome/chrome`),
 then by the built-in search paths.
