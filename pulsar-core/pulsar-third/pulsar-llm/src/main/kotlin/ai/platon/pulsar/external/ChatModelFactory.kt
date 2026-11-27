@@ -8,6 +8,7 @@ import ai.platon.pulsar.common.getLogger
 import ai.platon.pulsar.common.logging.ThrottlingLogger
 import ai.platon.pulsar.external.impl.CachedBrowserChatModel
 import dev.langchain4j.model.anthropic.AnthropicChatModel
+import dev.langchain4j.model.googleai.GeminiThinkingConfig
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
 import dev.langchain4j.model.openai.OpenAiChatModel
 import java.time.Duration
@@ -680,11 +681,18 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateOpenAICompatibleModel(
         modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
+        return getOrCreateOpenAICompatibleModel(modelName, apiKey, baseUrl, conf, provider = null)
+    }
+
+    private fun getOrCreateOpenAICompatibleModel(
+        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig, provider: String?
+    ): BrowserChatModel {
+        val generation = ChatGenerationSettings.from(conf, provider)
         // Protocol-prefixed: the Anthropic-compatible builder below used to share
         // this exact key, so a gateway serving both protocols could hand back an
         // OpenAI client for an Anthropic request.
-        val key = "openai:$modelName:$apiKey:$baseUrl"
-        return cachedModel(key) { createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf) }
+        val key = "openai:$modelName:$apiKey:$baseUrl:${generation.cacheKey()}"
+        return cachedModel(key) { createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf, generation, provider) }
     }
 
     /**
@@ -702,14 +710,17 @@ see the [LLM configuration documentation]($${path}).
         // bypassed by this entry point.  When unset, the builder's own default is
         // kept, because the provider default (`https://api.anthropic.com`) and that
         // default are not guaranteed to be spelled the same way.
+        val generation = ChatGenerationSettings.from(conf, "anthropic")
         val configuredBaseUrl = configuredBaseUrl("anthropic", conf)
         if (configuredBaseUrl == null) {
-            val key = "anthropic:$modelName:$apiKey"
-            return cachedModel(key) { createAnthropicChatModel(modelName, apiKey, conf) }
+            val key = "anthropic:$modelName:$apiKey::${generation.cacheKey()}"
+            return cachedModel(key) { createAnthropicChatModel(modelName, apiKey, conf, generation) }
         }
 
-        val key = "anthropic:$modelName:$apiKey:$configuredBaseUrl"
-        return cachedModel(key) { createAnthropicCompatibleModel0(modelName, apiKey, configuredBaseUrl, conf) }
+        val key = "anthropic:$modelName:$apiKey:$configuredBaseUrl:${generation.cacheKey()}"
+        return cachedModel(key) {
+            createAnthropicCompatibleModel0(modelName, apiKey, configuredBaseUrl, conf, generation, "anthropic")
+        }
     }
 
     /**
@@ -722,12 +733,19 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateGeminiModel(
         modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
+        return getOrCreateGeminiModel(modelName, apiKey, conf, "gemini")
+    }
+
+    private fun getOrCreateGeminiModel(
+        modelName: String, apiKey: String, conf: ImmutableConfig, provider: String
+    ): BrowserChatModel {
         // Only an explicitly configured endpoint is passed through: the builder's
         // own default already carries the right API version, and re-stating the
         // registry default here could silently drop it.
+        val generation = ChatGenerationSettings.from(conf, provider)
         val configuredBaseUrl = configuredBaseUrl("gemini", conf)
-        val key = "gemini:$modelName:$apiKey:${configuredBaseUrl ?: ""}"
-        return cachedModel(key) { createGeminiChatModel(modelName, apiKey, configuredBaseUrl, conf) }
+        val key = "$provider:$modelName:$apiKey:${configuredBaseUrl ?: ""}:${generation.cacheKey()}"
+        return cachedModel(key) { createGeminiChatModel(modelName, apiKey, configuredBaseUrl, conf, generation) }
     }
 
     /**
@@ -746,10 +764,13 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateMinimaxModel(
         modelName: String, apiKey: String, conf: ImmutableConfig
     ): BrowserChatModel {
+        val generation = ChatGenerationSettings.from(conf, "minimax")
         val config = findProviderConfig("minimax", conf)
         val baseUrl = config?.let { effectiveBaseUrl(it, conf) } ?: DEFAULT_MINIMAX_BASE_URL
-        val key = "minimax:$modelName:$apiKey:$baseUrl"
-        return cachedModel(key) { createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf) }
+        val key = "minimax:$modelName:$apiKey:$baseUrl:${generation.cacheKey()}"
+        return cachedModel(key) {
+            createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf, generation, "minimax")
+        }
     }
 
     /**
@@ -766,10 +787,19 @@ see the [LLM configuration documentation]($${path}).
     fun getOrCreateAnthropicCompatibleModel(
         modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
     ): BrowserChatModel {
+        return getOrCreateAnthropicCompatibleModel(modelName, apiKey, baseUrl, conf, provider = null)
+    }
+
+    private fun getOrCreateAnthropicCompatibleModel(
+        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig, provider: String?
+    ): BrowserChatModel {
+        val generation = ChatGenerationSettings.from(conf, provider)
         // Must stay distinct from the OpenAI-compatible key for the same tuple: a
         // gateway can serve both protocols under one base URL and one key.
-        val key = "anthropic:$modelName:$apiKey:$baseUrl"
-        return cachedModel(key) { createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf) }
+        val key = "anthropic:$modelName:$apiKey:$baseUrl:${generation.cacheKey()}"
+        return cachedModel(key) {
+            createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf, generation, provider)
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -975,11 +1005,11 @@ see the [LLM configuration documentation]($${path}).
 
         return when (selection.apiProtocol) {
             ApiProtocol.OPENAI ->
-                getOrCreateOpenAICompatibleModel(selection.modelName, apiKey, selection.baseUrl, conf)
+                getOrCreateOpenAICompatibleModel(selection.modelName, apiKey, selection.baseUrl, conf, selection.provider)
             ApiProtocol.ANTHROPIC ->
-                getOrCreateAnthropicCompatibleModel(selection.modelName, apiKey, selection.baseUrl, conf)
+                getOrCreateAnthropicCompatibleModel(selection.modelName, apiKey, selection.baseUrl, conf, selection.provider)
             ApiProtocol.GEMINI ->
-                getOrCreateGeminiModel(selection.modelName, apiKey, conf)
+                getOrCreateGeminiModel(selection.modelName, apiKey, conf, selection.provider)
         }
     }
 
@@ -1055,9 +1085,10 @@ see the [LLM configuration documentation]($${path}).
         // provider that changed protocol on a registry reload kept its old client.
         val config = findProviderConfig(canonical, conf)
         val baseUrl = config?.let { effectiveBaseUrl(it, conf) } ?: DEFAULT_OPENAI_BASE_URL
+        val generation = ChatGenerationSettings.from(conf, canonical)
 
-        val key = "$canonical:${config?.apiProtocol ?: ApiProtocol.OPENAI}:$modelName:$apiKey:$baseUrl"
-        return cachedModel(key) { doCreateModel(canonical, config, modelName, apiKey, baseUrl, conf) }
+        val key = "$canonical:${config?.apiProtocol ?: ApiProtocol.OPENAI}:$modelName:$apiKey:$baseUrl:${generation.cacheKey()}"
+        return cachedModel(key) { doCreateModel(canonical, config, modelName, apiKey, baseUrl, conf, generation) }
     }
 
     /**
@@ -1076,7 +1107,7 @@ see the [LLM configuration documentation]($${path}).
      */
     private fun doCreateModel(
         provider: String, config: ProviderConfig?, modelName: String, apiKey: String,
-        baseUrl: String, conf: ImmutableConfig
+        baseUrl: String, conf: ImmutableConfig, generation: ChatGenerationSettings
     ): BrowserChatModel {
         logger.info(
             "Creating LLM with provider and model name | {} {} {}",
@@ -1093,7 +1124,7 @@ see the [LLM configuration documentation]($${path}).
             )
         }
 
-        return dispatchProtocol(config?.apiProtocol ?: ApiProtocol.OPENAI, modelName, apiKey, baseUrl, conf)
+        return dispatchProtocol(config?.apiProtocol ?: ApiProtocol.OPENAI, modelName, apiKey, baseUrl, conf, generation, provider)
     }
 
     /**
@@ -1105,13 +1136,15 @@ see the [LLM configuration documentation]($${path}).
      * surprises.
      */
     private fun dispatchProtocol(
-        protocol: ApiProtocol, modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
+        protocol: ApiProtocol, modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig,
+        generation: ChatGenerationSettings, provider: String
     ): BrowserChatModel {
         return when (protocol) {
-            ApiProtocol.OPENAI -> createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf)
-            ApiProtocol.ANTHROPIC -> createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf)
+            ApiProtocol.OPENAI -> createOpenAICompatibleModel0(modelName, apiKey, baseUrl, conf, generation, provider)
+            ApiProtocol.ANTHROPIC ->
+                createAnthropicCompatibleModel0(modelName, apiKey, baseUrl, conf, generation, provider)
             ApiProtocol.GEMINI ->
-                createGeminiChatModel(modelName, apiKey, configuredBaseUrl("gemini", conf), conf)
+                createGeminiChatModel(modelName, apiKey, configuredBaseUrl("gemini", conf), conf, generation)
         }
     }
 
@@ -1119,17 +1152,94 @@ see the [LLM configuration documentation]($${path}).
     // Provider-specific builders
     // ---------------------------------------------------------------------------
 
+    internal fun anthropicThinkingParameters(
+        settings: ChatGenerationSettings, provider: String?
+    ): Pair<String, Int>? {
+        if (settings.reasoningEffort != null) {
+            unsupportedGenerationSetting(
+                provider, "Anthropic", LLM_REASONING_EFFORT, LLM_REASONING_BUDGET_TOKENS
+            )
+        }
+        return settings.reasoningBudgetTokens?.let { "enabled" to it }
+    }
+
+    internal fun geminiThinkingConfig(settings: ChatGenerationSettings): GeminiThinkingConfig? {
+        if (settings.reasoningEffort == null && settings.reasoningBudgetTokens == null) {
+            return null
+        }
+
+        val builder = GeminiThinkingConfig.builder()
+        settings.reasoningEffort?.let {
+            builder.thinkingLevel(GeminiThinkingConfig.GeminiThinkingLevel.valueOf(it.name))
+        }
+        settings.reasoningBudgetTokens?.let { builder.thinkingBudget(it) }
+        return builder.build()
+    }
+
+    private fun unsupportedGenerationSetting(
+        provider: String?, protocol: String, key: String, alternative: String
+    ): Nothing {
+        val name = provider ?: protocol
+        throw IllegalArgumentException(
+            "LLM provider '$name' using the $protocol protocol does not support '$key'; use '$alternative' instead"
+        )
+    }
+
+    private fun configureAnthropicGeneration(
+        builder: AnthropicChatModel.AnthropicChatModelBuilder,
+        settings: ChatGenerationSettings,
+        provider: String?,
+    ) {
+        settings.temperature?.let { builder.temperature(it) }
+        settings.topP?.let { builder.topP(it) }
+        settings.maxOutputTokens?.let { builder.maxTokens(it) }
+        settings.stopSequences?.let { builder.stopSequences(it) }
+        anthropicThinkingParameters(settings, provider)?.let { (type, budget) ->
+            builder.thinkingType(type).thinkingBudgetTokens(budget)
+        }
+    }
+
+    private fun configureGeminiGeneration(
+        builder: GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder,
+        settings: ChatGenerationSettings,
+    ) {
+        settings.temperature?.let { builder.temperature(it) }
+        settings.topP?.let { builder.topP(it) }
+        settings.maxOutputTokens?.let { builder.maxOutputTokens(it) }
+        settings.stopSequences?.let { builder.stopSequences(it) }
+        geminiThinkingConfig(settings)?.let { builder.thinkingConfig(it) }
+    }
+
+    private fun configureOpenAIGeneration(
+        builder: OpenAiChatModel.OpenAiChatModelBuilder,
+        settings: ChatGenerationSettings,
+        provider: String?,
+    ) {
+        if (settings.reasoningBudgetTokens != null) {
+            unsupportedGenerationSetting(
+                provider, "OpenAI-compatible", LLM_REASONING_BUDGET_TOKENS, LLM_REASONING_EFFORT
+            )
+        }
+        settings.temperature?.let { builder.temperature(it) }
+        settings.topP?.let { builder.topP(it) }
+        settings.maxOutputTokens?.let { builder.maxTokens(it) }
+        settings.stopSequences?.let { builder.stop(it) }
+        settings.reasoningEffort?.let { builder.reasoningEffort(it.wireValue) }
+    }
+
     /**
      * Anthropic Claude via the native [AnthropicChatModel].
      *
      * @see <a href="https://docs.anthropic.com/en/api">Anthropic API</a>
      */
     private fun createAnthropicChatModel(
-        modelName: String, apiKey: String, conf: ImmutableConfig
+        modelName: String, apiKey: String, conf: ImmutableConfig, generation: ChatGenerationSettings
     ): BrowserChatModel {
-        val lm = AnthropicChatModel.builder()
+        val builder = AnthropicChatModel.builder()
             .apiKey(apiKey)
             .modelName(modelName)
+        configureAnthropicGeneration(builder, generation, "anthropic")
+        val lm = builder
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
             .build()
@@ -1144,12 +1254,15 @@ see the [LLM configuration documentation]($${path}).
      * builder by supplying the appropriate [baseUrl].
      */
     private fun createAnthropicCompatibleModel0(
-        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
+        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig,
+        generation: ChatGenerationSettings, provider: String?
     ): BrowserChatModel {
-        val lm = AnthropicChatModel.builder()
+        val builder = AnthropicChatModel.builder()
             .apiKey(apiKey)
             .baseUrl(baseUrl)
             .modelName(modelName)
+        configureAnthropicGeneration(builder, generation, provider)
+        val lm = builder
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
             .build()
@@ -1165,7 +1278,8 @@ see the [LLM configuration documentation]($${path}).
      * @see <a href="https://ai.google.dev/gemini-api/docs">Gemini API</a>
      */
     private fun createGeminiChatModel(
-        modelName: String, apiKey: String, baseUrl: String?, conf: ImmutableConfig
+        modelName: String, apiKey: String, baseUrl: String?, conf: ImmutableConfig,
+        generation: ChatGenerationSettings
     ): BrowserChatModel {
         val builder = GoogleAiGeminiChatModel.builder()
             .apiKey(apiKey)
@@ -1173,6 +1287,7 @@ see the [LLM configuration documentation]($${path}).
         if (baseUrl != null) {
             builder.baseUrl(baseUrl)
         }
+        configureGeminiGeneration(builder, generation)
         val lm = builder
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
@@ -1188,14 +1303,17 @@ see the [LLM configuration documentation]($${path}).
      * endpoint, so [OpenAiChatModel] works for all of them.
      */
     private fun createOpenAICompatibleModel0(
-        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig
+        modelName: String, apiKey: String, baseUrl: String, conf: ImmutableConfig,
+        generation: ChatGenerationSettings, provider: String?
     ): BrowserChatModel {
-        val lm = OpenAiChatModel.builder()
+        val builder = OpenAiChatModel.builder()
             .apiKey(apiKey)
             .baseUrl(baseUrl)
             .modelName(modelName)
             .logRequests(true)
             .logResponses(true)
+        configureOpenAIGeneration(builder, generation, provider)
+        val lm = builder
             .maxRetries(2)
             .timeout(Duration.ofSeconds(90))
             .build()

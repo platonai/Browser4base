@@ -339,6 +339,12 @@ public interface CapabilityTypes {
     String LLM_PROVIDER = "llm.provider";
     String LLM_NAME = "llm.name";
     String LLM_API_KEY = "llm.apiKey";
+    String LLM_TEMPERATURE = "llm.temperature";
+    String LLM_TOP_P = "llm.top.p";
+    String LLM_MAX_OUTPUT_TOKENS = "llm.max.output.tokens";
+    String LLM_STOP_SEQUENCES = "llm.stop.sequences";
+    String LLM_REASONING_EFFORT = "llm.reasoning.effort";
+    String LLM_REASONING_BUDGET_TOKENS = "llm.reasoning.budget.tokens";
     /**
      * Comma-separated list of provider names to block (e.g. "openai,zhipu,minimax").
      * Denied providers are excluded from auto-detection and rejected on explicit creation.

@@ -773,16 +773,16 @@ println(model1 === model3)  // false — different model name
 
 | Method                                  | Cache Key                                                 |
 |-----------------------------------------|-----------------------------------------------------------|
-| `getOrCreate(provider, model, key)`     | `{canonical-provider}:{protocol}:{model}:{key}:{baseUrl}` |
-| `getOrCreateOpenAICompatibleModel()`    | `openai:{model}:{key}:{baseUrl}`                          |
-| `getOrCreateAnthropicCompatibleModel()` | `anthropic:{model}:{key}:{baseUrl}`                       |
-| `getOrCreateAnthropicModel()`           | `anthropic:{model}:{key}` (+ `:{baseUrl}` when configured) |
-| `getOrCreateGeminiModel()`              | `gemini:{model}:{key}` (+ `:{baseUrl}` when configured)    |
-| `getOrCreateMinimaxModel()`             | `minimax:{model}:{key}:{baseUrl}`                         |
+| `getOrCreate(provider, model, key)`     | `{canonical-provider}:{protocol}:{model}:{key}:{baseUrl}:{generation}` |
+| `getOrCreateOpenAICompatibleModel()`    | `openai:{model}:{key}:{baseUrl}:{generation}`                          |
+| `getOrCreateAnthropicCompatibleModel()` | `anthropic:{model}:{key}:{baseUrl}:{generation}`                       |
+| `getOrCreateAnthropicModel()`           | `anthropic:{model}:{key}:{baseUrl?}:{generation}`                      |
+| `getOrCreateGeminiModel()`              | `gemini:{model}:{key}:{baseUrl?}:{generation}`                         |
+| `getOrCreateMinimaxModel()`             | `minimax:{model}:{key}:{baseUrl}:{generation}`                         |
 
-Every key names the protocol and the endpoint, so two protocols or two endpoints never share an
-entry — a dual-protocol gateway can serve OpenAI and Anthropic requests under one host and one key
-without the two clients being confused for each other.
+`generation` is the complete effective generation configuration, including provider overrides. Every key
+also names the protocol and the endpoint, so different protocols, endpoints, temperatures, output limits,
+or reasoning settings never share an entry. Identical configurations continue to reuse one client.
 
 The cache is a bounded LRU: at most `ChatModelFactory.maxCachedModels` (default 128) instances are
 kept and the least recently used one is evicted.  Evicted instances are not closed.

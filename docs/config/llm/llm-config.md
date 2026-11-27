@@ -596,6 +596,48 @@ ChatModelFactory.resetMessagesToDefaults()
 ChatModelFactory.resetProviders()
 ```
 
+## Generation and Reasoning Parameters
+
+All generation parameters are unset by default. When a parameter is absent, Browser4 does not set the
+corresponding client builder option, so the provider and LangChain4j defaults remain unchanged.
+
+```properties
+# Global defaults
+llm.temperature=0.2
+llm.top.p=0.9
+llm.max.output.tokens=4096
+llm.stop.sequences=END,STOP
+
+# Provider-specific reasoning settings
+llm.provider.openai.reasoning.effort=high
+llm.provider.anthropic.reasoning.budget.tokens=4096
+llm.provider.gemini.reasoning.effort=medium
+llm.provider.gemini.reasoning.budget.tokens=4096
+```
+
+Provider-specific keys use the canonical provider name and take priority over global keys. For example,
+`llm.provider.openai.temperature` overrides `llm.temperature` only for OpenAI. Use `bailian` for Alibaba
+Model Studio rather than its `dashscope` alias. Relaxed configuration is supported, so
+`llm.reasoning.effort` can also be supplied as `LLM_REASONING_EFFORT`.
+
+| Global key | Values | OpenAI-compatible | Anthropic-compatible | Gemini |
+| --- | --- | --- | --- | --- |
+| `llm.temperature` | Finite number | `temperature` | `temperature` | `temperature` |
+| `llm.top.p` | Finite number | `topP` | `topP` | `topP` |
+| `llm.max.output.tokens` | Positive integer | `maxTokens` | `maxTokens` | `maxOutputTokens` |
+| `llm.stop.sequences` | Comma-separated strings | `stop` | `stopSequences` | `stopSequences` |
+| `llm.reasoning.effort` | `minimal`, `low`, `medium`, `high` | `reasoningEffort` | Not supported | `thinkingLevel` |
+| `llm.reasoning.budget.tokens` | Positive integer | Not supported | Enables thinking with the token budget | `thinkingBudget` |
+
+Reasoning effort is case-insensitive. Token limits and budgets must be positive integers. Invalid values
+fail with an error naming the offending key. Configuring reasoning effort for Anthropic or a reasoning
+token budget for OpenAI also fails at model creation instead of silently ignoring the setting; use the
+supported alternative shown in the table.
+
+Browser4 passes supported settings to the selected client, but the provider still decides whether a
+particular model accepts them. When using multiple providers, prefer provider-specific reasoning keys
+over a global reasoning setting that is unsupported by one of those providers.
+
 ## Token Limit Configuration
 
 Override the default maximum input token length:
@@ -617,8 +659,9 @@ llm.response.cache.ttl=600
 
 ## Model Cache
 
-Created clients are cached per (provider, protocol, model, API key, base URL) combination and
-reused, so a given selection is built once even when it is resolved on every chat call.
+Created clients are cached per (provider, protocol, model, API key, base URL, effective generation settings)
+combination and reused, so a given selection is built once even when it is resolved on every chat call.
+Changing any generation or reasoning setting selects a different client; identical settings still share one.
 
 The cache is a bounded LRU: at most `ChatModelFactory.maxCachedModels` instances (default 128)
 are kept, and the least recently used one is evicted beyond that.  Evicted instances are not

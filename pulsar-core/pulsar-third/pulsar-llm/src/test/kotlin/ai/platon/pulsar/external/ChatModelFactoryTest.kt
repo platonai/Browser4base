@@ -2,9 +2,13 @@ package ai.platon.pulsar.external
 
 import ai.platon.pulsar.common.AppFiles
 import ai.platon.pulsar.common.AppPaths
+import ai.platon.pulsar.common.config.CapabilityTypes.*
 import ai.platon.pulsar.common.config.ImmutableConfig
 import ai.platon.pulsar.common.config.MutableConfig
 import ai.platon.pulsar.external.impl.CachedBrowserChatModel
+import dev.langchain4j.model.anthropic.AnthropicChatModel
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel
+import dev.langchain4j.model.openai.OpenAiChatModel
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -1801,6 +1805,181 @@ class ChatModelFactoryTest {
             )
             assertEquals(winner.second, selection.apiKeyName)
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Generation settings and thinking configuration
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Empty generation settings should preserve OpenAI builder defaults")
+    fun emptyGenerationSettingsShouldPreserveOpenAiBuilderDefaults() {
+        val model = ChatModelFactory.getOrCreate(
+            "openai", "empty-generation-${System.nanoTime()}", "test-key-12345", IsolatedLlmConfig()
+        ) as CachedBrowserChatModel
+        val langchainModel = assertInstanceOf(OpenAiChatModel::class.java, model.langchainModel)
+        val parameters = langchainModel.defaultRequestParameters()
+
+        assertNull(parameters.temperature())
+        assertNull(parameters.topP())
+        assertNull(parameters.maxOutputTokens())
+        assertEquals(emptyList<String>(), parameters.stopSequences())
+        assertNull(parameters.reasoningEffort())
+        assertNull(ChatModelFactory.geminiThinkingConfig(ChatGenerationSettings()))
+        assertNull(ChatModelFactory.anthropicThinkingParameters(ChatGenerationSettings(), "anthropic"))
+    }
+
+    @Test
+    @DisplayName("OpenAI builder should apply provider generation settings")
+    fun openAiBuilderShouldApplyProviderGenerationSettings() {
+        val conf = IsolatedLlmConfig().apply {
+            set("llm.provider.openai.temperature", "0.2")
+            set("llm.provider.openai.top.p", "0.9")
+            set("llm.provider.openai.max.output.tokens", "4096")
+            set("llm.provider.openai.stop.sequences", "END,STOP")
+            set("llm.provider.openai.reasoning.effort", "high")
+        }
+        val model = ChatModelFactory.getOrCreate(
+            "openai", "openai-generation-${System.nanoTime()}", "test-key-12345", conf
+        ) as CachedBrowserChatModel
+        val langchainModel = assertInstanceOf(OpenAiChatModel::class.java, model.langchainModel)
+        val parameters = langchainModel.defaultRequestParameters()
+
+        assertEquals(0.2, parameters.temperature())
+        assertEquals(0.9, parameters.topP())
+        assertEquals(4096, parameters.maxOutputTokens())
+        assertEquals(listOf("END", "STOP"), parameters.stopSequences())
+        assertEquals("high", parameters.reasoningEffort())
+    }
+
+    @Test
+    @DisplayName("Anthropic builder should apply generation and thinking budget settings")
+    fun anthropicBuilderShouldApplyGenerationAndThinkingBudgetSettings() {
+        val conf = IsolatedLlmConfig().apply {
+            set("llm.provider.anthropic.temperature", "0.3")
+            set("llm.provider.anthropic.top.p", "0.8")
+            set("llm.provider.anthropic.max.output.tokens", "2048")
+            set("llm.provider.anthropic.stop.sequences", "END")
+            set("llm.provider.anthropic.reasoning.budget.tokens", "1024")
+        }
+        val model = ChatModelFactory.getOrCreateAnthropicModel(
+            "anthropic-generation-${System.nanoTime()}", "test-key-12345", conf
+        ) as CachedBrowserChatModel
+        val langchainModel = assertInstanceOf(AnthropicChatModel::class.java, model.langchainModel)
+        val parameters = langchainModel.defaultRequestParameters()
+
+        assertEquals(0.3, parameters.temperature())
+        assertEquals(0.8, parameters.topP())
+        assertEquals(2048, parameters.maxOutputTokens())
+        assertEquals(listOf("END"), parameters.stopSequences())
+        assertEquals(
+            "enabled" to 1024,
+            ChatModelFactory.anthropicThinkingParameters(ChatGenerationSettings.from(conf, "anthropic"), "anthropic")
+        )
+    }
+
+    @Test
+    @DisplayName("Gemini builder should apply generation and thinking settings")
+    fun geminiBuilderShouldApplyGenerationAndThinkingSettings() {
+        val conf = IsolatedLlmConfig().apply {
+            set("llm.provider.gemini.temperature", "0.4")
+            set("llm.provider.gemini.top.p", "0.7")
+            set("llm.provider.gemini.max.output.tokens", "1024")
+            set("llm.provider.gemini.stop.sequences", "END")
+            set("llm.provider.gemini.reasoning.effort", "medium")
+            set("llm.provider.gemini.reasoning.budget.tokens", "512")
+        }
+        val model = ChatModelFactory.getOrCreateGeminiModel(
+            "gemini-generation-${System.nanoTime()}", "test-key-12345", conf
+        ) as CachedBrowserChatModel
+        val langchainModel = assertInstanceOf(GoogleAiGeminiChatModel::class.java, model.langchainModel)
+        val parameters = langchainModel.defaultRequestParameters()
+        val thinking = ChatModelFactory.geminiThinkingConfig(ChatGenerationSettings.from(conf, "gemini"))
+
+        assertEquals(0.4, parameters.temperature())
+        assertEquals(0.7, parameters.topP())
+        assertEquals(1024, parameters.maxOutputTokens())
+        assertEquals(listOf("END"), parameters.stopSequences())
+        assertNotNull(thinking)
+        assertEquals(ReasoningEffort.MEDIUM.wireValue, thinking!!.thinkingLevel())
+        assertEquals(512, thinking.thinkingBudget())
+    }
+
+    @Test
+    @DisplayName("Custom Gemini selection should use canonical provider generation settings")
+    fun customGeminiSelectionShouldUseCanonicalProviderGenerationSettings() {
+        val provider = "custom-gemini-generation"
+        val apiKeyName = "CUSTOM_GEMINI_GENERATION_API_KEY"
+        val modelName = "custom-gemini-${System.nanoTime()}"
+        ChatModelFactory.registerProvider(ProviderConfig(
+            apiKeyName = apiKeyName,
+            modelNameKey = "CUSTOM_GEMINI_GENERATION_MODEL_NAME",
+            baseUrlKey = "CUSTOM_GEMINI_GENERATION_BASE_URL",
+            defaultModel = modelName,
+            defaultBaseUrl = "https://custom-gemini.example.com",
+            providerName = provider,
+            apiProtocol = ApiProtocol.GEMINI,
+        ))
+        val conf = IsolatedLlmConfig().apply {
+            set(apiKeyName, "test-key-12345")
+            set("llm.provider.$provider.temperature", "0.2")
+        }
+
+        val autoDetected = ChatModelFactory.getOrCreate(conf) as CachedBrowserChatModel
+        val autoParameters = assertInstanceOf(
+            GoogleAiGeminiChatModel::class.java, autoDetected.langchainModel
+        ).defaultRequestParameters()
+        assertEquals(0.2, autoParameters.temperature())
+
+        conf[LLM_PROVIDER] = provider
+        val explicitlySelected = ChatModelFactory.getOrCreate(conf) as CachedBrowserChatModel
+        val explicitParameters = assertInstanceOf(
+            GoogleAiGeminiChatModel::class.java, explicitlySelected.langchainModel
+        ).defaultRequestParameters()
+        assertEquals(0.2, explicitParameters.temperature())
+    }
+
+    @Test
+    @DisplayName("Unsupported reasoning settings should fail before model creation")
+    fun unsupportedReasoningSettingsShouldFailBeforeModelCreation() {
+        val openAiConf = IsolatedLlmConfig().apply { set(LLM_REASONING_BUDGET_TOKENS, "1024") }
+        val openAiError = assertThrows(IllegalArgumentException::class.java) {
+            ChatModelFactory.getOrCreateOpenAICompatibleModel(
+                "unsupported-openai-${System.nanoTime()}", "test-key-12345", "https://gateway.example.com", openAiConf
+            )
+        }
+        assertTrue(openAiError.message!!.contains(LLM_REASONING_BUDGET_TOKENS))
+        assertTrue(openAiError.message!!.contains(LLM_REASONING_EFFORT))
+
+        val anthropicConf = IsolatedLlmConfig().apply { set(LLM_REASONING_EFFORT, "high") }
+        val anthropicError = assertThrows(IllegalArgumentException::class.java) {
+            ChatModelFactory.getOrCreateAnthropicModel(
+                "unsupported-anthropic-${System.nanoTime()}", "test-key-12345", anthropicConf
+            )
+        }
+        assertTrue(anthropicError.message!!.contains(LLM_REASONING_EFFORT))
+        assertTrue(anthropicError.message!!.contains(LLM_REASONING_BUDGET_TOKENS))
+    }
+
+    @Test
+    @DisplayName("Generation settings should isolate cached model instances")
+    fun generationSettingsShouldIsolateCachedModelInstances() {
+        val modelName = "generation-cache-${System.nanoTime()}"
+        val low = IsolatedLlmConfig().apply {
+            set(LLM_TEMPERATURE, "0.1")
+            set(LLM_REASONING_EFFORT, "low")
+        }
+        val high = IsolatedLlmConfig().apply {
+            set(LLM_TEMPERATURE, "0.2")
+            set(LLM_REASONING_EFFORT, "high")
+        }
+
+        val lowModel = ChatModelFactory.getOrCreate("openai", modelName, "test-key-12345", low)
+        val highModel = ChatModelFactory.getOrCreate("openai", modelName, "test-key-12345", high)
+
+        assertNotSame(lowModel, highModel)
+        assertSame(lowModel, ChatModelFactory.getOrCreate("openai", modelName, "test-key-12345", low))
+        assertSame(highModel, ChatModelFactory.getOrCreate("openai", modelName, "test-key-12345", high))
     }
 
     // ---------------------------------------------------------------------------
