@@ -42,20 +42,20 @@ class ChromeDevToolsImplReconnectTest {
         }
     }
 
-    private fun newDevTools(browserTransport: Transport, pageTransport: Transport) =
-        ChromeDevToolsImpl(browserTransport, pageTransport, DevToolsConfig())
+    private fun newDevTools(browserTransport: Transport, targetTransport: Transport) =
+        ChromeDevToolsImpl(browserTransport, targetTransport, DevToolsConfig())
 
     @Test
     fun `reconnect reconnects the dead page transport`() {
         runBlocking {
             val browserTransport = FakeTransport(true)
-            val pageTransport = FakeTransport(false)
+            val targetTransport = FakeTransport(false)
 
-            val devTools = newDevTools(browserTransport, pageTransport)
+            val devTools = newDevTools(browserTransport, targetTransport)
             assertTrue(devTools.reconnect())
-            assertTrue(pageTransport.isOpen)
+            assertTrue(targetTransport.isOpen)
             assertTrue(browserTransport.isOpen)
-            assertTrue(pageTransport.reconnectCalls == 1)
+            assertTrue(targetTransport.reconnectCalls == 1)
             assertTrue(browserTransport.reconnectCalls == 0)
         }
     }
@@ -64,13 +64,13 @@ class ChromeDevToolsImplReconnectTest {
     fun `reconnect reconnects both transports when both are dead`() {
         runBlocking {
             val browserTransport = FakeTransport(false)
-            val pageTransport = FakeTransport(false)
+            val targetTransport = FakeTransport(false)
 
-            val devTools = newDevTools(browserTransport, pageTransport)
+            val devTools = newDevTools(browserTransport, targetTransport)
             assertTrue(devTools.reconnect())
-            assertTrue(pageTransport.isOpen)
+            assertTrue(targetTransport.isOpen)
             assertTrue(browserTransport.isOpen)
-            assertTrue(pageTransport.reconnectCalls == 1)
+            assertTrue(targetTransport.reconnectCalls == 1)
             assertTrue(browserTransport.reconnectCalls == 1)
         }
     }
@@ -79,11 +79,11 @@ class ChromeDevToolsImplReconnectTest {
     fun `reconnect is a no-op when everything is already open`() {
         runBlocking {
             val browserTransport = FakeTransport(true)
-            val pageTransport = FakeTransport(true)
+            val targetTransport = FakeTransport(true)
 
-            val devTools = newDevTools(browserTransport, pageTransport)
+            val devTools = newDevTools(browserTransport, targetTransport)
             assertTrue(devTools.reconnect())
-            assertTrue(pageTransport.reconnectCalls == 0)
+            assertTrue(targetTransport.reconnectCalls == 0)
             assertTrue(browserTransport.reconnectCalls == 0)
         }
     }
@@ -92,16 +92,16 @@ class ChromeDevToolsImplReconnectTest {
     fun `reconnect fails when the page transport cannot reconnect`() {
         runBlocking {
             val browserTransport = FakeTransport(true)
-            val pageTransport = object : FakeTransport(false) {
+            val targetTransport = object : FakeTransport(false) {
                 override suspend fun reconnect(): Boolean {
                     reconnectCalls++
                     return false // stays closed
                 }
             }
 
-            val devTools = newDevTools(browserTransport, pageTransport)
+            val devTools = newDevTools(browserTransport, targetTransport)
             assertFalse(devTools.reconnect())
-            assertFalse(pageTransport.isOpen)
+            assertFalse(targetTransport.isOpen)
         }
     }
 }

@@ -254,8 +254,8 @@ internal class WebSocketChromeImpl(
         val browserTransport = KtorTransport.create(URI.create(browserWebSocketUrl))
         val pageUrl = tab.webSocketDebuggerUrl?.takeIf { it.isNotBlank() }
             ?: pageWebSocketUrl(host, port, tab.id)
-        val pageTransport = KtorTransport.create(URI.create(pageUrl))
-        return ChromeDevToolsImpl(browserTransport, pageTransport, config)
+        val targetTransport = KtorTransport.create(URI.create(pageUrl))
+        return ChromeDevToolsImpl(browserTransport, targetTransport, config)
     }
 
     private fun browserCommand(method: String, params: Map<String, Any?> = emptyMap()): JsonNode {

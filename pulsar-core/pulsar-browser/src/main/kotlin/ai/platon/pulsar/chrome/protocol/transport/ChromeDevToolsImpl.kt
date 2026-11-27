@@ -48,7 +48,7 @@ internal class DomainProxyCache(impl: Any) {
 
 internal class ChromeDevToolsImpl(
     private val browserTransport: Transport,
-    private val pageTransport: Transport,
+    private val targetTransport: Transport,
     private val config: DevToolsConfig
 ) : RemoteDevTools, AutoCloseable {
 
@@ -74,7 +74,7 @@ internal class ChromeDevToolsImpl(
 
     private val closeLatch = CountDownLatch(1)
     private val closed = AtomicBoolean()
-    override val isOpen get() = !closed.get() && pageTransport.isOpen
+    override val isOpen get() = !closed.get() && targetTransport.isOpen
 
     private val dispatcher = EventDispatcher()
 
@@ -83,7 +83,7 @@ internal class ChromeDevToolsImpl(
 
     init {
         browserTransport.addMessageHandler(dispatcher)
-        pageTransport.addMessageHandler(dispatcher)
+        targetTransport.addMessageHandler(dispatcher)
         // Circular reference: allow command handler to call back into devTools.invoke()
         domainCache.commandHandler.devTools = this
     }
@@ -94,16 +94,16 @@ internal class ChromeDevToolsImpl(
      * listeners survive — transports retain their message consumers across
      * reconnects, so events keep flowing once the new sessions are up.
      *
-     * @return true when both the browser and page transports are open again
+     * @return true when both the browser and target transports are open again
      */
     override suspend fun reconnect(): Boolean {
         if (closed.get()) return false
-        if (pageTransport.isOpen && browserTransport.isOpen) return true
+        if (targetTransport.isOpen && browserTransport.isOpen) return true
 
         return runCatching {
             if (!browserTransport.isOpen) browserTransport.reconnect()
-            if (!pageTransport.isOpen) pageTransport.reconnect()
-            pageTransport.isOpen && browserTransport.isOpen
+            if (!targetTransport.isOpen) targetTransport.reconnect()
+            targetTransport.isOpen && browserTransport.isOpen
         }.getOrDefault(false)
     }
 
@@ -293,7 +293,7 @@ internal class ChromeDevToolsImpl(
         if (method.startsWith("Target.")) {
             browserTransport.send(message)
         } else {
-            pageTransport.send(message)
+            targetTransport.send(message)
         }
     }
 
@@ -344,39 +344,25 @@ internal class ChromeDevToolsImpl(
 
     override fun close() {
         if (closed.compareAndSet(false, true)) {
-            // discard all furthers in dispatcher?
-            runCatching { runBlocking { doClose() } }.onFailure { warnForClose(this, it) }
+            // 1. Drain pending futures FIRST. dispatcher.close() calls
+            //    unsubscribeAll() which completes every pending CDP future with
+            //    RpcResult(false, null) — threads mid-evaluate() get unblocked
+            //    immediately instead of waiting for the transport-level
+            //    readTimeout (~30 s) to fire. RobustRPC then sees the failed
+            //    result and short-circuits its retry because quickCheckHealthy
+            //    returns non-OK once the driver is closed.
+            runCatching { dispatcher.close() }.onFailure { warnForClose(this, it) }
 
-            // Decrements the count of the latch, releasing all waiting threads if the count reaches zero.
-            // If the current count is greater than zero then it is decremented. If the new count is zero then all
-            // waiting threads are re-enabled for thread scheduling purposes.
-            // If the current count equals zero then nothing happens.
+            // 2. Then tear down the sockets. No runBlocking, no waitUntilIdle —
+            //    destroy semantics: we skip the old 10 s drain because
+            //    dispatcher.close() above already handles pending futures.
+            runCatching {
+                targetTransport.close()
+                browserTransport.close()
+            }.onFailure { warnForClose(this, it) }
+
             closeLatch.countDown()
         }
     }
 
-    @Throws(Exception::class)
-    private suspend fun doClose() {
-        // Use shorter timeout if both transports are already closed/inactive
-        // If either transport is still open, use full timeout for graceful shutdown
-        val shutdownWaitTimeout = if (pageTransport.isOpen || browserTransport.isOpen) {
-            Duration.ofSeconds(10)
-        } else {
-            Duration.ofSeconds(3)
-        }
-
-        waitUntilIdle(shutdownWaitTimeout)
-
-        logger.debug("Closing devtools client ...")
-
-        pageTransport.close()
-        browserTransport.close()
-    }
-
-    private suspend fun waitUntilIdle(timeout: Duration) {
-        val endTime = Instant.now().plus(timeout)
-        while (dispatcher.hasFutures() && Instant.now().isBefore(endTime)) {
-            delay(1.seconds)
-        }
-    }
 }

@@ -22,6 +22,11 @@ import ai.platon.pulsar.common.config.CapabilityTypes.BROWSER_REUSE_RECOVERED_DR
 import ai.platon.pulsar.common.urls.URLUtils
 import ai.platon.pulsar.common.warnForClose
 import ai.platon.pulsar.common.warnInterruptible
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
@@ -37,6 +42,15 @@ class PulsarBrowser(
     private val logger = LoggerFactory.getLogger(PulsarBrowser::class.java)
 
     private val closed = AtomicBoolean()
+
+    /**
+     * Tab ids that failed the per-target-WebSocket health check during
+     * unmanaged-page recovery. Once dead, a Chrome page target does not
+     * recover in practice, so we remember it to avoid re-probing on every
+     * subsequent recover() cycle (each probe costs a full health-check
+     * timeout). The set is bounded by Chrome's max tab count (~20k).
+     */
+    private val failedRecoveredTabIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private val toolsConfig = DevToolsConfig()
 
@@ -202,6 +216,7 @@ class PulsarBrowser(
      */
     fun newDriverForTab(tab: BrowserTab): PulsarWebDriver {
         return newDriverIfAbsent(tab, false)
+            ?: throw WebDriverException("newDriverForTab: failed to create driver for tab ${tab.url}")
     }
 
     @Synchronized
@@ -211,6 +226,7 @@ class PulsarBrowser(
             // In chrome every tab is a separate process
             val chromeTab = createTab(url)
             val driver = newDriverIfAbsent(chromeTab, false)
+                ?: throw WebDriverException("newDriver: failed to create driver for tab $url")
             // driver is newly created
             return driver
         } catch (e: ChromeIOException) {
@@ -277,7 +293,7 @@ class PulsarBrowser(
     /**
      * Create a new driver and add it to the driver tree.
      * */
-    private fun newDriverIfAbsent(chromeTab: BrowserTab, recovered: Boolean): PulsarWebDriver {
+    private fun newDriverIfAbsent(chromeTab: BrowserTab, recovered: Boolean): PulsarWebDriver? {
         // a Chrome tab id is like 'AE740895CB3F63220C3A3C751EF1F6E4'
         val uniqueID = chromeTab.id
         var driver = mutableDrivers[uniqueID]
@@ -285,14 +301,14 @@ class PulsarBrowser(
             return driver
         }
 
-        driver = doNewDriver(chromeTab, recovered)
+        driver = doNewDriver(chromeTab, recovered) ?: return null
 
         addToDriverTree(driver)
 
         return driver
     }
 
-    private fun doNewDriver(chromeTab: BrowserTab, recovered: Boolean): PulsarWebDriver {
+    private fun doNewDriver(chromeTab: BrowserTab, recovered: Boolean): PulsarWebDriver? {
         if (!recovered && reuseRecoveredDriver) {
             val driver = mutableRecoveredDrivers.values.firstOrNull { it is PulsarWebDriver && !it.isReused }
             if (driver is PulsarWebDriver) {
@@ -307,6 +323,43 @@ class PulsarBrowser(
         val devTools = createDevTools(chromeTab, toolsConfig)
         val browserProtocol = BrowserProtocol.create(devTools)
         val driver = PulsarWebDriver(uniqueID, chromeTab, browserProtocol, this)
+
+        // Validate per-target WebSocket before registering recovered drivers.
+        // After attach --cdp, Chrome may report page targets whose per-target WS
+        // accepts the WebSocket handshake but never dispatches CDP commands to
+        // the renderer process. A 1 s Page.getFrameTree ping tells us whether
+        // the target is actually usable; a dead tab is skipped here so it
+        // never enters the drivers map and cannot hang callers upstream.
+        //
+        // The result is cached in failedRecoveredTabIds — once a per-target WS
+        // fails a live ping, Chrome almost never revives it, so we avoid
+        // re-probing on every subsequent maintain() cycle (otherwise N dead
+        // tabs × 1 s on every maintain() is a growing waste).
+        if (recovered) {
+            val alive = runCatching {
+                runBlocking {
+                    withTimeoutOrNull(1_000L) { browserProtocol.isPageAlive() } ?: false
+                }
+            }.getOrDefault(false)
+
+            if (!alive) {
+                failedRecoveredTabIds.add(chromeTab.id)
+                logger.warn(
+                    "Skip recovered driver for tab {} — per-target WebSocket not responding",
+                    chromeTab.url
+                )
+                // Close the per-target WebSocket directly — DO NOT call
+                // driver.close(), which runs stop() → navigate(about:blank)
+                // over the same dead WS and can block for the transport-level
+                // timeout (~30s). At this point the driver has not navigated
+                // or enabled any CDP domains yet, so tearing down the transport
+                // alone is sufficient; the PulsarWebDriver object becomes
+                // garbage and carries no close-time side effects.
+                runCatching { browserProtocol.close() }
+                return null
+            }
+        }
+
         mutableDrivers[chromeTab.id] = driver
 
         // Post-construction hook: the driver now exists, so per-driver tuning (and the
@@ -368,11 +421,12 @@ class PulsarBrowser(
         val tabs = listTabs()
         // the tab id is the key of the driver in drivers
         tabs.filter { it.id !in drivers.keys } // it is not created yet
+            .filter { it.id !in failedRecoveredTabIds } // known-dead from prior probe
             .filter { it.isPageType() } // handler HTML document only
             .filter { URLUtils.isStandard(it.url) } // make sure the url is correct
             .forEach { tab ->
                 // create a new driver and associate it with the tab
-                val driver = newDriverIfAbsent(tab, true)
+                val driver = newDriverIfAbsent(tab, true) ?: return@forEach
                 reportNewDriver(tab, driver)
             }
     }
@@ -441,8 +495,16 @@ class PulsarBrowser(
 
         logger.info("Closing browser with {} drivers/devtools ... | {}", dyingDrivers.size, id.contextDir.toUri())
 
-        dyingDrivers.forEach { (id, driver) ->
-            kotlin.runCatching { driver.close() }.onFailure { warnForClose(this, it) }
+        // Close all drivers in parallel. Each KtorTransport.close() already
+        // has a runBlocking(IO) + withTimeout(3s) guard, so parallelism drops
+        // the total wall-clock time from N×3s to ≈3s (dominated by the
+        // slowest socket). Errors are isolated per driver via runCatching.
+        runBlocking {
+            dyingDrivers.map { (_, driver) ->
+                launch(Dispatchers.IO) {
+                    kotlin.runCatching { driver.close() }.onFailure { warnForClose(this@PulsarBrowser, it) }
+                }
+            }.joinAll()
         }
     }
 

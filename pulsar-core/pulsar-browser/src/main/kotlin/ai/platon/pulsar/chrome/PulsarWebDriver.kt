@@ -687,8 +687,18 @@ open class PulsarWebDriver constructor(
         return result?.toString()?.takeIf { it.isNotEmpty() && it != "null" }
     }
 
+    /**
+     * Read the active tab URL with a tight per-call timeout — same rationale as
+     * [AbstractWebDriver.currentUrl].  After `attach --cdp`, the browser-layer
+     * recovery can register drivers whose per-target WebSocket was never opened;
+     * evaluating JS against them blocks for the transport's native timeout (~30 s)
+     * and hangs callers up the stack (notably `browser_tabs action=list`, which
+     * iterates every registered driver).  2 s is enough for any live tab to answer;
+     * a dead one falls back to [navigateUrl].
+     */
     override suspend fun currentUrl(): String {
-        return evaluate("document.URL", navigateUrl ?: "")
+        val result = withTimeoutOrNull(2_000L) { evaluate("document.URL") }
+        return result?.toString() ?: navigateUrl ?: ""
     }
 
     @Throws(WebDriverException::class)

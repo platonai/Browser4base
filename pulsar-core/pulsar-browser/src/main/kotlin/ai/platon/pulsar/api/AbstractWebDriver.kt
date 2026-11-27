@@ -301,8 +301,20 @@ abstract class AbstractWebDriver(
         evaluate("location.reload(true)")
     }
 
+    /**
+     * Read `document.URL` with a tight per-call timeout.
+     *
+     * After `attach --cdp`, the base browser layer's unmanaged-page recovery may
+     * register drivers for every page target Chrome reports — including tabs whose
+     * per-target WebSocket was never actually established.  Calling [evaluate]
+     * on those drivers blocks until the transport-level timeout (~30 s) and can
+     * crash listing/RPC callers up the chain.  This method caps the read at 2 s
+     * so a single dead tab cannot starve the whole listing; a timeout degrades
+     * gracefully to [NavigateEntry.userTypedUrl].
+     */
     override suspend fun currentUrl(): String {
-        return evaluate("document.URL", navigateEntry.userTypedUrl)
+        val result = withTimeoutOrNull(2_000L) { evaluate("document.URL") }
+        return result?.toString() ?: navigateEntry.userTypedUrl
     }
 
     @Throws(WebDriverException::class)
@@ -314,8 +326,18 @@ abstract class AbstractWebDriver(
     @Throws(WebDriverException::class)
     override suspend fun baseURI() = evaluate("document.baseURI", "")
 
+    /**
+     * Read `document.title` with a tight per-call timeout.
+     *
+     * See [currentUrl] for the full rationale — same unmanaged-page recovery
+     * scenario: a driver registered without an established per-target WebSocket
+     * causes an unbounded hang if [evaluate] is allowed to run to the transport's
+     * native timeout.  2 s is plenty for a healthy tab to answer; a dead one
+     * degrades to an empty string rather than holding the caller hostage.
+     */
     override suspend fun title(): String {
-        return evaluate("document.title")?.toString() ?: ""
+        val result = withTimeoutOrNull(2_000L) { evaluate("document.title") }
+        return result?.toString() ?: ""
     }
 
     @Throws(WebDriverException::class)
@@ -679,7 +701,12 @@ abstract class AbstractWebDriver(
     override fun close() {
         if (isQuit) return
         state.set(State.QUIT)
-        runCatching { runBlocking { stop() } }.onFailure { warnForClose(this, it) }
+        // stop() is intentionally skipped here. close() has destroy semantics —
+        // tearing down the WebSocket immediately without a preceding
+        // navigate(about:blank) round-trip. The old behaviour blocked on
+        // runBlocking { stop() } and could hang for the transport timeout
+        // when the per-target socket was unresponsive. Callers that need a
+        // graceful stop-before-close should invoke stop() explicitly.
     }
 
     private fun newSession(headers: Map<String, String>, cookies: List<Map<String, String>>): Connection {

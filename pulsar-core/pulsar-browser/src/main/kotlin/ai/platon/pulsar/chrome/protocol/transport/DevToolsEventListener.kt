@@ -159,11 +159,11 @@ internal class ChromeImpl(
         // Connect to a tab via web socket
         val debuggerUrl = tab.webSocketDebuggerUrl
             ?: throw ChromeIOException("Invalid web socket url to page")
-        val pageTransport = KtorTransport.create(URI.create(debuggerUrl))
+        val targetTransport = KtorTransport.create(URI.create(debuggerUrl))
 
         // Directly instantiate the now-concrete ChromeDevToolsImpl — the domainCache and
         // circular commandHandler.devTools reference are set up in its init block.
-        return ChromeDevToolsImpl(browserTransport, pageTransport, config)
+        return ChromeDevToolsImpl(browserTransport, targetTransport, config)
     }
 
     /**
