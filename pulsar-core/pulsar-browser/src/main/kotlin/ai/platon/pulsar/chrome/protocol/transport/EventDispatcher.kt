@@ -209,6 +209,8 @@ class EventDispatcher : Consumer<String>, AutoCloseable {
 
     @Throws(ChromeRPCException::class, IOException::class)
     override fun accept(message: String) {
+        if (closed.get()) return
+
         tracer?.trace("◀ Accept {}", StringUtils.abbreviateMiddle(message, "...", 20000))
 
         // TODO: add event handler before parsing, so that we can handle events even if the message is not fully compliant with the protocol, e.g., some fields are added/removed/renamed across Chrome versions. This is especially important for events, as they are not correlated by id and can be easily missed if the parsing fails.

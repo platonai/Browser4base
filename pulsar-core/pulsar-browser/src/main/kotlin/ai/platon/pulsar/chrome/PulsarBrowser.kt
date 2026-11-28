@@ -492,6 +492,7 @@ class PulsarBrowser(
         mutableRecoveredDrivers.clear()
         mutableReusedDrivers.clear()
         mutableDrivers.clear()
+        failedRecoveredTabIds.clear()
 
         logger.info("Closing browser with {} drivers/devtools ... | {}", dyingDrivers.size, id.contextDir.toUri())
 
